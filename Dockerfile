@@ -7,17 +7,14 @@ RUN npm install && npm run build
 
 # ── Go build ──────────────────────────────────────────────────────────────────
 FROM golang:1.23-alpine AS build
-RUN apk add --no-cache ca-certificates git
 WORKDIR /src
 
-COPY go.mod go.sum ./
-RUN go mod download
-
+COPY go.mod go.sum ./vendor/ ./vendor/
 COPY . .
 COPY --from=frontend /src/web/dist ./web/dist
 
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build \
+RUN CGO_ENABLED=0 go build -mod=vendor \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /hopstat ./cmd/lg/
 

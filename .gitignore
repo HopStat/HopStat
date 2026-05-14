@@ -39,7 +39,6 @@ logo.svg
 *.dylib
 *.test
 *.out
-vendor/
 
 # IDE
 .idea/
