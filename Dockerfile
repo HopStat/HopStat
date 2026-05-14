@@ -7,6 +7,7 @@ RUN npm install && npm run build
 
 # ── Go build ──────────────────────────────────────────────────────────────────
 FROM golang:1.23-alpine AS build
+RUN apk add --no-cache ca-certificates git
 WORKDIR /src
 
 COPY go.mod go.sum ./
