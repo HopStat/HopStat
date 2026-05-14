@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd web/frontend
+          npm ci
+          npm run build
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Tests
+        run: go test -race ./...
+
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -o /dev/null ./cmd/lg/

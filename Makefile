@@ -27,6 +27,7 @@ release:
 	@mkdir -p dist
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/hopstat-linux-amd64 ./cmd/lg/
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/hopstat-linux-arm64 ./cmd/lg/
+	cd dist && sha256sum hopstat-linux-amd64 hopstat-linux-arm64 > checksums.txt
 
 clean:
 	rm -f hopstat

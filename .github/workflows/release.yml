@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Build frontend
+        run: |
+          cd web/frontend
+          npm ci
+          npm run build
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o dist/hopstat-linux-amd64 ./cmd/lg/
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+            go build -ldflags="-s -w -X main.version=${VERSION}" \
+            -o dist/hopstat-linux-arm64 ./cmd/lg/
+          cd dist && sha256sum hopstat-linux-amd64 hopstat-linux-arm64 > checksums.txt
+          echo "--- checksums ---"
+          cat dist/checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: HopStat ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/hopstat-linux-amd64
+            dist/hopstat-linux-arm64
+            dist/checksums.txt
+            install.sh
