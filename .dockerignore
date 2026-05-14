@@ -1,6 +1,6 @@
-web/dist/
 web/frontend/node_modules/
 web/frontend/.vite/
 .git/
 *.db
 dist/
+docs/
