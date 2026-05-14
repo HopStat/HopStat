@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HopStat — Network Looking Glass Platform</title>
+<meta name="description" content="Open-source network looking glass. BGP route lookup, ping, traceroute, MTR and AS path diagnostics from every node in your network. Single Go binary, zero dependencies.">
+<meta property="og:title" content="HopStat — Network Looking Glass Platform">
+<meta property="og:description" content="BGP route lookup, ping, traceroute, MTR and AS path diagnostics. Single Go binary.">
+<style>
+:root {
+  --bg:       #07101f;
+  --bg2:      #0b1628;
+  --bg3:      #0f1e37;
+  --surface:  #111d35;
+  --surface2: #172540;
+  --border:   #1a3356;
+  --border2:  #254d80;
+  --cyan:     #22d3ee;
+  --cyan2:    #67e8f9;
+  --cyan-dim: #0e4f66;
+  --green:    #4ade80;
+  --green-dim:#14532d;
+  --amber:    #fbbf24;
+  --red:      #f87171;
+  --text:     #e2e8f0;
+  --text2:    #8baabf;
+  --text3:    #3d5a78;
+  --mono: 'SF Mono','JetBrains Mono','Fira Code',Menlo,Consolas,'Courier New',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* DOT GRID */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: radial-gradient(circle, rgba(34,211,238,0.12) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ─── NAV ─────────────────────────────────────────── */
+nav {
+  position:sticky; top:0; z-index:200;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 2.5rem; height:58px;
+  background:rgba(7,16,31,0.88);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo {
+  display:flex; align-items:center; gap:10px;
+  text-decoration:none; color:var(--text);
+}
+.nav-logotype {
+  display:flex; align-items:center; gap:0;
+}
+.nav-logo-box {
+  width:30px; height:30px; border-radius:6px;
+  background:var(--cyan); display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:900; color:var(--bg); letter-spacing:-1px;
+}
+.nav-logo-name {
+  font-size:15px; font-weight:700; letter-spacing:-0.03em;
+  color:var(--text); margin-left:9px;
+}
+.nav-links {
+  display:flex; gap:2.2rem; list-style:none;
+}
+.nav-links a {
+  color:var(--text2); text-decoration:none; font-size:12.5px;
+  transition:color .18s; letter-spacing:0.02em;
+}
+.nav-links a:hover { color:var(--cyan); }
+.nav-actions { display:flex; gap:9px; align-items:center; }
+
+/* ─── BUTTONS ─────────────────────────────────────── */
+.btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:7px 15px; border-radius:6px; border:none; cursor:pointer;
+  font-family:var(--mono); font-size:12.5px; font-weight:700;
+  text-decoration:none; transition:all .18s; white-space:nowrap;
+}
+.btn-primary { background:var(--cyan); color:var(--bg); }
+.btn-primary:hover { background:var(--cyan2); transform:translateY(-1px); box-shadow:0 4px 20px rgba(34,211,238,.25); }
+.btn-outline {
+  background:transparent; color:var(--text2);
+  border:1px solid var(--border2);
+}
+.btn-outline:hover { color:var(--text); border-color:var(--text3); }
+.btn-sm { padding:5px 12px; font-size:11.5px; }
+
+/* ─── HERO ────────────────────────────────────────── */
+.hero {
+  position:relative; min-height:100vh;
+  display:flex; align-items:center;
+  padding:6rem 2.5rem 4rem;
+  overflow:hidden;
+}
+.hero-left {
+  position:relative; z-index:2;
+  max-width:560px; flex-shrink:0;
+}
+.hero-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:4px 13px; border-radius:100px;
+  border:1px solid var(--cyan-dim);
+  font-size:10.5px; color:var(--cyan);
+  letter-spacing:0.1em; margin-bottom:2rem;
+}
+.badge-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--cyan); animation:pulse 2s infinite;
+}
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.25} }
+
+h1.hero-title {
+  font-size:clamp(2.6rem,5.5vw,4.2rem);
+  font-weight:900; line-height:1.04;
+  letter-spacing:-0.05em;
+  margin-bottom:1.6rem; color:var(--text);
+}
+h1.hero-title .accent { color:var(--cyan); }
+h1.hero-title .dim { color:var(--text3); }
+
+.hero-sub {
+  font-size:14.5px; color:var(--text2); line-height:1.85;
+  margin-bottom:2.4rem; max-width:480px;
+}
+.hero-sub strong { color:var(--text); }
+
+.hero-actions { display:flex; gap:10px; flex-wrap:wrap; }
+
+.hero-stats {
+  display:flex; gap:2.5rem; margin-top:3.5rem;
+  padding-top:2rem; border-top:1px solid var(--border);
+}
+.hstat { display:flex; flex-direction:column; gap:2px; }
+.hstat-val { font-size:1.6rem; font-weight:800; color:var(--cyan); letter-spacing:-0.04em; }
+.hstat-label { font-size:10px; color:var(--text3); letter-spacing:0.1em; text-transform:uppercase; }
+
+/* Canvas */
+.hero-canvas-wrap {
+  position:absolute; right:-60px; top:50%;
+  transform:translateY(-50%);
+  width:620px; height:620px;
+  pointer-events:none;
+}
+#netCanvas { width:100%; height:100%; }
+
+/* ─── SECTION BASE ────────────────────────────────── */
+.section-wrap {
+  position:relative; z-index:1;
+  max-width:1080px; margin:0 auto;
+  padding:6rem 2.5rem;
+}
+.section-tag {
+  display:inline-block; font-size:10.5px;
+  letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--cyan); margin-bottom:.9rem;
+}
+h2 {
+  font-size:clamp(1.7rem,3.5vw,2.6rem);
+  font-weight:800; letter-spacing:-0.04em;
+  line-height:1.15; margin-bottom:1.2rem; color:var(--text);
+}
+.sec-desc {
+  font-size:14px; color:var(--text2); max-width:580px;
+  line-height:1.85; margin-bottom:3rem;
+}
+hr.div {
+  border:none; border-top:1px solid var(--border);
+  max-width:1080px; margin:0 auto;
+}
+
+/* ─── WHAT IS ─────────────────────────────────────── */
+.what-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:4rem; align-items:start;
+}
+.what-prose p {
+  font-size:13.5px; color:var(--text2); line-height:1.9;
+  margin-bottom:1.1rem;
+}
+.what-prose p strong { color:var(--text); }
+
+/* Terminal mock */
+.term {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; overflow:hidden;
+}
+.term-bar {
+  display:flex; align-items:center; gap:5px;
+  padding:9px 13px; background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+.tdot { width:10px; height:10px; border-radius:50%; }
+.tdot-r{background:#ff5f57;} .tdot-y{background:#febc2e;} .tdot-g{background:#28c840;}
+.term-ttl { margin-left:auto; font-size:10px; color:var(--text3); }
+.term-body { padding:1.2rem 1.4rem; }
+.tl { display:flex; gap:7px; margin-bottom:3px; font-size:12.5px; line-height:1.6; }
+.tl.gap { margin-top:10px; }
+.tp { color:var(--green); flex-shrink:0; }
+.tc { color:var(--text); }
+.to { color:var(--text2); padding-left:14px; display:block; font-size:12px; }
+.tco{ color:var(--text3); }
+.th { color:var(--cyan); }
+.ts { color:var(--green); }
+.tw { color:var(--amber); }
+.cursor {
+  display:inline-block; width:7px; height:13px;
+  background:var(--cyan); vertical-align:middle;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ─── FEATURES ────────────────────────────────────── */
+.feat-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+  gap:.9rem;
+}
+.feat-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:9px; padding:1.4rem;
+  transition:all .22s; position:relative; overflow:hidden;
+  cursor:default;
+}
+.feat-card::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(34,211,238,.06),transparent);
+  opacity:0; transition:opacity .22s;
+}
+.feat-card:hover { border-color:var(--border2); transform:translateY(-3px); box-shadow:0 8px 32px rgba(0,0,0,.4); }
+.feat-card:hover::after { opacity:1; }
+.feat-icon { font-size:20px; margin-bottom:.65rem; display:block; }
+.feat-name { font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:.35rem; }
+.feat-desc { font-size:11.5px; color:var(--text3); line-height:1.65; }
+
+/* ─── VENDORS ─────────────────────────────────────── */
+.vendor-row { display:flex; flex-wrap:wrap; gap:.8rem; }
+.vendor-pill {
+  display:flex; align-items:center; gap:9px;
+  padding:11px 18px; border-radius:8px;
+  background:var(--bg2); border:1px solid var(--border);
+  font-size:12.5px; font-weight:600; color:var(--text);
+  transition:all .18s; cursor:default;
+}
+.vendor-pill:hover { border-color:var(--cyan-dim); color:var(--cyan); transform:translateY(-2px); }
+.vi { font-size:17px; }
+
+/* ─── ARCHITECTURE ────────────────────────────────── */
+.arch-cards { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+.arch-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; overflow:hidden;
+}
+.arch-head {
+  padding:1.1rem 1.4rem; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:12px;
+}
+.arch-ico {
+  width:34px; height:34px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center; font-size:15px;
+}
+.ico-srv { background:rgba(34,211,238,.12); }
+.ico-agt { background:rgba(74,222,128,.12); }
+.arch-ttl { font-size:14px; font-weight:700; color:var(--text); }
+.arch-sub { font-size:10.5px; color:var(--text3); }
+.arch-body { padding:1.3rem 1.4rem; }
+.arch-desc { font-size:12.5px; color:var(--text2); line-height:1.85; margin-bottom:1rem; }
+.arch-list { list-style:none; display:flex; flex-direction:column; gap:5px; }
+.arch-list li {
+  display:flex; align-items:flex-start; gap:7px;
+  font-size:12px; color:var(--text2);
+}
+.arch-list li::before { content:'▸'; color:var(--cyan); flex-shrink:0; margin-top:1px; }
+
+/* SVG diagram */
+.arch-diagram {
+  margin-top:1.5rem;
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:10px; padding:2rem 1rem;
+  overflow:hidden;
+}
+
+/* ─── INSTALL ─────────────────────────────────────── */
+.install-block { max-width:700px; }
+.code-box {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:10px; overflow:hidden; margin-bottom:1.5rem;
+}
+.code-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:9px 13px; background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+.code-bar-left { display:flex; align-items:center; gap:5px; }
+.code-filename { margin-left:9px; font-size:10.5px; color:var(--text3); }
+.copy-btn {
+  display:flex; align-items:center; gap:5px;
+  padding:4px 11px; border-radius:4px;
+  background:transparent; border:1px solid var(--border2);
+  color:var(--text2); font-family:var(--mono); font-size:10.5px;
+  cursor:pointer; transition:all .18s;
+}
+.copy-btn:hover { border-color:var(--cyan); color:var(--cyan); }
+.copy-btn.ok { border-color:var(--green); color:var(--green); }
+
+pre.code-body {
+  padding:1.4rem 1.5rem; font-size:12.5px;
+  line-height:1.9; overflow-x:auto;
+  white-space:pre; font-family:var(--mono);
+}
+.cc  { color:var(--text3); }        /* comment */
+.cm  { color:var(--text); }         /* command */
+.chl { color:var(--cyan); }         /* highlight / URL */
+.cg  { color:var(--green); }        /* green */
+.ca  { color:var(--amber); }        /* amber */
+
+/* YAML */
+.yk { color:var(--cyan); }
+.yv { color:var(--amber); }
+.ys { color:var(--green); }
+.yc { color:var(--text3); }
+.yh { color:var(--text); font-weight:700; }
+
+/* section anchor offset */
+.anchor { scroll-margin-top:70px; }
+
+/* ─── FOOTER ──────────────────────────────────────── */
+footer {
+  position:relative; z-index:1;
+  border-top:1px solid var(--border);
+  padding:2.5rem 2.5rem;
+  max-width:1080px; margin:0 auto;
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:1.5rem;
+}
+.foot-left { display:flex; flex-direction:column; gap:4px; }
+.foot-name { font-size:15px; font-weight:700; color:var(--text); }
+.foot-sub { font-size:11.5px; color:var(--text3); }
+.foot-links { display:flex; gap:1.5rem; align-items:center; flex-wrap:wrap; }
+.foot-links a {
+  color:var(--text2); text-decoration:none;
+  font-size:12.5px; transition:color .18s;
+}
+.foot-links a:hover { color:var(--cyan); }
+
+/* ─── FADE IN ─────────────────────────────────────── */
+.fi { opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease; }
+.fi.v { opacity:1; transform:translateY(0); }
+
+/* ─── RESPONSIVE ──────────────────────────────────── */
+@media(max-width:900px){
+  .what-grid,.arch-cards{ grid-template-columns:1fr; gap:1.5rem; }
+  .hero-canvas-wrap{ display:none; }
+  .nav-links{ display:none; }
+}
+@media(max-width:600px){
+  .hero-stats{ gap:1.5rem; flex-wrap:wrap; }
+  .section-wrap{ padding:4rem 1.5rem; }
+  footer{ flex-direction:column; align-items:flex-start; }
+  nav{ padding:0 1.2rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ────────────────────────── NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logotype">
+      <div class="nav-logo-box">H</div>
+      <span class="nav-logo-name">HopStat</span>
+    </div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#what">Overview</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#vendors">Vendors</a></li>
+    <li><a href="#how">Architecture</a></li>
+    <li><a href="#install">Install</a></li>
+  </ul>
+  <div class="nav-actions">
+    <a href="https://github.com/HopStat/HopStat" class="btn btn-outline btn-sm" target="_blank">⭐ GitHub</a>
+    <a href="https://github.com/HopStat/HopStat/releases/latest" class="btn btn-primary btn-sm" target="_blank">↓ Download</a>
+  </div>
+</nav>
+
+<!-- ────────────────────────── HERO -->
+<div class="hero">
+  <div class="hero-left">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      OPEN SOURCE &nbsp;·&nbsp; GO &nbsp;·&nbsp; SINGLE BINARY &nbsp;·&nbsp; MIT
+    </div>
+
+    <h1 class="hero-title">
+      Your network,<br>
+      <span class="accent">fully visible</span><span class="dim">.</span>
+    </h1>
+
+    <p class="hero-sub">
+      <strong>HopStat</strong> is an open-source network looking glass platform — BGP route lookup,
+      ping, traceroute, MTR and AS path diagnostics from every node in your network.
+      One Go binary. Zero runtime dependencies.
+    </p>
+
+    <div class="hero-actions">
+      <a href="https://github.com/HopStat/HopStat/releases/latest" class="btn btn-primary" target="_blank">↓ Download v0.1.0</a>
+      <a href="#install" class="btn btn-outline">Quick Start →</a>
+      <a href="https://github.com/HopStat/HopStat" class="btn btn-outline" target="_blank">⭐ Star on GitHub</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hstat"><span class="hstat-val">5</span><span class="hstat-label">Query Types</span></div>
+      <div class="hstat"><span class="hstat-val">5+</span><span class="hstat-label">Vendor Parsers</span></div>
+      <div class="hstat"><span class="hstat-val">1</span><span class="hstat-label">Binary</span></div>
+      <div class="hstat"><span class="hstat-val">0</span><span class="hstat-label">Runtime deps</span></div>
+    </div>
+  </div>
+
+  <div class="hero-canvas-wrap">
+    <canvas id="netCanvas" width="620" height="620"></canvas>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── WHAT IS -->
+<div class="section-wrap anchor" id="what">
+  <span class="section-tag fi">// overview</span>
+  <div class="what-grid">
+    <div class="what-prose">
+      <h2 class="fi">What is HopStat?</h2>
+      <p class="fi">
+        HopStat is a <strong>network looking glass</strong> built for network operators, ISPs, and
+        anyone who needs real-time visibility into routing and reachability from multiple points of
+        presence. It replaces scattered SSH sessions and per-router CLI access with a single,
+        unified web interface and REST API.
+      </p>
+      <p class="fi">
+        Distributed as a <strong>single Go binary</strong>, HopStat embeds the entire React SPA
+        frontend, SQLite database, schema migrations and static assets — all via Go's
+        <code>embed.FS</code>. Drop the binary on a server, write a 10-line YAML file, and you have a
+        fully functional looking glass with an admin panel. No Node.js, no PostgreSQL, no separate
+        web server required.
+      </p>
+      <p class="fi">
+        HopStat runs in two modes: <strong>server mode</strong> orchestrates queries across all your
+        nodes — whether they are directly reachable routers (SSH/Telnet) or remote
+        <strong>agent</strong> instances at geographically distributed POPs. An embedded
+        <strong>GoBGP</strong> peer provides live BGP table access. Router credentials are encrypted
+        at rest with <strong>AES-256-GCM</strong>. Query results stream in real-time via
+        Server-Sent Events.
+      </p>
+    </div>
+
+    <div class="term fi">
+      <div class="term-bar">
+        <div class="tdot tdot-r"></div>
+        <div class="tdot tdot-y"></div>
+        <div class="tdot tdot-g"></div>
+        <span class="term-ttl">hopstat — bgp_route 8.8.8.8</span>
+      </div>
+      <div class="term-body">
+        <div class="tl"><span class="tp">$</span><span class="tc">./hopstat --mode=server</span></div>
+        <div class="tl"><span class="to ts">✓ database migrated &nbsp;&nbsp;v6 applied</span></div>
+        <div class="tl"><span class="to ts">✓ server started &nbsp;&nbsp;&nbsp;&nbsp;:8080</span></div>
+        <div class="tl"><span class="to ts">✓ bgp session &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;established AS9121</span></div>
+        <div class="tl gap"><span class="tco"># BGP Route Lookup → 8.8.8.8</span></div>
+        <div class="tl"><span class="to">Prefix &nbsp;&nbsp; <span class="th">8.8.8.0/24</span></span></div>
+        <div class="tl"><span class="to">Next-Hop &nbsp;193.140.101.1</span></div>
+        <div class="tl"><span class="to">AS-Path &nbsp; <span class="th">9121</span> <span class="th">15169</span></span></div>
+        <div class="tl"><span class="to">Origin &nbsp;&nbsp; IGP</span></div>
+        <div class="tl"><span class="to">Local-Pref 100</span></div>
+        <div class="tl"><span class="to">Age &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2d 14h 33m</span></div>
+        <div class="tl"><span class="to">Best &nbsp;&nbsp;&nbsp;&nbsp; <span class="ts">yes ✓</span></span></div>
+        <div class="tl gap"><span class="tco"># Traceroute → 8.8.8.8 from IST-POP</span></div>
+        <div class="tl"><span class="to"> 1  <span class="th">193.140.0.1</span> &nbsp;[AS9121] &nbsp;1.2ms</span></div>
+        <div class="tl"><span class="to"> 2  <span class="th">72.14.198.66</span> [AS15169] 4.8ms</span></div>
+        <div class="tl"><span class="to"> 3  <span class="ts">8.8.8.8</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[AS15169] 5.1ms</span></div>
+        <div class="tl gap"><span class="tp">$</span><span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── FEATURES -->
+<div class="section-wrap anchor" id="features">
+  <span class="section-tag fi">// capabilities</span>
+  <h2 class="fi">Everything you need.<br>Nothing you don't.</h2>
+  <p class="sec-desc fi">Full-stack network diagnostics with enterprise-grade security, built for the way network operators actually work.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card fi">
+      <span class="feat-icon">🔍</span>
+      <div class="feat-name">BGP Route Lookup</div>
+      <div class="feat-desc">Query live BGP tables for any prefix or subnet. See next-hop, full AS path, origin, local-pref, MED and community strings — sourced from an embedded GoBGP peer connected to your router.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">📡</span>
+      <div class="feat-name">Ping</div>
+      <div class="feat-desc">ICMP echo with configurable packet count. Reports packets sent/received, packet loss percentage, and min/avg/max RTT from any node in your network.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🛣️</span>
+      <div class="feat-name">Traceroute</div>
+      <div class="feat-desc">Hop-by-hop path tracing with per-hop RTT. Each hop is enriched with GeoIP ASN, organisation name and country — so you see the actual path, not just IP addresses.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">📊</span>
+      <div class="feat-name">MTR (My Traceroute)</div>
+      <div class="feat-desc">Combines traceroute and ping for continuous path analysis. Reports packet loss, sent/received counts, and last/avg/best/worst RTT with standard deviation per hop.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🗺️</span>
+      <div class="feat-name">AS Path Analysis</div>
+      <div class="feat-desc">Enter any ASN and find every prefix in your BGP table that traverses it. Scans IPv4 and IPv6 address families simultaneously. Results capped for performance.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🌐</span>
+      <div class="feat-name">Multi-Node</div>
+      <div class="feat-desc">Run any query from any number of nodes simultaneously. Direct SSH/Telnet to routers or via lightweight agent instances deployed at remote POPs — mixed topologies supported.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">📍</span>
+      <div class="feat-name">GeoIP Enrichment</div>
+      <div class="feat-desc">MaxMind ASN + City databases auto-downloaded via your license key and refreshed on a configurable interval. Every traceroute and MTR hop shows organisation, city and country.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🔄</span>
+      <div class="feat-name">Auto-Update</div>
+      <div class="feat-desc">Built-in self-updater polls GitHub Releases, downloads the new binary, hot-swaps it in place and re-executes the process — zero downtime, no scripts needed.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">⚙️</span>
+      <div class="feat-name">Admin Panel</div>
+      <div class="feat-desc">Full web UI for managing nodes, users, BGP neighbors (IPv4 + IPv6), community string filter rules and audit logs — all protected by JWT authentication.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🔐</span>
+      <div class="feat-name">Encrypted Credentials</div>
+      <div class="feat-desc">SSH and Telnet credentials stored in SQLite with AES-256-GCM encryption. The encryption key never touches the database — set it via config or environment variable.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">📦</span>
+      <div class="feat-name">Single Binary</div>
+      <div class="feat-desc">React SPA, SQLite migrations, i18n strings and static assets embedded via Go's embed.FS. No Node.js, no separate web server, no external runtime dependencies.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">⚡</span>
+      <div class="feat-name">Real-Time Streaming</div>
+      <div class="feat-desc">Query results stream to the browser via Server-Sent Events. Watch traceroute hops appear one by one as they complete — no polling, no page refresh.</div>
+    </div>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── VENDORS -->
+<div class="section-wrap anchor" id="vendors">
+  <span class="section-tag fi">// vendor support</span>
+  <h2 class="fi">Speaks your router's language.</h2>
+  <p class="sec-desc fi">
+    Vendor-specific output parsers handle the quirks of each platform's CLI output format.
+    Add a node, select its vendor, and query results are parsed and structured automatically —
+    no manual regex, no per-device configuration.
+  </p>
+
+  <div class="vendor-row fi">
+    <div class="vendor-pill"><span class="vi">🔵</span>Cisco IOS / IOS-XR</div>
+    <div class="vendor-pill"><span class="vi">🔴</span>Juniper JunOS</div>
+    <div class="vendor-pill"><span class="vi">🟠</span>MikroTik RouterOS</div>
+    <div class="vendor-pill"><span class="vi">🐦</span>BIRD</div>
+    <div class="vendor-pill"><span class="vi">⬜</span>Generic CLI</div>
+  </div>
+
+  <p style="margin-top:1.5rem;font-size:12.5px;color:var(--text3);">
+    ▸ New parsers can be added by implementing the <code style="color:var(--cyan)">Parser</code> interface in <code style="color:var(--cyan)">internal/parser/</code> and registering via <code style="color:var(--cyan)">GetParser()</code>.
+  </p>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── ARCHITECTURE -->
+<div class="section-wrap anchor" id="how">
+  <span class="section-tag fi">// how it works</span>
+  <h2 class="fi">Two modes.<br>One binary.</h2>
+  <p class="sec-desc fi">Deploy as a central server with direct router connections, scatter agents across remote POPs, or combine both. The same binary switches modes with a single flag.</p>
+
+  <div class="arch-cards">
+    <div class="arch-card fi">
+      <div class="arch-head">
+        <div class="arch-ico ico-srv">🖥️</div>
+        <div>
+          <div class="arch-ttl">Server Mode</div>
+          <div class="arch-sub">Central query orchestrator &amp; web UI</div>
+        </div>
+      </div>
+      <div class="arch-body">
+        <p class="arch-desc">
+          Runs the HTTP API, the embedded React SPA, query engine and BGP session manager.
+          It connects directly to routers via SSH or Telnet, or delegates to remote agent
+          instances. Handles rate-limiting, authentication, audit logging and GeoIP enrichment
+          centrally.
+        </p>
+        <ul class="arch-list">
+          <li>HTTP API + React SPA served from <code>:8080</code></li>
+          <li>Embedded GoBGP peer — live BGP table, no router config changes</li>
+          <li>Rate limiting &amp; brute-force protection per source IP</li>
+          <li>JWT-authenticated admin panel</li>
+          <li>Async audit logging with configurable retention</li>
+          <li>Community string filter rules with severity badges</li>
+          <li>GeoIP enrichment (ASN + city) for every hop</li>
+          <li>TLS via certificate file or auto Let's Encrypt (autocert)</li>
+          <li>Optional: IPv4 and IPv6 BGP neighbor sessions per node</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="arch-card fi">
+      <div class="arch-head">
+        <div class="arch-ico ico-agt">📡</div>
+        <div>
+          <div class="arch-ttl">Agent Mode</div>
+          <div class="arch-sub">Lightweight remote POP node</div>
+        </div>
+      </div>
+      <div class="arch-body">
+        <p class="arch-desc">
+          A minimal REST server deployed at remote points of presence. Exposes the
+          <code>/agent/v1/*</code> API consumed by the central server. No database,
+          no frontend, no BGP manager — just query execution. The server initiates
+          all requests; the agent needs no inbound exposure to end users.
+        </p>
+        <ul class="arch-list">
+          <li>Minimal binary footprint — same binary, <code>--mode=agent</code></li>
+          <li>Bearer-token authenticated REST API on <code>:9090</code></li>
+          <li>Executes ping, traceroute, MTR locally on the POP</li>
+          <li>SSH/Telnet to locally reachable routers</li>
+          <li>No direct user exposure — server proxies all queries</li>
+          <li>Deploy via systemd unit, Docker, or bare metal</li>
+          <li>Works behind NAT — server calls agent, not the reverse</li>
+          <li>Any number of agents can be registered per server instance</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SVG Topology Diagram -->
+  <div class="arch-diagram fi">
+    <svg width="100%" height="210" viewBox="0 0 740 210" xmlns="http://www.w3.org/2000/svg" style="max-width:740px;display:block;margin:0 auto;font-family:monospace;">
+      <!-- USER -->
+      <rect x="10" y="85" width="95" height="42" rx="6" fill="none" stroke="#1a3356" stroke-width="1.5"/>
+      <text x="57" y="107" text-anchor="middle" fill="#8baabf" font-size="11">Browser</text>
+      <text x="57" y="121" text-anchor="middle" fill="#3d5a78" font-size="9.5">/ Admin UI</text>
+      <!-- user→server -->
+      <line x1="105" y1="106" x2="180" y2="106" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="178,101 188,106 178,111" fill="#22d3ee"/>
+      <text x="143" y="99" text-anchor="middle" fill="#3d5a78" font-size="9">HTTPS</text>
+
+      <!-- SERVER -->
+      <rect x="188" y="62" width="148" height="90" rx="8" fill="#0b1628" stroke="#22d3ee" stroke-width="1.8"/>
+      <text x="262" y="93" text-anchor="middle" fill="#22d3ee" font-size="13" font-weight="bold">Server</text>
+      <text x="262" y="110" text-anchor="middle" fill="#3d5a78" font-size="9.5">API · React SPA</text>
+      <text x="262" y="124" text-anchor="middle" fill="#3d5a78" font-size="9.5">BGP · GeoIP · Audit</text>
+      <text x="262" y="142" text-anchor="middle" fill="#1a3356" font-size="9">:8080</text>
+
+      <!-- server → router1 (direct) -->
+      <line x1="336" y1="83" x2="430" y2="48" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="428,42 437,49 429,55" fill="#4ade80"/>
+      <text x="390" y="57" text-anchor="middle" fill="#3d5a78" font-size="9">SSH</text>
+
+      <!-- server → agent -->
+      <line x1="336" y1="107" x2="430" y2="107" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="428,102 438,107 428,112" fill="#fbbf24"/>
+      <text x="383" y="100" text-anchor="middle" fill="#3d5a78" font-size="9">REST</text>
+
+      <!-- server → router2 (direct) -->
+      <line x1="336" y1="130" x2="430" y2="166" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="428,160 437,167 429,173" fill="#4ade80"/>
+      <text x="390" y="160" text-anchor="middle" fill="#3d5a78" font-size="9">Telnet</text>
+
+      <!-- ROUTER 1 -->
+      <rect x="438" y="28" width="112" height="40" rx="6" fill="#0b1628" stroke="#14532d" stroke-width="1.5"/>
+      <text x="494" y="50" text-anchor="middle" fill="#4ade80" font-size="11.5">Router A</text>
+      <text x="494" y="63" text-anchor="middle" fill="#3d5a78" font-size="9">Cisco / Juniper</text>
+
+      <!-- AGENT -->
+      <rect x="438" y="87" width="112" height="40" rx="6" fill="#0b1628" stroke="#713f12" stroke-width="1.5"/>
+      <text x="494" y="109" text-anchor="middle" fill="#fbbf24" font-size="11.5">lg-node</text>
+      <text x="494" y="122" text-anchor="middle" fill="#3d5a78" font-size="9">Remote POP · :9090</text>
+
+      <!-- ROUTER 2 (direct) -->
+      <rect x="438" y="148" width="112" height="40" rx="6" fill="#0b1628" stroke="#14532d" stroke-width="1.5"/>
+      <text x="494" y="169" text-anchor="middle" fill="#4ade80" font-size="11.5">Router B</text>
+      <text x="494" y="183" text-anchor="middle" fill="#3d5a78" font-size="9">MikroTik / BIRD</text>
+
+      <!-- agent → remote router -->
+      <line x1="550" y1="107" x2="618" y2="107" stroke="#4ade80" stroke-width="1.2" stroke-dasharray="4,3" opacity=".6"/>
+      <polygon points="616,103 625,107 616,111" fill="#4ade80" opacity=".6"/>
+      <rect x="626" y="87" width="104" height="40" rx="6" fill="#0b1628" stroke="#14532d" stroke-width="1" opacity=".7"/>
+      <text x="678" y="109" text-anchor="middle" fill="#4ade80" font-size="11" opacity=".8">Router C</text>
+      <text x="678" y="122" text-anchor="middle" fill="#3d5a78" font-size="9" opacity=".7">at remote POP</text>
+
+      <!-- legend -->
+      <line x1="10" y1="200" x2="32" y2="200" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="37" y="204" fill="#3d5a78" font-size="9.5">HTTPS</text>
+      <line x1="90" y1="200" x2="112" y2="200" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="117" y="204" fill="#3d5a78" font-size="9.5">SSH / Telnet</text>
+      <line x1="185" y1="200" x2="207" y2="200" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="212" y="204" fill="#3d5a78" font-size="9.5">REST (agent)</text>
+    </svg>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── INSTALL -->
+<div class="section-wrap anchor" id="install">
+  <span class="section-tag fi">// quick start</span>
+  <h2 class="fi">Running in under 60 seconds.</h2>
+  <p class="sec-desc fi">Download the binary for your platform, generate secrets, write a config, run it. There is no step four.</p>
+
+  <div class="install-block">
+
+    <!-- Linux install -->
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Linux (x86-64)</h3>
+    <div class="code-box fi">
+      <div class="code-bar">
+        <div class="code-bar-left">
+          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
+          <span class="code-filename">bash</span>
+        </div>
+        <button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall',`curl -Lo hopstat https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64\nchmod +x hopstat\n\n# Generate secrets\nexport LG_JWT_SECRET=$(openssl rand -hex 32)\nexport LG_CREDENTIAL_KEY=$(openssl rand -hex 32)\nexport LG_ADMIN_PASSWORD=changeme\n\n# Copy and edit config\ncp config.example.yaml config.yaml\n# vim config.yaml  →  set org_name, as_number\n\n./hopstat --mode=server\n# Open http://localhost:8080  ·  Admin at /admin`)">📋 copy</button>
+      </div>
+<pre class="code-body"><span class="cc"># Download the binary</span>
+<span class="cm">curl -Lo hopstat \</span>
+<span class="chl">  https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64</span>
+<span class="cm">chmod +x hopstat</span>
+
+<span class="cc"># Generate secrets (keep these safe)</span>
+<span class="cm">export LG_JWT_SECRET=$(openssl rand -hex 32)</span>
+<span class="cm">export LG_CREDENTIAL_KEY=$(openssl rand -hex 32)</span>
+<span class="cm">export LG_ADMIN_PASSWORD=changeme</span>
+
+<span class="cc"># Copy and edit config</span>
+<span class="cm">cp config.example.yaml config.yaml</span>
+<span class="cc"># vim config.yaml  →  set org_name, as_number, ports …</span>
+
+<span class="cc"># Run</span>
+<span class="cm">./hopstat --mode=server</span>
+<span class="cc"># Open http://localhost:8080  ·  Admin panel at /admin</span></pre>
+    </div>
+
+    <p class="fi" style="font-size:12px;color:var(--text3);margin-bottom:2rem;">
+      ARM64 server? Use <code style="color:var(--cyan)">hopstat-linux-arm64</code> instead.&nbsp;
+      Running an agent at a remote POP? Pass <code style="color:var(--cyan)">--mode=agent</code>.
+    </p>
+
+    <!-- Docker -->
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Docker</h3>
+    <div class="code-box fi">
+      <div class="code-bar">
+        <div class="code-bar-left">
+          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
+          <span class="code-filename">docker</span>
+        </div>
+        <button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  -p 8080:8080 \\\n  -v ./data:/app/data \\\n  -e LG_JWT_SECRET=$(openssl rand -hex 32) \\\n  -e LG_CREDENTIAL_KEY=$(openssl rand -hex 32) \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest`)">📋 copy</button>
+      </div>
+<pre class="code-body"><span class="cm">docker run -d \</span>
+<span class="cm">  -p 8080:8080 \</span>
+<span class="cm">  -v ./data:/app/data \</span>
+<span class="cm">  -e </span><span class="ca">LG_JWT_SECRET</span><span class="cm">=$(openssl rand -hex 32) \</span>
+<span class="cm">  -e </span><span class="ca">LG_CREDENTIAL_KEY</span><span class="cm">=$(openssl rand -hex 32) \</span>
+<span class="cm">  -e </span><span class="ca">LG_ADMIN_PASSWORD</span><span class="cm">=changeme \</span>
+<span class="chl">  ghcr.io/hopstat/hopstat:latest</span></pre>
+    </div>
+
+    <!-- config.yaml -->
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Minimal config.yaml</h3>
+    <div class="code-box fi">
+      <div class="code-bar">
+        <div class="code-bar-left">
+          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
+          <span class="code-filename">config.yaml</span>
+        </div>
+        <button class="copy-btn" id="cbConfig" onclick="doCopy('cbConfig',`server:\n  host: \"0.0.0.0\"\n  port: 8080\n  org_name: \"My Network\"\n  as_number: \"AS65000\"\n\nsecurity:\n  jwt_secret: \"\"       # openssl rand -hex 32\n  credential_key: \"\"   # openssl rand -hex 32\n  rate_limit_per_min: 10\n\ndatabase:\n  path: \"./lg.db\"\n\ngeoip:\n  license_key: \"\"      # MaxMind account\n  account_id: \"\"\n  db_dir: \"./data/geoip\"\n  update_interval: \"72h\"\n\nupdate:\n  enabled: true\n  github_repo: \"HopStat/HopStat\"`)">📋 copy</button>
+      </div>
+<pre class="code-body"><span class="yh">server</span><span class="yk">:</span>
+  <span class="yk">host</span><span class="yk">:</span>     <span class="ys">"0.0.0.0"</span>
+  <span class="yk">port</span><span class="yk">:</span>     <span class="yv">8080</span>
+  <span class="yk">org_name</span><span class="yk">:</span> <span class="ys">"My Network"</span>       <span class="yc"># shown in the UI</span>
+  <span class="yk">as_number</span><span class="yk">:</span> <span class="ys">"AS65000"</span>
+
+<span class="yh">security</span><span class="yk">:</span>
+  <span class="yk">jwt_secret</span><span class="yk">:</span>      <span class="ys">""</span>   <span class="yc"># openssl rand -hex 32</span>
+  <span class="yk">credential_key</span><span class="yk">:</span>  <span class="ys">""</span>   <span class="yc"># openssl rand -hex 32  (AES-256-GCM)</span>
+  <span class="yk">rate_limit_per_min</span><span class="yk">:</span> <span class="yv">10</span>
+  <span class="yk">brute_force_max</span><span class="yk">:</span>    <span class="yv">5</span>
+
+<span class="yh">database</span><span class="yk">:</span>
+  <span class="yk">path</span><span class="yk">:</span> <span class="ys">"./lg.db"</span>
+
+<span class="yh">geoip</span><span class="yk">:</span>
+  <span class="yk">license_key</span><span class="yk">:</span>     <span class="ys">""</span>   <span class="yc"># MaxMind account (free tier works)</span>
+  <span class="yk">account_id</span><span class="yk">:</span>      <span class="ys">""</span>
+  <span class="yk">db_dir</span><span class="yk">:</span>          <span class="ys">"./data/geoip"</span>
+  <span class="yk">update_interval</span><span class="yk">:</span> <span class="ys">"72h"</span>
+
+<span class="yh">update</span><span class="yk">:</span>
+  <span class="yk">enabled</span><span class="yk">:</span>     <span class="yv">true</span>
+  <span class="yk">github_repo</span><span class="yk">:</span> <span class="ys">"HopStat/HopStat"</span></pre>
+    </div>
+
+    <p class="fi" style="font-size:12px;color:var(--text3);margin-top:1rem;">
+      ▸ All config fields can be overridden with <code style="color:var(--cyan)">LG_</code> prefixed environment variables.<br>
+      ▸ See <a href="https://github.com/HopStat/HopStat/blob/main/config.example.yaml" target="_blank" style="color:var(--cyan);text-decoration:none;">config.example.yaml</a> for the full reference with all options documented.
+    </p>
+  </div>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── FOOTER -->
+<footer>
+  <div class="foot-left">
+    <div class="foot-name">HopStat</div>
+    <div class="foot-sub">Network Looking Glass Platform</div>
+    <div class="foot-sub" style="margin-top:3px;">MIT License &nbsp;·&nbsp; Built with Go, GoBGP, React, SQLite</div>
+  </div>
+  <div class="foot-links">
+    <a href="https://github.com/HopStat/HopStat" target="_blank">GitHub</a>
+    <a href="https://github.com/HopStat/HopStat/releases" target="_blank">Releases</a>
+    <a href="https://github.com/HopStat/HopStat/blob/main/README.md" target="_blank">Docs</a>
+    <a href="https://github.com/HopStat/HopStat/issues" target="_blank">Issues</a>
+    <a href="https://github.com/HopStat/HopStat/blob/main/LICENSE" target="_blank">MIT License</a>
+  </div>
+</footer>
+
+<script>
+/* ── Copy-to-clipboard ── */
+function doCopy(btnId, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    const orig = btn.textContent;
+    btn.textContent = '✓ copied!';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 2200);
+  }).catch(() => {
+    /* fallback: select the pre element */
+    const pre = document.getElementById(btnId).closest('.code-box').querySelector('pre');
+    const r = document.createRange(); r.selectNode(pre);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+  });
+}
+
+/* ── Intersection observer fade-in ── */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('v'), i * 75);
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.fi').forEach(el => io.observe(el));
+
+/* ── Canvas BGP topology animation ── */
+(function() {
+  const canvas = document.getElementById('netCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 620, H = 620;
+
+  const nodes = [
+    { x:310, y:310, label:'Server',  as:'AS65000', r:12, col:'#22d3ee' },
+    { x:160, y:160, label:'ISP-NYC', as:'AS174',   r:8,  col:'#4ade80' },
+    { x:460, y:160, label:'ISP-EU',  as:'AS3356',  r:8,  col:'#4ade80' },
+    { x:110, y:370, label:'Core-1',  as:'AS9121',  r:8,  col:'#4ade80' },
+    { x:510, y:370, label:'Core-2',  as:'AS1299',  r:8,  col:'#4ade80' },
+    { x:310, y:490, label:'Agent',   as:'POP-IST', r:9,  col:'#fbbf24' },
+    { x:80,  y:230, label:'Peer-A',  as:'AS15169', r:6,  col:'#8baabf' },
+    { x:540, y:230, label:'Peer-B',  as:'AS32934', r:6,  col:'#8baabf' },
+    { x:200, y:500, label:'Peer-C',  as:'AS20485', r:6,  col:'#8baabf' },
+  ];
+
+  const edges = [
+    [0,1],[0,2],[0,3],[0,4],[0,5],
+    [1,6],[2,7],[1,3],[2,4],[3,8],[5,8]
+  ];
+
+  /* Animated packets */
+  const pkts = [];
+  edges.forEach(([a,b],i) => {
+    pkts.push({ a, b, t: i*0.13 % 1, spd: 0.0025 + Math.random()*0.003, fwd:true });
+    if (Math.random()>.4) pkts.push({ a:b, b:a, t: Math.random(), spd:0.002+Math.random()*0.003, fwd:true });
+  });
+
+  let raf;
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+
+    /* edges */
+    edges.forEach(([a,b]) => {
+      const na=nodes[a], nb=nodes[b];
+      const g = ctx.createLinearGradient(na.x,na.y,nb.x,nb.y);
+      g.addColorStop(0, na.col+'22');
+      g.addColorStop(1, nb.col+'22');
+      ctx.beginPath();
+      ctx.moveTo(na.x,na.y); ctx.lineTo(nb.x,nb.y);
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5,5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    /* packets */
+    pkts.forEach(p => {
+      const na=nodes[p.a], nb=nodes[p.b];
+      const x = na.x + (nb.x-na.x)*p.t;
+      const y = na.y + (nb.y-na.y)*p.t;
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+      ctx.fillStyle = '#22d3ee'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2);
+      ctx.fillStyle = '#22d3ee18'; ctx.fill();
+      p.t += p.spd;
+      if (p.t>=1) { p.t=0; if(Math.random()>.6){const tmp=p.a;p.a=p.b;p.b=tmp;} }
+    });
+
+    /* nodes */
+    nodes.forEach(n => {
+      /* glow */
+      const g = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*3);
+      g.addColorStop(0, n.col+'25'); g.addColorStop(1,'transparent');
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r*3,0,Math.PI*2);
+      ctx.fillStyle=g; ctx.fill();
+      /* ring */
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.strokeStyle=n.col; ctx.lineWidth=1.8; ctx.stroke();
+      /* fill */
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.fillStyle=n.col+'18'; ctx.fill();
+      /* inner dot */
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r*.38,0,Math.PI*2);
+      ctx.fillStyle=n.col; ctx.fill();
+      /* label */
+      ctx.fillStyle='#3d5a78';
+      ctx.font='9.5px monospace';
+      ctx.textAlign='center';
+      ctx.fillText(n.as, n.x, n.y+n.r+13);
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  /* Only animate when visible */
+  const obsC = new IntersectionObserver(([e]) => {
+    if (e.isIntersecting) { draw(); }
+    else { cancelAnimationFrame(raf); }
+  });
+  obsC.observe(canvas);
+})();
+</script>
+</body>
+</html>
