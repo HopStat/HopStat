@@ -19,6 +19,7 @@
   --color-popover: #ffffff;
   --color-popover-foreground: #0a0a0a;
   --color-ring: #2563eb;
+  --color-input: #d4d4d4;
   --color-sidebar: #f8f9fa;
   --color-sidebar-foreground: #0a0a0a;
   --color-sidebar-border: #e5e5e5;
@@ -45,6 +46,7 @@
     --color-popover: #0a0a0a;
     --color-popover-foreground: #fafafa;
     --color-ring: #3b82f6;
+    --color-input: #404040;
     --color-sidebar: #141414;
     --color-sidebar-foreground: #fafafa;
     --color-sidebar-border: #262626;
