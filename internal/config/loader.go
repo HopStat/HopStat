@@ -1,7 +1,11 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -9,14 +13,11 @@ import (
 
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
-
 	v.SetConfigFile(configPath)
 	v.SetConfigType("yaml")
-
 	v.SetEnvPrefix("LG")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-
 	setDefaults(v)
 
 	if err := v.ReadInConfig(); err != nil {
@@ -35,24 +36,82 @@ func Load(configPath string) (*Config, error) {
 	return &cfg, nil
 }
 
+// Generate creates a new config file at path with random secrets.
+// mode is "server" or "agent" — controls which template is written.
+func Generate(path, mode string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+
+	jwtSecret, err := randomHex(32)
+	if err != nil {
+		return err
+	}
+	credKey, err := randomHex(32)
+	if err != nil {
+		return err
+	}
+	agentToken, err := randomHex(24)
+	if err != nil {
+		return err
+	}
+
+	var content string
+	if mode == "agent" {
+		content = fmt.Sprintf(`# HopStat agent configuration (auto-generated)
+server:
+  mode: "agent"
+
+agent:
+  port: 9090
+  token: "%s"
+
+`, agentToken)
+	} else {
+		content = fmt.Sprintf(`# HopStat configuration (auto-generated)
+server:
+  host: "0.0.0.0"
+  port: 8080
+  org_name: "My Network"
+  as_number: "AS65000"
+
+security:
+  jwt_secret: "%s"
+  credential_key: "%s"
+  rate_limit_per_min: 10
+  brute_force_max: 5
+  brute_force_ban_min: 15
+
+database:
+  path: "./lg.db"
+
+geoip:
+  license_key: ""
+  account_id: ""
+  db_dir: "./data/geoip"
+  update_interval: "72h"
+
+update:
+  enabled: true
+`, jwtSecret, credKey)
+	}
+
+	return os.WriteFile(path, []byte(content), 0600)
+}
+
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.mode", "server")
 	v.SetDefault("server.as_number", "AS65000")
 	v.SetDefault("server.default_route_as", "9121")
-
 	v.SetDefault("agent.port", 9090)
-
 	v.SetDefault("database.path", "./lg.db")
-
 	v.SetDefault("security.rate_limit_per_min", 10)
 	v.SetDefault("security.brute_force_max", 5)
 	v.SetDefault("security.brute_force_ban_min", 15)
-
 	v.SetDefault("audit.retention_days", 90)
 	v.SetDefault("audit.async_write", true)
-
 	v.SetDefault("query.max_concurrent", 50)
 	v.SetDefault("query.default_timeout_sec", 30)
 	v.SetDefault("query.mtr_timeout_sec", 120)
@@ -88,4 +147,12 @@ func validate(cfg *Config) error {
 		}
 	}
 	return nil
+}
+
+func randomHex(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate random bytes: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }

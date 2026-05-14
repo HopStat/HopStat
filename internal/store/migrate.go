@@ -1,9 +1,12 @@
 package store
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -213,7 +216,7 @@ func SeedAdminPassword(db *sql.DB, password string) error {
 	if err != nil {
 		return fmt.Errorf("hash admin password: %w", err)
 	}
-	res, err := db.Exec(`UPDATE users SET password_hash = ? WHERE email = 'admin@lookingglass.local' AND password_hash LIKE '$2a$12$DISABLED%'`, string(hash))
+	res, err := db.Exec(`UPDATE users SET password_hash = ? WHERE password_hash LIKE '$2a$12$DISABLED%'`, string(hash))
 	if err != nil {
 		return fmt.Errorf("seed admin password: %w", err)
 	}
@@ -222,4 +225,32 @@ func SeedAdminPassword(db *sql.DB, password string) error {
 		slog.Info("admin password already set, skipping seed")
 	}
 	return nil
+}
+
+// EnsureFirstAdmin sets a random password on the admin account if it has never
+// been configured (i.e. still carries the DISABLED placeholder hash).
+// Returns the email and generated password when generated=true.
+func EnsureFirstAdmin(db *sql.DB) (email, password string, generated bool, err error) {
+	var hash string
+	row := db.QueryRow(`SELECT email, password_hash FROM users WHERE role = 'admin' LIMIT 1`)
+	if scanErr := row.Scan(&email, &hash); scanErr == sql.ErrNoRows {
+		return "", "", false, nil
+	} else if scanErr != nil {
+		return "", "", false, fmt.Errorf("query admin user: %w", scanErr)
+	}
+
+	if !strings.HasPrefix(hash, "$2a$12$DISABLED") {
+		return email, "", false, nil // already configured
+	}
+
+	b := make([]byte, 18)
+	if _, err = rand.Read(b); err != nil {
+		return "", "", false, fmt.Errorf("generate password: %w", err)
+	}
+	password = base64.RawURLEncoding.EncodeToString(b) // 24 URL-safe chars
+
+	if err = SeedAdminPassword(db, password); err != nil {
+		return "", "", false, err
+	}
+	return email, password, true, nil
 }

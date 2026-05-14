@@ -81,8 +81,7 @@ type BGPConfig struct {
 }
 
 type UpdateConfig struct {
-	Enabled    bool   `mapstructure:"enabled"`
-	GithubRepo string `mapstructure:"github_repo"`
+	Enabled bool `mapstructure:"enabled"`
 }
 
 func (c *Config) IsServer() bool {

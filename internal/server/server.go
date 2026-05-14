@@ -59,8 +59,8 @@ func New(cfg *config.Config, db *sql.DB, geoDB *geo.GeoIPDB, distFS fs.FS, bgpMg
 		distFS: distFS,
 	}
 
-	if cfg.Update.Enabled && cfg.Update.GithubRepo != "" {
-		srv.updater = updater.New(cfg.Update.GithubRepo, version)
+	if cfg.Update.Enabled {
+		srv.updater = updater.New("HopStat/HopStat", version)
 	}
 
 	srv.setupRoutes()
