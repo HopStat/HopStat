@@ -1,10 +1,11 @@
 # ── Frontend build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS frontend
-WORKDIR /app
+WORKDIR /src/web/frontend
 COPY web/frontend/package.json web/frontend/package-lock.json ./
 RUN npm ci
 COPY web/frontend/ ./
 RUN npm run build
+# outDir '../dist' → output lands at /src/web/dist/
 
 # ── Go build ──────────────────────────────────────────────────────────────────
 FROM golang:1.23-alpine AS build
@@ -14,7 +15,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-COPY --from=frontend /app/../dist ./web/dist
+COPY --from=frontend /src/web/dist ./web/dist
 
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build \
