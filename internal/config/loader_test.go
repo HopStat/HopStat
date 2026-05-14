@@ -11,7 +11,6 @@ server:
   host: "0.0.0.0"
   port: 8080
   mode: "server"
-  as_number: "AS65000"
   default_route_as: "9121"
 database:
   path: "./test.db"

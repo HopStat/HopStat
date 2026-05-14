@@ -20,8 +20,6 @@ type ServerConfig struct {
 	TLSCert        string `mapstructure:"tls_cert"`
 	TLSKey         string `mapstructure:"tls_key"`
 	AutocertDomain string `mapstructure:"autocert_domain"`
-	ASNumber       string `mapstructure:"as_number"`
-	OrgName        string `mapstructure:"org_name"`
 	DefaultRouteAS string `mapstructure:"default_route_as"`
 }
 

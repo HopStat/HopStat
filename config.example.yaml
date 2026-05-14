@@ -5,8 +5,6 @@ server:
   tls_cert: ""
   tls_key: ""
   autocert_domain: ""
-  as_number: "AS65000"
-  org_name: "My Network"
   default_route_as: "9121"
 
 agent:

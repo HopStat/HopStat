@@ -49,7 +49,7 @@ func (m *memFile) Close() error               { return nil }
 
 func testServerConfig() *config.Config {
 	return &config.Config{
-		Server:   config.ServerConfig{Host: "127.0.0.1", Port: 0, Mode: "server", ASNumber: "AS65000", OrgName: "Test"},
+		Server:   config.ServerConfig{Host: "127.0.0.1", Port: 0, Mode: "server"},
 		Security: config.SecurityConfig{JWTSecret: "test-secret-that-is-at-least-32-chars", RateLimitPerMin: 100, BruteForceMax: 5, BruteForceBanMin: 15},
 		Query:    config.QueryConfig{MaxConcurrent: 10, DefaultTimeoutSec: 30, MTRTimeoutSec: 60, TracerouteTimeoutSec: 30},
 		GeoIP:    config.GeoIPConfig{},

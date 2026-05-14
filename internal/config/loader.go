@@ -72,8 +72,6 @@ agent:
 server:
   host: "0.0.0.0"
   port: 8080
-  org_name: "My Network"
-  as_number: "AS65000"
 
 security:
   jwt_secret: "%s"
@@ -103,7 +101,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.mode", "server")
-	v.SetDefault("server.as_number", "AS65000")
 	v.SetDefault("server.default_route_as", "9121")
 	v.SetDefault("agent.port", 9090)
 	v.SetDefault("database.path", "./lg.db")
