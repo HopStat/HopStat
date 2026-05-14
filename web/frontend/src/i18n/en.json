@@ -135,6 +135,7 @@
   "admin.uploading": "Uploading...",
   "admin.logo_remove": "Remove",
   "admin.logo_hint": "PNG, JPEG, SVG or WebP. Max 2MB. Used as header logo and favicon.",
+  "admin.logo_preview_hint": "Preview on header background color",
   "admin.header_color": "Header Color",
   "admin.query_defaults": "Query Defaults",
   "admin.ping_count": "Ping Count",

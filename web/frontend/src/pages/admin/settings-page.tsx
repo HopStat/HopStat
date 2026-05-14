@@ -97,7 +97,13 @@ export function SettingsPage() {
             <Label>{t('admin.logo')}</Label>
             <div className="flex items-center gap-4">
               {settings.logo_path && (
-                <img src={settings.logo_path} alt={t('admin.logo')} className="h-12 w-12 object-contain rounded border" />
+                <div
+                  className="h-12 w-12 rounded border flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: settings.header_color || '#1e293b' }}
+                  title={t('admin.logo_preview_hint')}
+                >
+                  <img src={settings.logo_path} alt={t('admin.logo')} className="h-10 w-10 object-contain" />
+                </div>
               )}
               <label className="relative inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 cursor-pointer disabled:pointer-events-none disabled:opacity-50 overflow-hidden">
                 <Upload className="w-4 h-4" />
