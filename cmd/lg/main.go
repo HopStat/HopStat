@@ -19,6 +19,7 @@ import (
 	"github.com/HopStat/HopStat/internal/server"
 	"github.com/HopStat/HopStat/internal/store"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/HopStat/HopStat/web"
 )
 
 var version = "dev"
@@ -131,7 +132,7 @@ func main() {
 			}
 		}
 
-		srv := server.New(cfg, db, geoDB, os.DirFS("web/dist"), bgpMgr, version)
+		srv := server.New(cfg, db, geoDB, web.Dist(), bgpMgr, version)
 		if err := srv.Run(ctx); err != nil {
 			slog.Error("server error", "error", err)
 			os.Exit(1)

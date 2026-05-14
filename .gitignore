@@ -3,6 +3,7 @@
 /hopstat
 lg-looking-glass
 dist/
+!web/dist/
 
 # Config with secrets (use config.example.yaml as template)
 config.yaml
