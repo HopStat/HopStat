@@ -1,0 +1,44 @@
+{{define "admin/pops"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POPs - Looking Glass Admin</title>
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <nav class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-3 flex justify-between">
+    <div class="flex gap-4"><a href="/" class="text-gray-600 hover:text-gray-900">Home</a><a href="/admin" class="text-gray-600 hover:text-gray-900">Dashboard</a><a href="/admin/nodes" class="text-gray-600 hover:text-gray-900">Nodes</a><a href="/admin/pops" class="text-blue-600 font-bold">POPs</a><a href="/admin/audit" class="text-gray-600 hover:text-gray-900">Audit</a><a href="/admin/users" class="text-gray-600 hover:text-gray-900">Users</a><a href="/admin/community-rules" class="text-gray-600 hover:text-gray-900">Rules</a></div>
+    <a href="#" onclick="localStorage.removeItem('jwt_token');window.location.href='/admin/login'" class="text-red-600">Logout</a>
+  </div></nav>
+  <div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6"><h1 class="text-3xl font-bold">Points of Presence</h1><button onclick="openPOPForm()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add POP</button></div>
+    <div class="bg-white rounded-lg shadow overflow-hidden"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">City</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Country</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead><tbody id="pops-table" class="divide-y divide-gray-200"></tbody></table></div>
+  </div>
+  <div id="pop-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-bold mb-4" id="pop-form-title">Add POP</h2>
+    <form id="pop-form" onsubmit="savePOP(event)">
+      <input type="hidden" id="pop-id">
+      <div class="mb-3"><label class="block text-sm font-bold mb-1">Name</label><input type="text" id="pop-name" required class="w-full px-3 py-2 border rounded"></div>
+      <div class="mb-3"><label class="block text-sm font-bold mb-1">City</label><input type="text" id="pop-city" required class="w-full px-3 py-2 border rounded"></div>
+      <div class="mb-3"><label class="block text-sm font-bold mb-1">Country</label><input type="text" id="pop-country" required class="w-full px-3 py-2 border rounded" maxlength="2" placeholder="US"></div>
+      <div class="grid grid-cols-2 gap-3 mb-3"><div><label class="block text-sm font-bold mb-1">Lat</label><input type="number" step="any" id="pop-lat" class="w-full px-3 py-2 border rounded"></div><div><label class="block text-sm font-bold mb-1">Lon</label><input type="number" step="any" id="pop-lon" class="w-full px-3 py-2 border rounded"></div></div>
+      <div class="flex justify-end gap-2"><button type="button" onclick="document.getElementById('pop-modal').classList.add('hidden')" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save</button></div>
+    </form>
+  </div></div>
+</body>
+<script>
+function escapeHTML(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+const token=localStorage.getItem('jwt_token');if(!token)window.location.href='/admin/login';
+const headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+async function loadPOPs(){const r=await fetch('/api/v1/admin/pops',{headers});const d=await r.json();const tb=document.getElementById('pops-table');const pops=d.data||[];if(!pops.length){tb.innerHTML='<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No POPs</td></tr>';return;}
+tb.innerHTML=pops.map(p=>`<tr><td class="px-6 py-4 font-medium">${escapeHTML(p.name)}</td><td class="px-6 py-4">${escapeHTML(p.city)}</td><td class="px-6 py-4">${escapeHTML(p.country)}</td><td class="px-6 py-4 text-right space-x-2"><button onclick='editPOP(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="text-yellow-600 hover:underline text-sm">Edit</button><button onclick="deletePOP(${p.id})" class="text-red-600 hover:underline text-sm">Delete</button></td></tr>`).join('');}
+function openPOPForm(p){document.getElementById('pop-form-title').textContent=p?'Edit POP':'Add POP';document.getElementById('pop-id').value=p?p.id:'';document.getElementById('pop-name').value=p?p.name:'';document.getElementById('pop-city').value=p?p.city:'';document.getElementById('pop-country').value=p?p.country:'';document.getElementById('pop-lat').value=p&&p.lat?p.lat:'';document.getElementById('pop-lon').value=p&&p.lon?p.lon:'';document.getElementById('pop-modal').classList.remove('hidden');}
+function editPOP(p){openPOPForm(p);}
+async function savePOP(e){e.preventDefault();const id=document.getElementById('pop-id').value;const body={name:document.getElementById('pop-name').value,city:document.getElementById('pop-city').value,country:document.getElementById('pop-country').value,lat:document.getElementById('pop-lat').value?parseFloat(document.getElementById('pop-lat').value):null,lon:document.getElementById('pop-lon').value?parseFloat(document.getElementById('pop-lon').value):null};
+await fetch(id?'/api/v1/admin/pops/'+id:'/api/v1/admin/pops',{method:id?'PUT':'POST',headers,body:JSON.stringify(body)});document.getElementById('pop-modal').classList.add('hidden');loadPOPs();}
+async function deletePOP(id){if(!confirm('Delete?'))return;await fetch('/api/v1/admin/pops/'+id,{method:'DELETE',headers});loadPOPs();}
+loadPOPs();
+</script>
+</html>
+{{end}}

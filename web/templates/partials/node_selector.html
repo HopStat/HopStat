@@ -1,0 +1,9 @@
+{{define "partials/node_selector"}}
+<select id="node-select" name="node_id" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+  <option value="">Select a node...</option>
+</select>
+<script>
+async function loadNodes(){const r=await fetch('/api/v1/nodes');const d=await r.json();const s=document.getElementById('node-select');(d.data||[]).forEach(n=>{const o=document.createElement('option');o.value=n.id;o.textContent=n.name+(n.description?' - '+n.description:'');s.appendChild(o);});}
+loadNodes();
+</script>
+{{end}}

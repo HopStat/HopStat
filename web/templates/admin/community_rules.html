@@ -1,0 +1,36 @@
+{{define "admin/community_rules"}}
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Community Rules - Looking Glass Admin</title><link href="/static/css/app.css" rel="stylesheet"></head>
+<body class="bg-gray-100 min-h-screen">
+<nav class="bg-white shadow"><div class="max-w-7xl mx-auto px-4 py-3 flex justify-between"><div class="flex gap-4"><a href="/" class="text-gray-600 hover:text-gray-900">Home</a><a href="/admin" class="text-gray-600 hover:text-gray-900">Dashboard</a><a href="/admin/nodes" class="text-gray-600 hover:text-gray-900">Nodes</a><a href="/admin/pops" class="text-gray-600 hover:text-gray-900">POPs</a><a href="/admin/audit" class="text-gray-600 hover:text-gray-900">Audit</a><a href="/admin/users" class="text-gray-600 hover:text-gray-900">Users</a><a href="/admin/community-rules" class="text-blue-600 font-bold">Rules</a></div><a href="#" onclick="localStorage.removeItem('jwt_token');window.location.href='/admin/login'" class="text-red-600">Logout</a></div></nav>
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <div class="flex justify-between items-center mb-6"><h1 class="text-3xl font-bold">Community Rules</h1><button onclick="openRuleForm()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Rule</button></div>
+  <div class="bg-white rounded-lg shadow overflow-hidden"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Community</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Message</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scope</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead><tbody id="rules-table" class="divide-y divide-gray-200"></tbody></table></div>
+</div>
+<div id="rule-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+  <h2 class="text-xl font-bold mb-4">Add Community Rule</h2>
+  <form onsubmit="saveRule(event)">
+    <div class="mb-3"><label class="block text-sm font-bold mb-1">Community</label><input type="text" id="rule-community" required placeholder="65000:123" class="w-full px-3 py-2 border rounded"></div>
+    <div class="mb-3"><label class="block text-sm font-bold mb-1">Severity</label><select id="rule-severity" class="w-full px-3 py-2 border rounded"><option value="info">Info</option><option value="success">Success</option><option value="warning">Warning</option><option value="reject">Reject</option></select></div>
+    <div class="mb-3"><label class="block text-sm font-bold mb-1">Message</label><textarea id="rule-message" class="w-full px-3 py-2 border rounded" rows="2"></textarea></div>
+    <div class="mb-3"><label class="block text-sm font-bold mb-1">Scope</label><select id="rule-scope" class="w-full px-3 py-2 border rounded"><option value="global">Global</option></select></div>
+    <div class="mb-3 flex items-center gap-2"><input type="checkbox" id="rule-active" checked><label for="rule-active">Active</label></div>
+    <div class="flex justify-end gap-2"><button type="button" onclick="document.getElementById('rule-modal').classList.add('hidden')" class="px-4 py-2 border rounded">Cancel</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Save</button></div>
+  </form>
+</div></div>
+</body>
+<script>
+function escapeHTML(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+const token=localStorage.getItem('jwt_token');if(!token)window.location.href='/admin/login';
+const headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'};
+const sevColors={reject:'bg-red-100 text-red-800',warning:'bg-yellow-100 text-yellow-800',info:'bg-blue-100 text-blue-800',success:'bg-green-100 text-green-800'};
+async function loadRules(){const r=await fetch('/api/v1/admin/community-rules',{headers});const d=await r.json();const tb=document.getElementById('rules-table');const rules=d.data||[];if(!rules.length){tb.innerHTML='<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No rules</td></tr>';return;}
+tb.innerHTML=rules.map(r=>`<tr><td class="px-6 py-4 font-mono text-sm">${escapeHTML(r.community)}</td><td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded ${sevColors[r.severity]||'bg-gray-100'}">${escapeHTML(r.severity)}</span></td><td class="px-6 py-4 text-sm">${escapeHTML(r.message_i18n||'-')}</td><td class="px-6 py-4 text-sm">${escapeHTML(r.scope)}</td><td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded ${r.active?'bg-green-100 text-green-800':'bg-gray-100 text-gray-600'}">${r.active?'Yes':'No'}</span></td><td class="px-6 py-4 text-right space-x-2"><button onclick="toggleRule(${r.id})" class="text-blue-600 hover:underline text-sm">Toggle</button><button onclick="deleteRule(${r.id})" class="text-red-600 hover:underline text-sm">Delete</button></td></tr>`).join('');}
+function openRuleForm(){document.getElementById('rule-community').value='';document.getElementById('rule-severity').value='info';document.getElementById('rule-message').value='';document.getElementById('rule-active').checked=true;document.getElementById('rule-modal').classList.remove('hidden');}
+async function saveRule(e){e.preventDefault();await fetch('/api/v1/admin/community-rules',{method:'POST',headers,body:JSON.stringify({community:document.getElementById('rule-community').value,severity:document.getElementById('rule-severity').value,message_i18n:document.getElementById('rule-message').value,scope:document.getElementById('rule-scope').value,active:document.getElementById('rule-active').checked})});document.getElementById('rule-modal').classList.add('hidden');loadRules();}
+async function toggleRule(id){await fetch('/api/v1/admin/community-rules/'+id+'/toggle',{method:'PATCH',headers});loadRules();}
+async function deleteRule(id){if(!confirm('Delete?'))return;await fetch('/api/v1/admin/community-rules/'+id,{method:'DELETE',headers});loadRules();}
+loadRules();
+</script>
+</html>
+{{end}}

@@ -1,0 +1,13 @@
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - govet
+    - gosec
+    - ineffassign
+    - unused
+    - gofmt
+linters-settings:
+  gosec:
+    excludes:
+      - G204

@@ -1,0 +1,76 @@
+{{define "admin/dashboard"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Looking Glass Admin</title>
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <nav class="bg-white shadow">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between">
+      <div class="flex gap-4">
+        <a href="/" class="text-gray-600 hover:text-gray-900">Home</a>
+        <a href="/admin" class="text-blue-600 font-bold">Dashboard</a>
+        <a href="/admin/nodes" class="text-gray-600 hover:text-gray-900">Nodes</a>
+        <a href="/admin/pops" class="text-gray-600 hover:text-gray-900">POPs</a>
+        <a href="/admin/audit" class="text-gray-600 hover:text-gray-900">Audit</a>
+        <a href="/admin/users" class="text-gray-600 hover:text-gray-900">Users</a>
+        <a href="/admin/community-rules" class="text-gray-600 hover:text-gray-900">Rules</a>
+      </div>
+      <a href="#" onclick="localStorage.removeItem('jwt_token');window.location.href='/admin/login'" class="text-red-600">Logout</a>
+    </div>
+  </nav>
+  <div class="max-w-7xl mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-6">Dashboard</h1>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <a href="/admin/nodes" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <h3 class="text-lg font-semibold text-gray-700">Nodes</h3>
+        <p class="text-3xl font-bold text-blue-600" id="node-count">-</p>
+      </a>
+      <a href="/admin/pops" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <h3 class="text-lg font-semibold text-gray-700">POPs</h3>
+        <p class="text-3xl font-bold text-green-600" id="pop-count">-</p>
+      </a>
+      <a href="/admin/audit" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <h3 class="text-lg font-semibold text-gray-700">Queries</h3>
+        <p class="text-3xl font-bold text-purple-600" id="query-count">-</p>
+      </a>
+      <a href="/admin/users" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
+        <h3 class="text-lg font-semibold text-gray-700">Users</h3>
+        <p class="text-3xl font-bold text-orange-600" id="user-count">-</p>
+      </a>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+      <h2 class="text-xl font-bold mb-4">Recent Queries</h2>
+      <div id="recent-queries" class="space-y-2"><p class="text-gray-500">Loading...</p></div>
+    </div>
+  </div>
+</body>
+<script>
+function escapeHTML(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+const token = localStorage.getItem('jwt_token');
+if (!token) window.location.href = '/admin/login';
+const headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'};
+async function loadDashboard() {
+  try {
+    const [nodes, pops, users, audit] = await Promise.all([
+      fetch('/api/v1/admin/nodes', {headers}).then(r => r.json()),
+      fetch('/api/v1/admin/pops', {headers}).then(r => r.json()),
+      fetch('/api/v1/admin/users', {headers}).then(r => r.json()),
+      fetch('/api/v1/admin/audit?limit=10', {headers}).then(r => r.json())
+    ]);
+    document.getElementById('node-count').textContent = (nodes.data || []).length;
+    document.getElementById('pop-count').textContent = (pops.data || []).length;
+    document.getElementById('user-count').textContent = (users.data || []).length;
+    const entries = audit.data || [];
+    document.getElementById('query-count').textContent = audit.meta ? audit.meta.total : entries.length;
+    const container = document.getElementById('recent-queries');
+    if (!entries.length) { container.innerHTML = '<p class="text-gray-500">No queries yet</p>'; return; }
+    container.innerHTML = entries.map(e => `<div class="flex items-center justify-between py-2 border-b"><div class="flex items-center gap-4"><span class="px-2 py-1 text-xs font-mono bg-blue-100 text-blue-800 rounded">${escapeHTML(e.command)}</span><span class="text-sm text-gray-600">${escapeHTML(e.params)}</span></div><div class="text-xs text-gray-400">${escapeHTML(e.source_ip)}</div></div>`).join('');
+  } catch(e) { console.error(e); }
+}
+loadDashboard();
+</script>
+</html>
+{{end}}

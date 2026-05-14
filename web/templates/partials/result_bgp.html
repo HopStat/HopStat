@@ -1,0 +1,16 @@
+{{define "partials/result_bgp"}}
+<div class="bg-white rounded-lg shadow p-4">
+  <h3 class="font-bold text-lg mb-3">BGP Route Result</h3>
+  {{if .Routes}}{{range .Routes}}<div class="border rounded p-4 mb-3">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+      <div><span class="text-xs text-gray-500">Prefix</span><div class="font-mono text-sm">{{.Prefix}}</div></div>
+      <div><span class="text-xs text-gray-500">Next Hop</span><div class="font-mono text-sm">{{.NextHop}}</div></div>
+      <div><span class="text-xs text-gray-500">Local Pref</span><div class="text-sm">{{.LocalPref}}</div></div>
+      <div><span class="text-xs text-gray-500">Origin</span><div class="text-sm">{{.Origin}}</div></div>
+    </div>
+    {{if .ASPath}}<div class="mb-2"><span class="text-xs text-gray-500">AS Path:</span><div class="flex flex-wrap gap-1 mt-1">{{range .ASPath}}<span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded font-mono">{{.}}</span>{{end}}</div></div>{{end}}
+    {{if .Communities}}<div><span class="text-xs text-gray-500">Communities:</span><div class="flex flex-wrap gap-1 mt-1">{{range .Communities}}<span class="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded font-mono">{{.}}</span>{{end}}</div></div>{{end}}
+  </div>{{end}}{{else}}<p class="text-gray-500">No routes found.</p>{{end}}
+  <details class="mt-3"><summary class="cursor-pointer text-sm text-gray-500">Raw Output</summary><pre class="mt-2 p-3 bg-gray-100 rounded text-xs overflow-x-auto">{{.Raw}}</pre></details>
+</div>
+{{end}}

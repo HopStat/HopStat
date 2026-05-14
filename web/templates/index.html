@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LG Looking Glass</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/vendor/htmx.min.js"></script>
+    <script src="/static/js/vendor/alpine.min.js" defer></script>
+</head>
+<body>
+<div x-data="lookingGlass()" x-init="init()">
+    <header class="header">
+        <h1>LG Looking Glass</h1>
+        <nav>
+            <a href="/">Query</a>
+            <a href="/admin">Admin</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div class="query-form">
+            <div class="form-group">
+                <label for="node">Select Node</label>
+                <select id="node" x-model="selectedNode" @change="loadNodeCapabilities()">
+                    <option value="">-- Select Node --</option>
+                    <template x-for="node in nodes" :key="node.id">
+                        <option :value="node.id" x-text="node.name"></option>
+                    </template>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="command">Command</label>
+                <select id="command" x-model="selectedCommand">
+                    <option value="">-- Select Command --</option>
+                    <option value="ping">Ping</option>
+                    <option value="traceroute">Traceroute</option>
+                    <option value="mtr">MTR</option>
+                    <option value="bgp_route">BGP Route</option>
+                    <option value="as_path">AS Path</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="target">Target (IP/Prefix/ASN)</label>
+                <input type="text" id="target" x-model="target" placeholder="e.g., 8.8.8.8 or 1.1.1.0/24 or 13335">
+            </div>
+
+            <div class="form-group" x-show="selectedCommand === 'ping'">
+                <label for="ping-count">Ping Count</label>
+                <input type="number" id="ping-count" x-model="pingCount" min="1" max="10" value="5">
+            </div>
+
+            <div class="form-group" x-show="selectedCommand === 'traceroute' || selectedCommand === 'mtr'">
+                <label for="max-hops">Max Hops / Cycles</label>
+                <input type="number" id="max-hops" x-model="maxHops" min="1" max="64" value="30">
+            </div>
+
+            <button @click="submitQuery()" :disabled="!canSubmit()">
+                Query
+            </button>
+        </div>
+
+        <div class="result-area" x-show="queryId">
+            <h3>Results</h3>
+            <div x-html="result"></div>
+        </div>
+
+        <div class="error-area" x-show="error">
+            <p class="error" x-text="error"></p>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>LG Looking Glass</p>
+    </footer>
+</div>
+
+<script>
+function lookingGlass() {
+    return {
+        nodes: [],
+        selectedNode: '',
+        selectedCommand: '',
+        target: '',
+        pingCount: 5,
+        maxHops: 30,
+        queryId: null,
+        result: '',
+        error: '',
+
+        async init() {
+            const res = await fetch('/api/v1/nodes');
+            const data = await res.json();
+            this.nodes = data.data || [];
+        },
+
+        loadNodeCapabilities() {
+            this.selectedCommand = '';
+            this.queryId = null;
+            this.result = '';
+        },
+
+        canSubmit() {
+            return this.selectedNode && this.selectedCommand && this.target;
+        },
+
+        async submitQuery() {
+            this.error = '';
+            this.result = '';
+            this.queryId = null;
+
+            const body = {
+                node_id: parseInt(this.selectedNode),
+                command: this.selectedCommand,
+                target: this.target,
+                options: {}
+            };
+
+            if (this.selectedCommand === 'ping') {
+                body.options.ping_count = this.pingCount;
+            } else if (this.selectedCommand === 'traceroute' || this.selectedCommand === 'mtr') {
+                body.options.max_hops = this.maxHops;
+            }
+
+            try {
+                const res = await fetch('/api/v1/query', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+
+                const data = await res.json();
+                if (data.error) {
+                    this.error = data.error.message || data.error.code;
+                    return;
+                }
+
+                this.queryId = data.data.query_id;
+                await this.pollResult();
+            } catch (e) {
+                this.error = e.message;
+            }
+        },
+
+        async pollResult() {
+            function escapeHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+            for (let i = 0; i < 30; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                const res = await fetch(`/api/v1/query/${this.queryId}`);
+                const data = await res.json();
+                this.result = '<pre>' + escapeHTML(JSON.stringify(data, null, 2)) + '</pre>';
+                if (data.data?.status === 'done' || data.data?.status === 'error') {
+                    break;
+                }
+            }
+        }
+    }
+}
+</script>
+</body>
+</html>

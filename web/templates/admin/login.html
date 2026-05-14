@@ -1,0 +1,52 @@
+{{define "admin/login"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login - Looking Glass</title>
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+    <h2 class="text-2xl font-bold text-center mb-6">Admin Login</h2>
+    <div id="login-error" class="hidden bg-red-100 text-red-700 p-3 rounded mb-4"></div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="email">Email</label>
+        <input type="email" id="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="mb-6">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="password">Password</label>
+        <input type="password" id="password" name="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">Sign In</button>
+    </form>
+  </div>
+</body>
+<script>
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const errDiv = document.getElementById('login-error');
+  try {
+    const resp = await fetch('/api/v1/auth/login', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const data = await resp.json();
+    if (resp.ok && data.data && data.data.token) {
+      localStorage.setItem('jwt_token', data.data.token);
+      window.location.href = '/admin';
+    } else {
+      errDiv.textContent = data.error || 'Invalid credentials';
+      errDiv.classList.remove('hidden');
+    }
+  } catch(err) {
+    errDiv.textContent = 'Network error';
+    errDiv.classList.remove('hidden');
+  }
+}
+</script>
+</html>
+{{end}}

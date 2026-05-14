@@ -1,0 +1,12 @@
+{{define "partials/result_ping"}}
+<div class="bg-white rounded-lg shadow p-4">
+  <h3 class="font-bold text-lg mb-3">Ping Result</h3>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+    <div class="text-center p-3 bg-gray-50 rounded"><div class="text-2xl font-bold text-blue-600">{{.PacketsSent}}</div><div class="text-xs text-gray-500">Sent</div></div>
+    <div class="text-center p-3 bg-gray-50 rounded"><div class="text-2xl font-bold text-green-600">{{.PacketsRecv}}</div><div class="text-xs text-gray-500">Received</div></div>
+    <div class="text-center p-3 bg-gray-50 rounded"><div class="text-2xl font-bold text-red-600">{{printf "%.1f" .PacketLoss}}%</div><div class="text-xs text-gray-500">Loss</div></div>
+    <div class="text-center p-3 bg-gray-50 rounded"><div class="text-2xl font-bold text-purple-600">{{printf "%.2f" .AvgRTT}}ms</div><div class="text-xs text-gray-500">Avg RTT</div></div>
+  </div>
+  <details class="mt-3"><summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700">Raw Output</summary><pre class="mt-2 p-3 bg-gray-100 rounded text-xs overflow-x-auto">{{.Raw}}</pre></details>
+</div>
+{{end}}

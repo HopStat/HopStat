@@ -1,0 +1,33 @@
+.PHONY: build test lint generate run-server run-agent release clean
+
+version ?= $$(git describe --tags --always 2>/dev/null || echo "dev")
+
+build:
+	CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(version)" -o lg-looking-glass ./cmd/lg/
+
+generate:
+	sqlc generate
+
+test:
+	go test ./...
+
+test-race:
+	go test -race ./...
+
+lint:
+	golangci-lint run ./...
+
+run-server:
+	go run ./cmd/lg/ --mode=server --config=config.example.yaml
+
+run-agent:
+	go run ./cmd/lg/ --mode=agent --config=config.example.yaml
+
+release:
+	@mkdir -p dist
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/lg-looking-glass-linux-amd64 ./cmd/lg/
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/lg-looking-glass-linux-arm64 ./cmd/lg/
+
+clean:
+	rm -f lg-looking-glass
+	rm -rf dist/

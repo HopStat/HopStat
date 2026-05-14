@@ -1,0 +1,7 @@
+{{define "partials/result_mtr"}}
+<div class="bg-white rounded-lg shadow p-4">
+  <h3 class="font-bold text-lg mb-3">MTR Result</h3>
+  {{if .Hops}}<div class="overflow-x-auto"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-2 py-2 text-xs font-medium text-gray-500">#</th><th class="px-2 py-2 text-xs font-medium text-gray-500">Host</th><th class="px-2 py-2 text-xs font-medium text-gray-500">Loss%</th><th class="px-2 py-2 text-xs font-medium text-gray-500">Sent</th><th class="px-2 py-2 text-xs font-medium text-gray-500">Avg</th><th class="px-2 py-2 text-xs font-medium text-gray-500">Best</th><th class="px-2 py-2 text-xs font-medium text-gray-500">Worst</th></tr></thead><tbody class="divide-y">{{range .Hops}}<tr><td class="px-2 py-1 text-sm">{{.Number}}</td><td class="px-2 py-1 text-sm">{{.Host}}</td><td class="px-2 py-1 text-sm">{{printf "%.1f" .Loss}}%</td><td class="px-2 py-1 text-sm">{{.Sent}}</td><td class="px-2 py-1 text-sm">{{printf "%.1f" .Avg}}</td><td class="px-2 py-1 text-sm">{{printf "%.1f" .Best}}</td><td class="px-2 py-1 text-sm">{{printf "%.1f" .Worst}}</td></tr>{{end}}</tbody></table></div>{{end}}
+  <details class="mt-3"><summary class="cursor-pointer text-sm text-gray-500">Raw Output</summary><pre class="mt-2 p-3 bg-gray-100 rounded text-xs overflow-x-auto">{{.Raw}}</pre></details>
+</div>
+{{end}}

@@ -1,0 +1,51 @@
+# Binaries
+lg
+lg-looking-glass
+dist/
+
+# Config with secrets (use config.example.yaml as template)
+config.yaml
+*.pem
+*.key
+*.crt
+
+# Internal planning & AI prompt documents
+md/
+CLAUDE.md
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# GeoIP databases
+*.mmdb
+
+# Runtime data
+data/
+logo.svg
+
+# Build cache
+.vite/
+.playwright-mcp/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

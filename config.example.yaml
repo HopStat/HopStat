@@ -1,0 +1,61 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "server"
+  tls_cert: ""
+  tls_key: ""
+  autocert_domain: ""
+  as_number: "AS65000"
+  org_name: "My Network"
+  default_route_as: "9121"
+
+agent:
+  port: 9090
+  token: ""
+  bgp_router_id: ""
+  bgp_local_as: 0
+  bgp_peer_as: 0
+  bgp_peer_addr: ""
+
+database:
+  path: "./lg.db"
+
+security:
+  jwt_secret: ""
+  credential_key: ""
+  rate_limit_per_min: 10
+  brute_force_max: 5
+  brute_force_ban_min: 15
+
+audit:
+  retention_days: 90
+  async_write: true
+
+query:
+  max_concurrent: 50
+  default_timeout_sec: 30
+  mtr_timeout_sec: 120
+  traceroute_timeout_sec: 60
+
+geoip:
+  asn_db_path: ""
+  city_db_path: ""
+  license_key: ""
+  account_id: ""
+  update_interval: "72h"
+  db_dir: "./data/geoip"
+
+footer:
+  peeringdb_asn: 0
+  ipv4_url: ""
+  email: ""
+  bgp_url: ""
+  noc_url: ""
+
+update:
+  enabled: true
+  github_repo: "yourorg/lg-looking-glass"
+
+#bgp:
+#  listen_port: 1179
+#  router_id: ""

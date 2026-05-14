@@ -1,0 +1,110 @@
+{{define "admin/nodes"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nodes - Looking Glass Admin</title>
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <nav class="bg-white shadow">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between">
+      <div class="flex gap-4">
+        <a href="/" class="text-gray-600 hover:text-gray-900">Home</a>
+        <a href="/admin" class="text-gray-600 hover:text-gray-900">Dashboard</a>
+        <a href="/admin/nodes" class="text-blue-600 font-bold">Nodes</a>
+        <a href="/admin/pops" class="text-gray-600 hover:text-gray-900">POPs</a>
+        <a href="/admin/audit" class="text-gray-600 hover:text-gray-900">Audit</a>
+        <a href="/admin/users" class="text-gray-600 hover:text-gray-900">Users</a>
+        <a href="/admin/community-rules" class="text-gray-600 hover:text-gray-900">Rules</a>
+      </div>
+      <a href="#" onclick="localStorage.removeItem('jwt_token');window.location.href='/admin/login'" class="text-red-600">Logout</a>
+    </div>
+  </nav>
+  <div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold">Nodes</h1>
+      <button onclick="openNodeForm()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Node</button>
+    </div>
+    <div id="node-form-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+        <h2 class="text-xl font-bold mb-4" id="form-title">Add Node</h2>
+        <form id="node-form" onsubmit="saveNode(event)">
+          <input type="hidden" id="node-id">
+          <div class="mb-3"><label class="block text-sm font-bold text-gray-700 mb-1">Name</label><input type="text" id="node-name" required class="w-full px-3 py-2 border rounded"></div>
+          <div class="mb-3"><label class="block text-sm font-bold text-gray-700 mb-1">Description</label><input type="text" id="node-description" class="w-full px-3 py-2 border rounded"></div>
+          <div class="mb-3"><label class="block text-sm font-bold text-gray-700 mb-1">Type</label>
+            <select id="node-type" class="w-full px-3 py-2 border rounded"><option value="standalone">Standalone</option><option value="lg_node">LG Node (Agent)</option></select>
+          </div>
+          <div class="mb-3"><label class="block text-sm font-bold text-gray-700 mb-1">Agent URL</label><input type="text" id="node-agent-url" placeholder="http://agent:9090" class="w-full px-3 py-2 border rounded"></div>
+          <div class="mb-3"><label class="block text-sm font-bold text-gray-700 mb-1">Agent Token</label><input type="text" id="node-agent-token" class="w-full px-3 py-2 border rounded"></div>
+          <div class="mb-3 flex items-center gap-2"><input type="checkbox" id="node-active" checked><label for="node-active" class="text-sm font-bold text-gray-700">Active</label></div>
+          <div class="flex justify-end gap-2">
+            <button type="button" onclick="closeNodeForm()" class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+      <table class="min-w-full">
+        <thead class="bg-gray-50"><tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commands</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+        </tr></thead>
+        <tbody id="nodes-table" class="divide-y divide-gray-200"></tbody>
+      </table>
+    </div>
+  </div>
+</body>
+<script>
+function escapeHTML(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+const token = localStorage.getItem('jwt_token');
+if (!token) window.location.href = '/admin/login';
+const headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'};
+async function loadNodes() {
+  const resp = await fetch('/api/v1/admin/nodes', {headers});
+  const data = await resp.json();
+  const tbody = document.getElementById('nodes-table');
+  const nodes = data.data || [];
+  if (!nodes.length) { tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No nodes configured</td></tr>'; return; }
+  tbody.innerHTML = nodes.map(n => `<tr>
+    <td class="px-6 py-4"><div class="font-medium">${escapeHTML(n.name)}</div><div class="text-xs text-gray-500">${escapeHTML(n.description||'')}</div></td>
+    <td class="px-6 py-4 text-sm">${escapeHTML(n.type)}</td>
+    <td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full ${n.active?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${n.active?'Active':'Inactive'}</span></td>
+    <td class="px-6 py-4 text-xs font-mono">${escapeHTML((n.enabled_cmds||[]).join(', '))}</td>
+    <td class="px-6 py-4 text-right space-x-2">
+      <button onclick="testNode(${n.id})" class="text-blue-600 hover:underline text-sm">Test</button>
+      <button onclick="editNode(${JSON.stringify(n).replace(/"/g,'&quot;')})" class="text-yellow-600 hover:underline text-sm">Edit</button>
+      <button onclick="deleteNode(${n.id})" class="text-red-600 hover:underline text-sm">Delete</button>
+    </td></tr>`).join('');
+}
+function openNodeForm(node) {
+  document.getElementById('form-title').textContent = node ? 'Edit Node' : 'Add Node';
+  document.getElementById('node-id').value = node ? node.id : '';
+  document.getElementById('node-name').value = node ? node.name : '';
+  document.getElementById('node-description').value = node ? node.description : '';
+  document.getElementById('node-type').value = node ? node.type : 'standalone';
+  document.getElementById('node-agent-url').value = node ? node.agent_url : '';
+  document.getElementById('node-agent-token').value = node ? node.agent_token : '';
+  document.getElementById('node-active').checked = node ? node.active : true;
+  document.getElementById('node-form-modal').classList.remove('hidden');
+}
+function closeNodeForm() { document.getElementById('node-form-modal').classList.add('hidden'); }
+function editNode(node) { openNodeForm(node); }
+async function saveNode(e) {
+  e.preventDefault();
+  const id = document.getElementById('node-id').value;
+  const body = {name:document.getElementById('node-name').value,description:document.getElementById('node-description').value,type:document.getElementById('node-type').value,active:document.getElementById('node-active').checked,enabled_cmds:['ping','traceroute','mtr','bgp_route','as_path'],agent_url:document.getElementById('node-agent-url').value,agent_token:document.getElementById('node-agent-token').value};
+  await fetch(id?'/api/v1/admin/nodes/'+id:'/api/v1/admin/nodes',{method:id?'PUT':'POST',headers,body:JSON.stringify(body)});
+  closeNodeForm(); loadNodes();
+}
+async function deleteNode(id) { if(!confirm('Delete this node?'))return; await fetch('/api/v1/admin/nodes/'+id,{method:'DELETE',headers}); loadNodes(); }
+async function testNode(id) { const r=await fetch('/api/v1/admin/nodes/'+id+'/test',{method:'POST',headers}); const d=await r.json(); alert(d.data.status==='ok'?'Connection successful!':'Connection failed: '+d.data.message); }
+loadNodes();
+</script>
+</html>
+{{end}}
