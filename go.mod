@@ -1,4 +1,4 @@
-module github.com/yourorg/lg-looking-glass
+module github.com/HopStat/HopStat
 
 go 1.25.0
 

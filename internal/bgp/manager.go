@@ -14,8 +14,8 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/server"
 
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 type SessionManager struct {

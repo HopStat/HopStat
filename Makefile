@@ -3,7 +3,7 @@
 version ?= $$(git describe --tags --always 2>/dev/null || echo "dev")
 
 build:
-	CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(version)" -o lg-looking-glass ./cmd/lg/
+	CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(version)" -o hopstat ./cmd/lg/
 
 generate:
 	sqlc generate
@@ -25,9 +25,9 @@ run-agent:
 
 release:
 	@mkdir -p dist
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/lg-looking-glass-linux-amd64 ./cmd/lg/
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/lg-looking-glass-linux-arm64 ./cmd/lg/
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/hopstat-linux-amd64 ./cmd/lg/
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=$(version)" -o dist/hopstat-linux-arm64 ./cmd/lg/
 
 clean:
-	rm -f lg-looking-glass
+	rm -f hopstat
 	rm -rf dist/

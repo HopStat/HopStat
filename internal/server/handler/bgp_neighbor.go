@@ -8,9 +8,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourorg/lg-looking-glass/internal/bgp"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
-	"github.com/yourorg/lg-looking-glass/internal/store/repo"
+	"github.com/HopStat/HopStat/internal/bgp"
+	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/store/repo"
 )
 
 type bgpNeighborRequest struct {

@@ -3,7 +3,7 @@ package driver
 import (
 	"context"
 
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 type NodeDriver interface {

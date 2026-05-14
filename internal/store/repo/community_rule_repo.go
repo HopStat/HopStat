@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/yourorg/lg-looking-glass/internal/domain"
-	"github.com/yourorg/lg-looking-glass/internal/store/queries"
+	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
 type communityRuleRepo struct {

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 type entry struct {

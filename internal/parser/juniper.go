@@ -3,7 +3,7 @@ package parser
 import (
 	"strings"
 
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 type JuniperParser struct{}

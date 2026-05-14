@@ -21,14 +21,14 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
-	"github.com/yourorg/lg-looking-glass/internal/driver"
-	"github.com/yourorg/lg-looking-glass/internal/engine"
-	"github.com/yourorg/lg-looking-glass/internal/geo"
-	"github.com/yourorg/lg-looking-glass/internal/store/queries"
-	"github.com/yourorg/lg-looking-glass/internal/store/querystore"
-	"github.com/yourorg/lg-looking-glass/internal/store/repo"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/driver"
+	"github.com/HopStat/HopStat/internal/engine"
+	"github.com/HopStat/HopStat/internal/geo"
+	"github.com/HopStat/HopStat/internal/store/queries"
+	"github.com/HopStat/HopStat/internal/store/querystore"
+	"github.com/HopStat/HopStat/internal/store/repo"
 )
 
 var queryStore = querystore.New()

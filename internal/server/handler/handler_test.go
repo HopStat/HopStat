@@ -14,8 +14,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/store"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/store"
 )
 
 func init() {

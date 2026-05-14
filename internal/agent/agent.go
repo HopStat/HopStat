@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourorg/lg-looking-glass/internal/config"
+	"github.com/HopStat/HopStat/internal/config"
 )
 
 type Agent struct {

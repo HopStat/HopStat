@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourorg/lg-looking-glass/internal/updater"
+	"github.com/HopStat/HopStat/internal/updater"
 )
 
 func UpdateStatus(upd *updater.Updater) gin.HandlerFunc {

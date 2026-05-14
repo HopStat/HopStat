@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourorg/lg-looking-glass/internal/config"
+	"github.com/HopStat/HopStat/internal/config"
 	_ "modernc.org/sqlite"
 )
 

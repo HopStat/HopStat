@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourorg/lg-looking-glass/internal/bgp"
-	"github.com/yourorg/lg-looking-glass/internal/circuitbreaker"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
-	"github.com/yourorg/lg-looking-glass/internal/driver"
-	"github.com/yourorg/lg-looking-glass/internal/geo"
+	"github.com/HopStat/HopStat/internal/bgp"
+	"github.com/HopStat/HopStat/internal/circuitbreaker"
+	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/driver"
+	"github.com/HopStat/HopStat/internal/geo"
 )
 
 type QueryEngine struct {

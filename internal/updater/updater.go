@@ -72,7 +72,7 @@ func (u *Updater) Apply(ctx context.Context) error {
 		return fmt.Errorf("fetch release: %w", err)
 	}
 
-	assetName := fmt.Sprintf("lg-looking-glass-%s-%s", runtime.GOOS, runtime.GOARCH)
+	assetName := fmt.Sprintf("hopstat-%s-%s", runtime.GOOS, runtime.GOARCH)
 	var dlURL string
 	for _, a := range rel.Assets {
 		if a.Name == assetName {
@@ -121,7 +121,7 @@ func (u *Updater) fetchLatest(ctx context.Context) (*Release, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "lg-looking-glass")
+	req.Header.Set("User-Agent", "hopstat")
 
 	resp, err := u.apiClient.Do(req)
 	if err != nil {

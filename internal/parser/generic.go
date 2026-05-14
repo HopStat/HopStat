@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 func splitLines(s string) []string {

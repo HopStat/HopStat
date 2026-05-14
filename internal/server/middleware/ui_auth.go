@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/yourorg/lg-looking-glass/internal/config"
+	"github.com/HopStat/HopStat/internal/config"
 )
 
 // UISessionAuth checks for JWT in cookie or Authorization header for admin UI pages.

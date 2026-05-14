@@ -54,7 +54,7 @@ footer:
 
 update:
   enabled: true
-  github_repo: "yourorg/lg-looking-glass"
+  github_repo: "HopStat/HopStat"
 
 #bgp:
 #  listen_port: 1179

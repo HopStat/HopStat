@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourorg/lg-looking-glass/internal/bgp"
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/geo"
-	"github.com/yourorg/lg-looking-glass/internal/server/handler"
-	"github.com/yourorg/lg-looking-glass/internal/server/middleware"
-	"github.com/yourorg/lg-looking-glass/internal/updater"
+	"github.com/HopStat/HopStat/internal/bgp"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/geo"
+	"github.com/HopStat/HopStat/internal/server/handler"
+	"github.com/HopStat/HopStat/internal/server/middleware"
+	"github.com/HopStat/HopStat/internal/updater"
 )
 
 type Server struct {

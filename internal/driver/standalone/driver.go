@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yourorg/lg-looking-glass/internal/circuitbreaker"
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
-	"github.com/yourorg/lg-looking-glass/internal/parser"
+	"github.com/HopStat/HopStat/internal/circuitbreaker"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/parser"
 )
 
 func getOnLine(ctx context.Context) func(string) {

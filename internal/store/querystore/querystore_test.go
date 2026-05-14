@@ -3,7 +3,7 @@ package querystore
 import (
 	"testing"
 
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 func TestSetAndGet(t *testing.T) {

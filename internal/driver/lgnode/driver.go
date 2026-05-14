@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yourorg/lg-looking-glass/internal/circuitbreaker"
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
+	"github.com/HopStat/HopStat/internal/circuitbreaker"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 type Driver struct {

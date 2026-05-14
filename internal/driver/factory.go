@@ -3,10 +3,10 @@ package driver
 import (
 	"fmt"
 
-	"github.com/yourorg/lg-looking-glass/internal/config"
-	"github.com/yourorg/lg-looking-glass/internal/domain"
-	"github.com/yourorg/lg-looking-glass/internal/driver/lgnode"
-	"github.com/yourorg/lg-looking-glass/internal/driver/standalone"
+	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/driver/lgnode"
+	"github.com/HopStat/HopStat/internal/driver/standalone"
 )
 
 func NewDriver(node *domain.Node, cfg *config.Config) (NodeDriver, error) {

@@ -3,7 +3,7 @@ package engine
 import (
 	"time"
 
-	"github.com/yourorg/lg-looking-glass/internal/server/middleware"
+	"github.com/HopStat/HopStat/internal/server/middleware"
 )
 
 // RateLimiter wraps the middleware rate limiter for use in the engine.
