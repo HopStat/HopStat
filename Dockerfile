@@ -1,10 +1,8 @@
 # ── Frontend build ────────────────────────────────────────────────────────────
-FROM node:22-alpine AS frontend
+FROM node:latest AS frontend
 WORKDIR /src/web/frontend
-COPY web/frontend/package.json web/frontend/package-lock.json ./
-RUN npm ci
 COPY web/frontend/ ./
-RUN npm run build
+RUN npm install && npm run build
 # outDir '../dist' → output lands at /src/web/dist/
 
 # ── Go build ──────────────────────────────────────────────────────────────────
