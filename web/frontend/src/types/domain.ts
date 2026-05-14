@@ -171,6 +171,8 @@ export interface BGPNeighbor {
   remote_as: number
   peering_ip: string
   neighbor_ip: string
+  ipv6_peering_ip: string
+  ipv6_neighbor_ip: string
   multihop: boolean
   status: string
   created_at: string

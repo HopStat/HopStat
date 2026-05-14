@@ -31,8 +31,9 @@ type SessionManager struct {
 }
 
 type neighborEntry struct {
-	neighbor    *domain.BGPNeighbor
-	neighborIP  string
+	neighbor       *domain.BGPNeighbor
+	neighborIP     string
+	ipv6NeighborIP string // non-empty when an IPv6 session is configured
 }
 
 func NewSessionManager(cfg config.BGPConfig) *SessionManager {
@@ -93,13 +94,22 @@ func (m *SessionManager) AddNeighbor(n *domain.BGPNeighbor) error {
 		return fmt.Errorf("bgp server not started")
 	}
 
-	peer := m.buildPeerConfig(n)
+	peer := m.buildPeerConfig(n, n.PeeringIP, n.NeighborIP)
 	if err := m.bgpServer.AddPeer(context.Background(), &api.AddPeerRequest{Peer: peer}); err != nil {
 		return fmt.Errorf("add bgp peer %s: %w", n.NeighborIP, err)
 	}
 
+	if n.IPv6NeighborIP != "" {
+		peer6 := m.buildPeerConfig(n, n.IPv6PeeringIP, n.IPv6NeighborIP)
+		if err := m.bgpServer.AddPeer(context.Background(), &api.AddPeerRequest{Peer: peer6}); err != nil {
+			slog.Warn("bgp ipv6 peer add failed", "id", n.ID, "neighbor_ip", n.IPv6NeighborIP, "err", err)
+		} else {
+			slog.Info("bgp ipv6 neighbor added", "id", n.ID, "neighbor_ip", n.IPv6NeighborIP)
+		}
+	}
+
 	m.mu.Lock()
-	m.neighbors[n.ID] = &neighborEntry{neighbor: n, neighborIP: n.NeighborIP}
+	m.neighbors[n.ID] = &neighborEntry{neighbor: n, neighborIP: n.NeighborIP, ipv6NeighborIP: n.IPv6NeighborIP}
 	m.nodeMap[n.NodeID] = n.ID
 	m.states[n.ID] = domain.BGPSessionIdle
 	m.mu.Unlock()
@@ -122,6 +132,11 @@ func (m *SessionManager) RemoveNeighbor(id int64) error {
 
 	if err := m.bgpServer.DeletePeer(context.Background(), &api.DeletePeerRequest{Address: entry.neighborIP}); err != nil {
 		return fmt.Errorf("remove bgp peer %s: %w", entry.neighborIP, err)
+	}
+	if entry.ipv6NeighborIP != "" {
+		if err := m.bgpServer.DeletePeer(context.Background(), &api.DeletePeerRequest{Address: entry.ipv6NeighborIP}); err != nil {
+			slog.Warn("bgp ipv6 peer remove failed", "neighbor_ip", entry.ipv6NeighborIP, "err", err)
+		}
 	}
 
 	m.mu.Lock()
@@ -275,15 +290,15 @@ func (m *SessionManager) LoadNeighbors(ctx context.Context, repo domain.BGPNeigh
 	return nil
 }
 
-func (m *SessionManager) buildPeerConfig(n *domain.BGPNeighbor) *api.Peer {
+func (m *SessionManager) buildPeerConfig(n *domain.BGPNeighbor, localAddr, neighborAddr string) *api.Peer {
 	peer := &api.Peer{
 		Conf: &api.PeerConf{
 			LocalAsn:        n.LocalAS,
-			NeighborAddress: n.NeighborIP,
+			NeighborAddress: neighborAddr,
 			PeerAsn:         n.RemoteAS,
 		},
 		Transport: &api.Transport{
-			LocalAddress: n.PeeringIP,
+			LocalAddress: localAddr,
 			PassiveMode:  true,
 		},
 		Timers: &api.Timers{
@@ -337,7 +352,7 @@ func (m *SessionManager) watchPeers(ctx context.Context) {
 
 		m.mu.RLock()
 		for id, entry := range m.neighbors {
-			if entry.neighborIP == neighborAddr {
+			if entry.neighborIP == neighborAddr || entry.ipv6NeighborIP == neighborAddr {
 				m.mu.RUnlock()
 				m.mu.Lock()
 				m.states[id] = state

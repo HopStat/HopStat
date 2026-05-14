@@ -30,6 +30,8 @@ export function BGPNeighborsPage() {
     remote_as: '',
     peering_ip: '',
     neighbor_ip: '',
+    ipv6_peering_ip: '',
+    ipv6_neighbor_ip: '',
     multihop: false,
   })
 
@@ -41,7 +43,7 @@ export function BGPNeighborsPage() {
 
   function openCreate() {
     setEditItem(null)
-    setForm({ node_id: '', local_as: '', remote_as: '', peering_ip: '', neighbor_ip: '', multihop: false })
+    setForm({ node_id: '', local_as: '', remote_as: '', peering_ip: '', neighbor_ip: '', ipv6_peering_ip: '', ipv6_neighbor_ip: '', multihop: false })
     setDialogOpen(true)
   }
 
@@ -53,6 +55,8 @@ export function BGPNeighborsPage() {
       remote_as: String(n.remote_as),
       peering_ip: n.peering_ip,
       neighbor_ip: n.neighbor_ip,
+      ipv6_peering_ip: n.ipv6_peering_ip ?? '',
+      ipv6_neighbor_ip: n.ipv6_neighbor_ip ?? '',
       multihop: n.multihop,
     })
     setDialogOpen(true)
@@ -65,6 +69,8 @@ export function BGPNeighborsPage() {
       remote_as: Number(form.remote_as),
       peering_ip: form.peering_ip,
       neighbor_ip: form.neighbor_ip,
+      ipv6_peering_ip: form.ipv6_peering_ip,
+      ipv6_neighbor_ip: form.ipv6_neighbor_ip,
       multihop: form.multihop,
     }
     if (editItem) await api.put(`/admin/bgp-neighbors/${editItem.id}`, body)
@@ -153,8 +159,16 @@ export function BGPNeighborsPage() {
               <div className="space-y-2"><Label>{t('admin.bgp_local_as')}</Label><Input type="number" value={form.local_as} onChange={e => setForm({ ...form, local_as: e.target.value })} placeholder="65000" /></div>
               <div className="space-y-2"><Label>{t('admin.bgp_remote_as')}</Label><Input type="number" value={form.remote_as} onChange={e => setForm({ ...form, remote_as: e.target.value })} placeholder="174" /></div>
             </div>
-            <div className="space-y-2"><Label>{t('admin.bgp_peering_ip')}</Label><Input value={form.peering_ip} onChange={e => setForm({ ...form, peering_ip: e.target.value })} placeholder="192.168.1.1" /></div>
-            <div className="space-y-2"><Label>{t('admin.bgp_neighbor_ip')}</Label><Input value={form.neighbor_ip} onChange={e => setForm({ ...form, neighbor_ip: e.target.value })} placeholder="10.0.0.1" /></div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">IPv4</p>
+              <div className="space-y-2"><Label>{t('admin.bgp_peering_ip')}</Label><Input value={form.peering_ip} onChange={e => setForm({ ...form, peering_ip: e.target.value })} placeholder="192.168.1.1" /></div>
+              <div className="space-y-2"><Label>{t('admin.bgp_neighbor_ip')}</Label><Input value={form.neighbor_ip} onChange={e => setForm({ ...form, neighbor_ip: e.target.value })} placeholder="10.0.0.1" /></div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">IPv6 <span className="normal-case font-normal">({t('admin.optional')})</span></p>
+              <div className="space-y-2"><Label>{t('admin.bgp_peering_ip')}</Label><Input value={form.ipv6_peering_ip} onChange={e => setForm({ ...form, ipv6_peering_ip: e.target.value })} placeholder="2001:db8::1" /></div>
+              <div className="space-y-2"><Label>{t('admin.bgp_neighbor_ip')}</Label><Input value={form.ipv6_neighbor_ip} onChange={e => setForm({ ...form, ipv6_neighbor_ip: e.target.value })} placeholder="2001:db8::2" /></div>
+            </div>
             <div className="flex items-center gap-2"><Switch checked={form.multihop} onCheckedChange={v => setForm({ ...form, multihop: v })} /><Label>{t('admin.bgp_multihop')}</Label></div>
           </div>
           <DialogFooter><Button onClick={handleSave}>{t('admin.save')}</Button></DialogFooter>

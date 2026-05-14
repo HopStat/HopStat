@@ -14,12 +14,14 @@ import (
 )
 
 type bgpNeighborRequest struct {
-	NodeID     int64  `json:"node_id" binding:"required"`
-	LocalAS    uint32 `json:"local_as" binding:"required"`
-	RemoteAS   uint32 `json:"remote_as" binding:"required"`
-	PeeringIP  string `json:"peering_ip" binding:"required"`
-	NeighborIP string `json:"neighbor_ip" binding:"required"`
-	Multihop   bool   `json:"multihop"`
+	NodeID         int64  `json:"node_id" binding:"required"`
+	LocalAS        uint32 `json:"local_as" binding:"required"`
+	RemoteAS       uint32 `json:"remote_as" binding:"required"`
+	PeeringIP      string `json:"peering_ip" binding:"required"`
+	NeighborIP     string `json:"neighbor_ip" binding:"required"`
+	IPv6PeeringIP  string `json:"ipv6_peering_ip"`
+	IPv6NeighborIP string `json:"ipv6_neighbor_ip"`
+	Multihop       bool   `json:"multihop"`
 }
 
 func (r *bgpNeighborRequest) Validate() string {
@@ -31,6 +33,12 @@ func (r *bgpNeighborRequest) Validate() string {
 	}
 	if r.LocalAS == 0 || r.RemoteAS == 0 {
 		return "local_as and remote_as must be > 0"
+	}
+	if r.IPv6NeighborIP != "" && net.ParseIP(r.IPv6NeighborIP) == nil {
+		return "invalid ipv6_neighbor_ip"
+	}
+	if r.IPv6PeeringIP != "" && net.ParseIP(r.IPv6PeeringIP) == nil {
+		return "invalid ipv6_peering_ip"
 	}
 	return ""
 }
@@ -72,12 +80,14 @@ func CreateBGPNeighbor(db *sql.DB, bgpMgr *bgp.SessionManager) gin.HandlerFunc {
 			return
 		}
 		neighbor := &domain.BGPNeighbor{
-			NodeID:     req.NodeID,
-			LocalAS:    req.LocalAS,
-			RemoteAS:   req.RemoteAS,
-			PeeringIP:  req.PeeringIP,
-			NeighborIP: req.NeighborIP,
-			Multihop:   req.Multihop,
+			NodeID:         req.NodeID,
+			LocalAS:        req.LocalAS,
+			RemoteAS:       req.RemoteAS,
+			PeeringIP:      req.PeeringIP,
+			NeighborIP:     req.NeighborIP,
+			IPv6PeeringIP:  req.IPv6PeeringIP,
+			IPv6NeighborIP: req.IPv6NeighborIP,
+			Multihop:       req.Multihop,
 		}
 		r := repo.NewBGPNeighborRepo(db)
 		created, err := r.Create(c.Request.Context(), neighbor)
@@ -110,13 +120,15 @@ func UpdateBGPNeighbor(db *sql.DB, bgpMgr *bgp.SessionManager) gin.HandlerFunc {
 			return
 		}
 		neighbor := &domain.BGPNeighbor{
-			ID:         id,
-			NodeID:     req.NodeID,
-			LocalAS:    req.LocalAS,
-			RemoteAS:   req.RemoteAS,
-			PeeringIP:  req.PeeringIP,
-			NeighborIP: req.NeighborIP,
-			Multihop:   req.Multihop,
+			ID:             id,
+			NodeID:         req.NodeID,
+			LocalAS:        req.LocalAS,
+			RemoteAS:       req.RemoteAS,
+			PeeringIP:      req.PeeringIP,
+			NeighborIP:     req.NeighborIP,
+			IPv6PeeringIP:  req.IPv6PeeringIP,
+			IPv6NeighborIP: req.IPv6NeighborIP,
+			Multihop:       req.Multihop,
 		}
 		r := repo.NewBGPNeighborRepo(db)
 		updated, err := r.Update(c.Request.Context(), neighbor)

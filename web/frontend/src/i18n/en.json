@@ -163,6 +163,7 @@
   "admin.bgp_peering_ip": "Peering IP",
   "admin.bgp_neighbor_ip": "Neighbor IP",
   "admin.bgp_multihop": "Multihop",
+  "admin.optional": "optional",
   "login.title": "Admin Login",
   "login.email": "Email",
   "login.password": "Password",

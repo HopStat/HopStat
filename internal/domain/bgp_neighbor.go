@@ -3,15 +3,17 @@ package domain
 import "time"
 
 type BGPNeighbor struct {
-	ID         int64     `json:"id"`
-	NodeID     int64     `json:"node_id"`
-	LocalAS    uint32    `json:"local_as"`
-	RemoteAS   uint32    `json:"remote_as"`
-	PeeringIP  string    `json:"peering_ip"`
-	NeighborIP string    `json:"neighbor_ip"`
-	Multihop   bool      `json:"multihop"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID              int64     `json:"id"`
+	NodeID          int64     `json:"node_id"`
+	LocalAS         uint32    `json:"local_as"`
+	RemoteAS        uint32    `json:"remote_as"`
+	PeeringIP       string    `json:"peering_ip"`
+	NeighborIP      string    `json:"neighbor_ip"`
+	IPv6PeeringIP   string    `json:"ipv6_peering_ip"`
+	IPv6NeighborIP  string    `json:"ipv6_neighbor_ip"`
+	Multihop        bool      `json:"multihop"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type BGPSessionState string

@@ -53,12 +53,14 @@ func (r *bgpNeighborRepo) GetByID(ctx context.Context, id int64) (*domain.BGPNei
 
 func (r *bgpNeighborRepo) Create(ctx context.Context, neighbor *domain.BGPNeighbor) (*domain.BGPNeighbor, error) {
 	created, err := r.q.CreateBGPNeighbor(ctx, &queries.BGPNeighbor{
-		NodeID:     neighbor.NodeID,
-		LocalAS:    neighbor.LocalAS,
-		RemoteAS:   neighbor.RemoteAS,
-		PeeringIP:  neighbor.PeeringIP,
-		NeighborIP: neighbor.NeighborIP,
-		Multihop:   boolToInt(neighbor.Multihop),
+		NodeID:         neighbor.NodeID,
+		LocalAS:        neighbor.LocalAS,
+		RemoteAS:       neighbor.RemoteAS,
+		PeeringIP:      neighbor.PeeringIP,
+		NeighborIP:     neighbor.NeighborIP,
+		IPv6PeeringIP:  neighbor.IPv6PeeringIP,
+		IPv6NeighborIP: neighbor.IPv6NeighborIP,
+		Multihop:       boolToInt(neighbor.Multihop),
 	})
 	if err != nil {
 		return nil, err
@@ -68,13 +70,15 @@ func (r *bgpNeighborRepo) Create(ctx context.Context, neighbor *domain.BGPNeighb
 
 func (r *bgpNeighborRepo) Update(ctx context.Context, neighbor *domain.BGPNeighbor) (*domain.BGPNeighbor, error) {
 	updated, err := r.q.UpdateBGPNeighbor(ctx, &queries.BGPNeighbor{
-		ID:         neighbor.ID,
-		NodeID:     neighbor.NodeID,
-		LocalAS:    neighbor.LocalAS,
-		RemoteAS:   neighbor.RemoteAS,
-		PeeringIP:  neighbor.PeeringIP,
-		NeighborIP: neighbor.NeighborIP,
-		Multihop:   boolToInt(neighbor.Multihop),
+		ID:             neighbor.ID,
+		NodeID:         neighbor.NodeID,
+		LocalAS:        neighbor.LocalAS,
+		RemoteAS:       neighbor.RemoteAS,
+		PeeringIP:      neighbor.PeeringIP,
+		NeighborIP:     neighbor.NeighborIP,
+		IPv6PeeringIP:  neighbor.IPv6PeeringIP,
+		IPv6NeighborIP: neighbor.IPv6NeighborIP,
+		Multihop:       boolToInt(neighbor.Multihop),
 	})
 	if err != nil {
 		return nil, err
@@ -88,12 +92,14 @@ func (r *bgpNeighborRepo) Delete(ctx context.Context, id int64) error {
 
 func mapBGPNeighbor(n *queries.BGPNeighbor) *domain.BGPNeighbor {
 	return &domain.BGPNeighbor{
-		ID:         n.ID,
-		NodeID:     n.NodeID,
-		LocalAS:    n.LocalAS,
-		RemoteAS:   n.RemoteAS,
-		PeeringIP:  n.PeeringIP,
-		NeighborIP: n.NeighborIP,
-		Multihop:   n.Multihop == 1,
+		ID:             n.ID,
+		NodeID:         n.NodeID,
+		LocalAS:        n.LocalAS,
+		RemoteAS:       n.RemoteAS,
+		PeeringIP:      n.PeeringIP,
+		NeighborIP:     n.NeighborIP,
+		IPv6PeeringIP:  n.IPv6PeeringIP,
+		IPv6NeighborIP: n.IPv6NeighborIP,
+		Multihop:       n.Multihop == 1,
 	}
 }

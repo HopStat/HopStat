@@ -72,6 +72,7 @@ func migrationsList() []string {
 		migrationV3,
 		migrationV4,
 		migrationV5,
+		migrationV6,
 	}
 }
 
@@ -200,6 +201,11 @@ CREATE TABLE IF NOT EXISTS bgp_neighbors (
     FOREIGN KEY (node_id) REFERENCES nodes(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_bgp_neighbors_node_id ON bgp_neighbors(node_id);
+`
+
+const migrationV6 = `
+ALTER TABLE bgp_neighbors ADD COLUMN ipv6_peering_ip TEXT NOT NULL DEFAULT '';
+ALTER TABLE bgp_neighbors ADD COLUMN ipv6_neighbor_ip TEXT NOT NULL DEFAULT '';
 `
 
 func SeedAdminPassword(db *sql.DB, password string) error {
