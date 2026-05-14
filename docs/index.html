@@ -736,7 +736,7 @@ footer {
 <div class="section-wrap anchor" id="install">
   <span class="section-tag fi">// quick start</span>
   <h2 class="fi">Running in under 60 seconds.</h2>
-  <p class="sec-desc fi">Download the binary for your platform, generate secrets, write a config, run it. There is no step four.</p>
+  <p class="sec-desc fi">Download the binary and run it. Config, secrets, and the first admin account are generated automatically on first start.</p>
 
   <div class="install-block">
 
@@ -748,30 +748,57 @@ footer {
           <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
           <span class="code-filename">bash</span>
         </div>
-        <button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall',`curl -Lo hopstat https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64\nchmod +x hopstat\n\n# Generate secrets\nexport LG_JWT_SECRET=$(openssl rand -hex 32)\nexport LG_CREDENTIAL_KEY=$(openssl rand -hex 32)\nexport LG_ADMIN_PASSWORD=changeme\n\n# Copy and edit config\ncp config.example.yaml config.yaml\n# vim config.yaml  →  set org_name, as_number\n\n./hopstat --mode=server\n# Open http://localhost:8080  ·  Admin at /admin`)">📋 copy</button>
+        <button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall',`curl -Lo hopstat https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64\nchmod +x hopstat\n./hopstat --mode=server\n# config.yaml is auto-generated with random secrets on first run\n# Admin credentials are printed to stdout — change them after first login`)">📋 copy</button>
       </div>
 <pre class="code-body"><span class="cc"># Download the binary</span>
 <span class="cm">curl -Lo hopstat \</span>
 <span class="chl">  https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64</span>
 <span class="cm">chmod +x hopstat</span>
-
-<span class="cc"># Generate secrets (keep these safe)</span>
-<span class="cm">export LG_JWT_SECRET=$(openssl rand -hex 32)</span>
-<span class="cm">export LG_CREDENTIAL_KEY=$(openssl rand -hex 32)</span>
-<span class="cm">export LG_ADMIN_PASSWORD=changeme</span>
-
-<span class="cc"># Copy and edit config</span>
-<span class="cm">cp config.example.yaml config.yaml</span>
-<span class="cc"># vim config.yaml  →  set org_name, as_number, ports …</span>
-
-<span class="cc"># Run</span>
 <span class="cm">./hopstat --mode=server</span>
-<span class="cc"># Open http://localhost:8080  ·  Admin panel at /admin</span></pre>
+
+<span class="cc"># config.yaml is created automatically with cryptographically</span>
+<span class="cc"># random jwt_secret and credential_key — no openssl needed.</span>
+<span class="cc"># Admin e-mail and password are printed to stdout on first start:</span>
+<span class="cc">#</span>
+<span class="cc">#   ╔══════════════════════════════════════════════════════╗</span>
+<span class="cc">#   ║          HOPSTAT — FIRST RUN CREDENTIALS             ║</span>
+<span class="cc">#   ╠══════════════════════════════════════════════════════╣</span>
+<span class="cc">#   ║  URL      http://localhost:8080/admin                ║</span>
+<span class="cc">#   ║  Email    admin@lookingglass.local                   ║</span>
+<span class="cc">#   ║  Password xK9mPqR2vTnLwBcY8jAsDf                    ║</span>
+<span class="cc">#   ╚══════════════════════════════════════════════════════╝</span>
+<span class="cc">#</span>
+<span class="cc"># Change your password in Admin → Users after first login.</span></pre>
     </div>
 
     <p class="fi" style="font-size:12px;color:var(--text3);margin-bottom:2rem;">
       ARM64 server? Use <code style="color:var(--cyan)">hopstat-linux-arm64</code> instead.&nbsp;
       Running an agent at a remote POP? Pass <code style="color:var(--cyan)">--mode=agent</code>.
+    </p>
+
+    <!-- systemd -->
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Install as a systemd service</h3>
+    <div class="code-box fi">
+      <div class="code-bar">
+        <div class="code-bar-left">
+          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
+          <span class="code-filename">bash</span>
+        </div>
+        <button class="copy-btn" id="cbSystemd" onclick="doCopy('cbSystemd',`sudo ./hopstat --install-service\n# Copies binary to /usr/local/bin/hopstat\n# Generates /etc/hopstat/config.yaml\n# Writes and enables /etc/systemd/system/hopstat.service\n# Admin credentials appear in: journalctl -u hopstat | grep -A 10 HOPSTAT`)">📋 copy</button>
+      </div>
+<pre class="code-body"><span class="cm">sudo ./hopstat --install-service</span>
+
+<span class="cc"># Copies binary  →  /usr/local/bin/hopstat</span>
+<span class="cc"># Generates      →  /etc/hopstat/config.yaml  (random secrets)</span>
+<span class="cc"># Writes &amp; enables /etc/systemd/system/hopstat.service</span>
+<span class="cc"># Starts the service immediately</span>
+<span class="cc">#</span>
+<span class="cc"># First-run credentials appear in the journal:</span>
+<span class="cm">journalctl -u hopstat | grep -A 10 HOPSTAT</span></pre>
+    </div>
+
+    <p class="fi" style="font-size:12px;color:var(--text3);margin-bottom:2rem;">
+      The service runs with <code style="color:var(--cyan)">CAP_NET_RAW</code> + <code style="color:var(--cyan)">CAP_NET_ADMIN</code> capabilities for ping / traceroute / mtr — no need to run as root.
     </p>
 
     <!-- Docker -->
@@ -782,41 +809,38 @@ footer {
           <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
           <span class="code-filename">docker</span>
         </div>
-        <button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  -p 8080:8080 \\\n  -v ./data:/app/data \\\n  -e LG_JWT_SECRET=$(openssl rand -hex 32) \\\n  -e LG_CREDENTIAL_KEY=$(openssl rand -hex 32) \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest`)">📋 copy</button>
+        <button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  -p 8080:8080 \\\n  -v ./data:/app/data \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest\n# jwt_secret and credential_key are auto-generated if not set\n# Set LG_ADMIN_PASSWORD to override the random first-run password`)">📋 copy</button>
       </div>
 <pre class="code-body"><span class="cm">docker run -d \</span>
 <span class="cm">  -p 8080:8080 \</span>
 <span class="cm">  -v ./data:/app/data \</span>
-<span class="cm">  -e </span><span class="ca">LG_JWT_SECRET</span><span class="cm">=$(openssl rand -hex 32) \</span>
-<span class="cm">  -e </span><span class="ca">LG_CREDENTIAL_KEY</span><span class="cm">=$(openssl rand -hex 32) \</span>
 <span class="cm">  -e </span><span class="ca">LG_ADMIN_PASSWORD</span><span class="cm">=changeme \</span>
-<span class="chl">  ghcr.io/hopstat/hopstat:latest</span></pre>
+<span class="chl">  ghcr.io/hopstat/hopstat:latest</span>
+
+<span class="cc"># jwt_secret and credential_key are auto-generated if not set.</span>
+<span class="cc"># Pin them via -e LG_JWT_SECRET=... -e LG_CREDENTIAL_KEY=...</span>
+<span class="cc"># to survive container restarts.</span></pre>
     </div>
 
     <!-- config.yaml -->
-    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Minimal config.yaml</h3>
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Customising config.yaml</h3>
     <div class="code-box fi">
       <div class="code-bar">
         <div class="code-bar-left">
           <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
           <span class="code-filename">config.yaml</span>
         </div>
-        <button class="copy-btn" id="cbConfig" onclick="doCopy('cbConfig',`server:\n  host: \"0.0.0.0\"\n  port: 8080\n  org_name: \"My Network\"\n  as_number: \"AS65000\"\n\nsecurity:\n  jwt_secret: \"\"       # openssl rand -hex 32\n  credential_key: \"\"   # openssl rand -hex 32\n  rate_limit_per_min: 10\n\ndatabase:\n  path: \"./lg.db\"\n\ngeoip:\n  license_key: \"\"      # MaxMind account\n  account_id: \"\"\n  db_dir: \"./data/geoip\"\n  update_interval: \"72h\"\n\nupdate:\n  enabled: true\n  github_repo: \"HopStat/HopStat\"`)">📋 copy</button>
+        <button class="copy-btn" id="cbConfig" onclick="doCopy('cbConfig',`server:\n  host: \"0.0.0.0\"\n  port: 8080\n  org_name: \"My Network\"   # shown in the UI header\n  as_number: \"AS65000\"\n\n# security.jwt_secret and security.credential_key are generated\n# automatically on first run — you can leave them as-is or pin\n# your own 64-char hex values here.\n\ngeoip:\n  license_key: \"\"   # MaxMind account (free tier works)\n  account_id:  \"\"\n  db_dir: \"./data/geoip\"\n  update_interval: \"72h\"\n\nupdate:\n  enabled: true`)">📋 copy</button>
       </div>
 <pre class="code-body"><span class="yh">server</span><span class="yk">:</span>
-  <span class="yk">host</span><span class="yk">:</span>     <span class="ys">"0.0.0.0"</span>
-  <span class="yk">port</span><span class="yk">:</span>     <span class="yv">8080</span>
-  <span class="yk">org_name</span><span class="yk">:</span> <span class="ys">"My Network"</span>       <span class="yc"># shown in the UI</span>
+  <span class="yk">host</span><span class="yk">:</span>      <span class="ys">"0.0.0.0"</span>
+  <span class="yk">port</span><span class="yk">:</span>      <span class="yv">8080</span>
+  <span class="yk">org_name</span><span class="yk">:</span>  <span class="ys">"My Network"</span>  <span class="yc"># shown in the UI header</span>
   <span class="yk">as_number</span><span class="yk">:</span> <span class="ys">"AS65000"</span>
 
-<span class="yh">security</span><span class="yk">:</span>
-  <span class="yk">jwt_secret</span><span class="yk">:</span>      <span class="ys">""</span>   <span class="yc"># openssl rand -hex 32</span>
-  <span class="yk">credential_key</span><span class="yk">:</span>  <span class="ys">""</span>   <span class="yc"># openssl rand -hex 32  (AES-256-GCM)</span>
-  <span class="yk">rate_limit_per_min</span><span class="yk">:</span> <span class="yv">10</span>
-  <span class="yk">brute_force_max</span><span class="yk">:</span>    <span class="yv">5</span>
-
-<span class="yh">database</span><span class="yk">:</span>
-  <span class="yk">path</span><span class="yk">:</span> <span class="ys">"./lg.db"</span>
+<span class="yc"># security.jwt_secret and security.credential_key are generated</span>
+<span class="yc"># automatically on first run — you can leave them as-is or pin</span>
+<span class="yc"># your own 64-char hex values here.</span>
 
 <span class="yh">geoip</span><span class="yk">:</span>
   <span class="yk">license_key</span><span class="yk">:</span>     <span class="ys">""</span>   <span class="yc"># MaxMind account (free tier works)</span>
@@ -825,8 +849,7 @@ footer {
   <span class="yk">update_interval</span><span class="yk">:</span> <span class="ys">"72h"</span>
 
 <span class="yh">update</span><span class="yk">:</span>
-  <span class="yk">enabled</span><span class="yk">:</span>     <span class="yv">true</span>
-  <span class="yk">github_repo</span><span class="yk">:</span> <span class="ys">"HopStat/HopStat"</span></pre>
+  <span class="yk">enabled</span><span class="yk">:</span> <span class="yv">true</span></pre>
     </div>
 
     <p class="fi" style="font-size:12px;color:var(--text3);margin-top:1rem;">
