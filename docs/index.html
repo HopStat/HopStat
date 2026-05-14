@@ -105,13 +105,18 @@ nav {
 /* ─── HERO ────────────────────────────────────────── */
 .hero {
   position:relative; min-height:100vh;
-  display:flex; align-items:center;
+  display:flex; align-items:center; justify-content:center;
   padding:6rem 2.5rem 4rem;
   overflow:hidden;
 }
-.hero-left {
+.hero-inner {
   position:relative; z-index:2;
-  max-width:560px; flex-shrink:0;
+  max-width:1160px; width:100%;
+  display:flex; align-items:center; gap:3rem;
+}
+.hero-left {
+  flex:1; min-width:0;
+  max-width:560px;
 }
 .hero-badge {
   display:inline-flex; align-items:center; gap:8px;
@@ -153,9 +158,8 @@ h1.hero-title .dim { color:var(--text3); }
 
 /* Canvas */
 .hero-canvas-wrap {
-  position:absolute; right:-60px; top:50%;
-  transform:translateY(-50%);
-  width:620px; height:620px;
+  flex-shrink:0;
+  width:520px; height:520px;
   pointer-events:none;
 }
 #netCanvas { width:100%; height:100%; }
@@ -402,6 +406,7 @@ footer {
 
 <!-- ────────────────────────── HERO -->
 <div class="hero">
+  <div class="hero-inner">
   <div class="hero-left">
     <div class="hero-badge">
       <div class="badge-dot"></div>
@@ -434,8 +439,9 @@ footer {
   </div>
 
   <div class="hero-canvas-wrap">
-    <canvas id="netCanvas" width="620" height="620"></canvas>
+    <canvas id="netCanvas" width="520" height="520"></canvas>
   </div>
+  </div><!-- /.hero-inner -->
 </div>
 
 <hr class="div">
