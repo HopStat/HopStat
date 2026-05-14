@@ -1,0 +1,24 @@
+services:
+  hopstat:
+    image: ghcr.io/hopstat/hopstat:latest
+    # build: .   # uncomment to build from source
+    ports:
+      - "8080:8080"
+    volumes:
+      - hopstat-data:/data
+    environment:
+      # Set a known admin password on first start.
+      # After logging in, change it in Admin → Users.
+      LG_ADMIN_PASSWORD: changeme
+
+      # Optional: pin secrets so they survive image rebuilds.
+      # Leave unset to let HopStat generate them automatically on first start.
+      # LG_SECURITY_JWT_SECRET: ""       # min 64 hex chars  (openssl rand -hex 32)
+      # LG_SECURITY_CREDENTIAL_KEY: ""   # exactly 64 hex chars (openssl rand -hex 32)
+    cap_add:
+      - NET_RAW    # required for ping
+      - NET_ADMIN  # required for mtr / traceroute
+    restart: unless-stopped
+
+volumes:
+  hopstat-data:

@@ -1,26 +1,39 @@
+# ── Frontend build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS frontend
-WORKDIR /app/web/frontend
-COPY web/frontend/package.json web/frontend/package-lock.json* ./
-RUN npm install
+WORKDIR /app
+COPY web/frontend/package.json web/frontend/package-lock.json ./
+RUN npm ci
 COPY web/frontend/ ./
 RUN npm run build
 
-FROM golang:1.25-alpine AS builder
-RUN apk add --no-cache git
-WORKDIR /app
+# ── Go build ──────────────────────────────────────────────────────────────────
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+
 COPY go.mod go.sum ./
 RUN go mod download
-COPY . .
-COPY --from=frontend /app/web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /lg ./cmd/lg
 
-FROM alpine:3.21
-RUN apk add --no-cache ca-certificates && adduser -D -H appuser
-COPY --from=builder /lg /usr/local/bin/lg
-COPY --from=builder /app/web/dist /app/web/dist
-COPY config.docker.yaml /app/config.yaml
-RUN mkdir -p /app/data && chown appuser /app/data && chown appuser /app/web/dist
-WORKDIR /app
-USER appuser
-EXPOSE 8011
-ENTRYPOINT ["lg", "--mode=server", "--config=/app/config.yaml"]
+COPY . .
+COPY --from=frontend /app/../dist ./web/dist
+
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build \
+    -ldflags="-s -w -X main.version=${VERSION}" \
+    -o /hopstat ./cmd/lg/
+
+# ── Runtime ───────────────────────────────────────────────────────────────────
+FROM alpine:3.20
+
+# Network tools required for ping / traceroute / mtr
+RUN apk add --no-cache ca-certificates iputils traceroute mtr
+
+COPY --from=build /hopstat /usr/local/bin/hopstat
+
+# /data holds config, database, GeoIP databases, and logo uploads.
+# Mount a named volume here to persist state across container restarts.
+VOLUME ["/data"]
+
+EXPOSE 8080 9090
+
+ENTRYPOINT ["hopstat"]
+CMD ["--mode=server", "--config=/data/config.yaml"]

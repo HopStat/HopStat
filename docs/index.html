@@ -815,17 +815,21 @@ footer {
           <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
           <span class="code-filename">docker</span>
         </div>
-        <button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  -p 8080:8080 \\\n  -v ./data:/app/data \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest\n# jwt_secret and credential_key are auto-generated if not set\n# Set LG_ADMIN_PASSWORD to override the random first-run password`)">📋 copy</button>
+        <button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  --cap-add NET_RAW --cap-add NET_ADMIN \\\n  -p 8080:8080 \\\n  -v hopstat-data:/data \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest\n\n# Config + secrets are auto-generated in the /data volume on first start.\n# Check first-run credentials: docker logs <container>\n\n# Stateless / no-volume deployments: pin secrets so they survive restarts:\n#   -e LG_SECURITY_JWT_SECRET=$(openssl rand -hex 32)\n#   -e LG_SECURITY_CREDENTIAL_KEY=$(openssl rand -hex 32)`)">📋 copy</button>
       </div>
 <pre class="code-body"><span class="cm">docker run -d \</span>
+<span class="cm">  --cap-add </span><span class="ca">NET_RAW</span><span class="cm"> --cap-add </span><span class="ca">NET_ADMIN</span><span class="cm"> \</span>
 <span class="cm">  -p 8080:8080 \</span>
-<span class="cm">  -v ./data:/app/data \</span>
+<span class="cm">  -v </span><span class="ca">hopstat-data</span><span class="cm">:/data \</span>
 <span class="cm">  -e </span><span class="ca">LG_ADMIN_PASSWORD</span><span class="cm">=changeme \</span>
 <span class="chl">  ghcr.io/hopstat/hopstat:latest</span>
 
-<span class="cc"># jwt_secret and credential_key are auto-generated if not set.</span>
-<span class="cc"># Pin them via -e LG_JWT_SECRET=... -e LG_CREDENTIAL_KEY=...</span>
-<span class="cc"># to survive container restarts.</span></pre>
+<span class="cc"># Config and secrets auto-generate in the /data volume on first start.</span>
+<span class="cc"># First-run admin credentials: docker logs &lt;container&gt;</span>
+<span class="cc">#</span>
+<span class="cc"># Stateless / no-volume deployments — pin secrets so they survive restarts:</span>
+<span class="cc">#   -e LG_SECURITY_JWT_SECRET=$(openssl rand -hex 32)</span>
+<span class="cc">#   -e LG_SECURITY_CREDENTIAL_KEY=$(openssl rand -hex 32)</span></pre>
     </div>
 
     <!-- config.yaml -->

@@ -16,21 +16,18 @@ Network looking glass platform with BGP route lookup, ping, traceroute, MTR and 
 ## Quick Start
 
 ```bash
-# Download the latest binary
+# One-line installer (Linux, requires root)
+curl -sSL https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh | sudo bash
+```
+
+Or manually:
+
+```bash
 curl -Lo hopstat https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64
 chmod +x hopstat
-
-# Generate secrets
-export LG_JWT_SECRET=$(openssl rand -hex 32)
-export LG_CREDENTIAL_KEY=$(openssl rand -hex 32)
-export LG_ADMIN_PASSWORD=changeme
-
-# Copy and edit config
-cp config.example.yaml config.yaml
-# Edit config.yaml: set security.jwt_secret, security.credential_key, server.org_name
-
-./hopstat --mode=server --config=config.yaml
-# Open http://localhost:8080
+./hopstat --mode=server
+# config.yaml is auto-generated with random secrets on first start.
+# Admin credentials are printed to the console — change them after first login.
 ```
 
 ## Installation
@@ -48,50 +45,82 @@ Download from [Releases](https://github.com/HopStat/HopStat/releases):
 
 ```bash
 docker run -d \
+  --cap-add NET_RAW --cap-add NET_ADMIN \
   -p 8080:8080 \
-  -v ./data:/app/data \
-  -e LG_JWT_SECRET=$(openssl rand -hex 32) \
-  -e LG_CREDENTIAL_KEY=$(openssl rand -hex 32) \
+  -v hopstat-data:/data \
   -e LG_ADMIN_PASSWORD=changeme \
   ghcr.io/hopstat/hopstat:latest
 ```
 
+Config and secrets are **auto-generated** inside the `/data` volume on first start.  
+Admin credentials are written to the container log — check with `docker logs <container>`.
+
+To pin secrets across image rebuilds (stateless deployments):
+
+```bash
+-e LG_SECURITY_JWT_SECRET=$(openssl rand -hex 32) \
+-e LG_SECURITY_CREDENTIAL_KEY=$(openssl rand -hex 32)
+```
+
+Or use Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+See [`docker-compose.yml`](docker-compose.yml) for the full example.
+
 ### Build from source
 
-Requires Go 1.21+ and Node.js 20+.
+Requires Go 1.23+ and Node.js 22+.
 
 ```bash
 git clone https://github.com/HopStat/HopStat.git
 cd HopStat
-
-# Build frontend
-cd web/frontend && npm install && npm run build && cd ../..
-
-# Build binary
+cd web/frontend && npm ci && npm run build && cd ../..
 make build
 ./hopstat --mode=server
 ```
 
 ## Configuration
 
-Copy `config.example.yaml` and edit:
+`config.yaml` is auto-generated with random secrets on first start — no manual setup needed.  
+To customise, edit the generated file or override individual values with environment variables.
+
+### Environment variables
+
+All config keys can be overridden with `LG_` + the key path (dots → underscores, uppercased):
+
+| Config key | Environment variable |
+|---|---|
+| `security.jwt_secret` | `LG_SECURITY_JWT_SECRET` |
+| `security.credential_key` | `LG_SECURITY_CREDENTIAL_KEY` |
+| `server.port` | `LG_SERVER_PORT` |
+| `database.path` | `LG_DATABASE_PATH` |
+
+> **Note:** `LG_ADMIN_PASSWORD` is a special variable read directly at startup to set the admin password. It does not follow the viper key-path convention.
+
+### Minimal config reference
 
 ```yaml
 server:
   port: 8080
-  org_name: "My Network"
-  as_number: "AS65000"
 
 security:
-  jwt_secret: ""        # 32-byte hex: openssl rand -hex 32
-  credential_key: ""    # 32-byte hex: openssl rand -hex 32
+  # Auto-generated on first start — override only if you need stable values
+  # (e.g. stateless Docker deployments without a persistent volume).
+  jwt_secret: ""        # 64 hex chars: openssl rand -hex 32
+  credential_key: ""    # 64 hex chars: openssl rand -hex 32
+
+geoip:
+  license_key: ""       # MaxMind account (free tier)
+  account_id: ""
+  db_dir: "./data/geoip"
+  update_interval: "72h"
 
 update:
   enabled: true
-  github_repo: "HopStat/HopStat"
 ```
-
-All fields can be overridden with `LG_` prefixed environment variables.
 
 ## Deployment Modes
 
@@ -100,7 +129,7 @@ All fields can be overridden with `LG_` prefixed environment variables.
 Runs the HTTP API, React SPA and query engine. Connects directly to routers via SSH/Telnet or delegates to remote agents.
 
 ```bash
-./hopstat --mode=server --config=config.yaml
+./hopstat --mode=server
 ```
 
 ### Agent mode
@@ -108,13 +137,22 @@ Runs the HTTP API, React SPA and query engine. Connects directly to routers via 
 Lightweight REST server deployed on remote POPs. The central server discovers it as a node.
 
 ```bash
-./hopstat --mode=agent --config=config.yaml
+./hopstat --mode=agent
 # Default port: 9090
+```
+
+### Systemd service
+
+```bash
+sudo ./hopstat --install-service
+# Installs to /usr/local/bin, generates /etc/hopstat/config.yaml,
+# writes and starts /etc/systemd/system/hopstat.service
+journalctl -u hopstat | grep -A 10 HOPSTAT   # view first-run credentials
 ```
 
 ## Admin Panel
 
-Access at `/admin` — default credentials set via `LG_ADMIN_PASSWORD` at first boot or created through the admin UI.
+Access at `/admin`. On first start, a random admin password is generated and printed to the console. Change it in **Admin → Users** after logging in.
 
 From the panel you can:
 - Add router nodes (SSH/Telnet credentials are encrypted with AES-256-GCM)
@@ -124,7 +162,7 @@ From the panel you can:
 
 ## GeoIP Enrichment
 
-Obtain a [MaxMind](https://www.maxmind.com/) account and set:
+Obtain a [MaxMind](https://www.maxmind.com/) account and set in `config.yaml`:
 
 ```yaml
 geoip:
@@ -139,10 +177,10 @@ Databases are downloaded and refreshed automatically.
 ## Development
 
 ```bash
-# Backend (hot-reload not included, restart manually)
+# Backend (restart manually after changes)
 make run-server
 
-# Frontend dev server with proxy to backend
+# Frontend dev server with API proxy to backend
 cd web/frontend && npm run dev
 # Visit http://localhost:5173
 ```
@@ -157,4 +195,4 @@ make lint
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
