@@ -740,65 +740,65 @@ footer {
 
   <div class="install-block">
 
-    <!-- Linux install -->
-    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Linux (x86-64)</h3>
+    <!-- One-liner install -->
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Linux — one command install</h3>
     <div class="code-box fi">
       <div class="code-bar">
         <div class="code-bar-left">
           <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
           <span class="code-filename">bash</span>
         </div>
-        <button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall',`curl -Lo hopstat https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64\nchmod +x hopstat\n./hopstat --mode=server\n# config.yaml is auto-generated with random secrets on first run\n# Admin credentials are printed to stdout — change them after first login`)">📋 copy</button>
+        <button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall',`curl -sSL https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh | sudo bash`)">📋 copy</button>
       </div>
-<pre class="code-body"><span class="cc"># Download the binary</span>
-<span class="cm">curl -Lo hopstat \</span>
-<span class="chl">  https://github.com/HopStat/HopStat/releases/latest/download/hopstat-linux-amd64</span>
-<span class="cm">chmod +x hopstat</span>
-<span class="cm">./hopstat --mode=server</span>
+<pre class="code-body"><span class="cm">curl -sSL \</span>
+<span class="chl">  https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh</span>
+<span class="cm">  | sudo bash</span>
 
-<span class="cc"># config.yaml is created automatically with cryptographically</span>
-<span class="cc"># random jwt_secret and credential_key — no openssl needed.</span>
-<span class="cc"># Admin e-mail and password are printed to stdout on first start:</span>
+<span class="cc"># Downloads the latest binary, verifies checksum,</span>
+<span class="cc"># installs to /usr/local/bin, writes and starts the</span>
+<span class="cc"># systemd service. Config is auto-generated with random</span>
+<span class="cc"># secrets on first start.</span>
 <span class="cc">#</span>
-<span class="cc">#   ╔══════════════════════════════════════════════════════╗</span>
-<span class="cc">#   ║          HOPSTAT — FIRST RUN CREDENTIALS             ║</span>
-<span class="cc">#   ╠══════════════════════════════════════════════════════╣</span>
-<span class="cc">#   ║  URL      http://localhost:8080/admin                ║</span>
-<span class="cc">#   ║  Email    admin@lookingglass.local                   ║</span>
-<span class="cc">#   ║  Password xK9mPqR2vTnLwBcY8jAsDf                    ║</span>
-<span class="cc">#   ╚══════════════════════════════════════════════════════╝</span>
-<span class="cc">#</span>
-<span class="cc"># Change your password in Admin → Users after first login.</span></pre>
+<span class="cc"># Options:</span>
+<span class="cc">#   --mode agent       install as a remote POP agent</span>
+<span class="cc">#   --version v1.2.0   pin a specific release</span>
+<span class="cc">#   --no-service       skip systemd, run manually</span></pre>
     </div>
 
     <p class="fi" style="font-size:12px;color:var(--text3);margin-bottom:2rem;">
-      ARM64 server? Use <code style="color:var(--cyan)">hopstat-linux-arm64</code> instead.&nbsp;
-      Running an agent at a remote POP? Pass <code style="color:var(--cyan)">--mode=agent</code>.
+      After install, admin credentials appear in the service log:<br>
+      <code style="color:var(--cyan)">journalctl -u hopstat | grep -A 10 HOPSTAT</code>
     </p>
 
     <!-- systemd -->
-    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Install as a systemd service</h3>
+    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">What the installer does</h3>
     <div class="code-box fi">
       <div class="code-bar">
         <div class="code-bar-left">
           <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-          <span class="code-filename">bash</span>
+          <span class="code-filename">output</span>
         </div>
-        <button class="copy-btn" id="cbSystemd" onclick="doCopy('cbSystemd',`sudo ./hopstat --install-service\n# Copies binary to /usr/local/bin/hopstat\n# Generates /etc/hopstat/config.yaml\n# Writes and enables /etc/systemd/system/hopstat.service\n# Admin credentials appear in: journalctl -u hopstat | grep -A 10 HOPSTAT`)">📋 copy</button>
       </div>
-<pre class="code-body"><span class="cm">sudo ./hopstat --install-service</span>
+<pre class="code-body"><span class="cc">  ╔════════════════════════════════════════════╗</span>
+<span class="cc">  ║   HopStat — Network Looking Glass         ║</span>
+<span class="cc">  ╚════════════════════════════════════════════╝</span>
 
-<span class="cc"># Copies binary  →  /usr/local/bin/hopstat</span>
-<span class="cc"># Generates      →  /etc/hopstat/config.yaml  (random secrets)</span>
-<span class="cc"># Writes &amp; enables /etc/systemd/system/hopstat.service</span>
-<span class="cc"># Starts the service immediately</span>
-<span class="cc">#</span>
-<span class="cc"># First-run credentials appear in the journal:</span>
-<span class="cm">journalctl -u hopstat | grep -A 10 HOPSTAT</span></pre>
+<span class="cm">[INFO] Detected: linux/amd64 — mode: server</span>
+<span class="cm">[INFO] Fetching latest release...</span>
+<span class="cm">[INFO] Downloading hopstat-linux-amd64...</span>
+<span class="cm">[ OK ] Checksum verified</span>
+<span class="cm">[ OK ] Binary installed: /usr/local/bin/hopstat</span>
+<span class="cm">[ OK ] hopstat v1.2.0</span>
+<span class="cm">[ OK ] Service file written: /etc/systemd/system/hopstat.service</span>
+<span class="cm">[ OK ] Service started</span>
+
+<span class="cc">  Binary:   /usr/local/bin/hopstat</span>
+<span class="cc">  Config:   /etc/hopstat/config.yaml  (auto-generated on first start)</span>
+<span class="cc">  Admin UI: http://localhost:8080/admin</span></pre>
     </div>
 
     <p class="fi" style="font-size:12px;color:var(--text3);margin-bottom:2rem;">
-      The service runs with <code style="color:var(--cyan)">CAP_NET_RAW</code> + <code style="color:var(--cyan)">CAP_NET_ADMIN</code> capabilities for ping / traceroute / mtr — no need to run as root.
+      The service runs with <code style="color:var(--cyan)">CAP_NET_RAW</code> + <code style="color:var(--cyan)">CAP_NET_ADMIN</code> capabilities — ping, traceroute and mtr work without root.
     </p>
 
     <!-- Docker -->
