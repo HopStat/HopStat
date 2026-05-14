@@ -1,7 +1,7 @@
 services:
   hopstat:
-    image: ghcr.io/hopstat/hopstat:latest
-    # build: .   # uncomment to build from source
+    build: .
+    # image: ghcr.io/hopstat/hopstat:latest   # use after first release is published
     ports:
       - "8080:8080"
     volumes:
