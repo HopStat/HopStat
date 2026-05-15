@@ -266,6 +266,11 @@ func StreamResult(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		if _, exists := queryStore.Get(queryID); !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "query not found"})
+			return
+		}
+
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
@@ -1021,6 +1026,11 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 		}
 
 		os.MkdirAll("data/uploads", 0o755)
+		for _, oldExt := range []string{".png", ".jpg", ".svg", ".webp"} {
+			if oldExt != ext {
+				os.Remove("data/uploads/logo" + oldExt)
+			}
+		}
 		outPath := "data/uploads/logo" + ext
 		out, err := os.Create(outPath)
 		if err != nil {

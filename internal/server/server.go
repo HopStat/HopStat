@@ -168,7 +168,11 @@ func (s *Server) setupRoutes() {
 			return
 		}
 
-		ext := strings.ToLower(filepath[strings.LastIndex(filepath, "."):])
+		dotIdx := strings.LastIndex(filepath, ".")
+		ext := ""
+		if dotIdx >= 0 {
+			ext = strings.ToLower(filepath[dotIdx:])
+		}
 		mime := "application/octet-stream"
 		switch ext {
 		case ".css":

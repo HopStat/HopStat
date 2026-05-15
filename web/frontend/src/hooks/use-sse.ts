@@ -58,23 +58,29 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
 
     es.onerror = () => {
       es.close()
-      // Fallback to polling
+      // Fallback to polling with limited retries for transient errors
       let pollCount = 0
+      let consecutiveErrors = 0
       const interval = setInterval(async () => {
         pollCount++
         if (pollCount > 60) { clearInterval(interval); setError('Timeout'); return }
         try {
           const res = await fetch(`/api/v1/query/${queryId}`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
           const json = await res.json()
           const data = json.data as QueryResult
+          consecutiveErrors = 0
           setResult(data)
           if (data.raw) {
             setLines(data.raw.split('\n').filter(l => l.length > 0))
           }
           if (data.status === 'done' || data.status === 'error') clearInterval(interval)
         } catch {
-          clearInterval(interval)
-          setError('Failed to fetch result')
+          consecutiveErrors++
+          if (consecutiveErrors >= 5) {
+            clearInterval(interval)
+            setError('Failed to fetch result')
+          }
         }
       }, 1000)
     }

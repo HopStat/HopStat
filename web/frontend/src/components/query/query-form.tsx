@@ -47,12 +47,12 @@ export function QueryForm({ onQuerySubmit }: Props) {
   const [nodeId, setNodeId] = useState('')
   const [command, setCommand] = useState('')
   const [target, setTarget] = useState('')
-  const availableCmds = commands.filter(c => {
+  const availableCmds = useMemo(() => commands.filter(c => {
     if (!nodeId) return true
     const node = nodes.find(n => n.id === parseInt(nodeId))
     if (!node || !node.enabled_cmds?.length) return true
     return node.enabled_cmds.includes(c.value)
-  })
+  }), [nodeId, nodes])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -75,7 +75,7 @@ export function QueryForm({ onQuerySubmit }: Props) {
 
   useEffect(() => {
     if (command && !availableCmds.find(c => c.value === command)) setCommand('')
-  }, [nodeId])
+  }, [nodeId, command, availableCmds])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
