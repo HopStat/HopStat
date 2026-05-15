@@ -12,6 +12,7 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
   const [lines, setLines] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const esRef = useRef<EventSource | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (!queryId) {
@@ -63,7 +64,12 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
       let consecutiveErrors = 0
       const interval = setInterval(async () => {
         pollCount++
-        if (pollCount > 60) { clearInterval(interval); setError('Timeout'); return }
+        if (pollCount > 60) {
+          clearInterval(interval)
+          intervalRef.current = null
+          setError('Timeout')
+          return
+        }
         try {
           const res = await fetch(`/api/v1/query/${queryId}`)
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -74,20 +80,29 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
           if (data.raw) {
             setLines(data.raw.split('\n').filter(l => l.length > 0))
           }
-          if (data.status === 'done' || data.status === 'error') clearInterval(interval)
+          if (data.status === 'done' || data.status === 'error') {
+            clearInterval(interval)
+            intervalRef.current = null
+          }
         } catch {
           consecutiveErrors++
           if (consecutiveErrors >= 5) {
             clearInterval(interval)
+            intervalRef.current = null
             setError('Failed to fetch result')
           }
         }
       }, 1000)
+      intervalRef.current = interval
     }
 
     return () => {
       es.close()
       esRef.current = null
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
   }, [queryId])
 

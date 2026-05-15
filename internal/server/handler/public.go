@@ -477,6 +477,10 @@ func UpdateNode(db *sql.DB) gin.HandlerFunc {
 			node.Description = req.Description
 		}
 		if req.Type != "" {
+			if req.Type != "standalone" && req.Type != "lg_node" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node type. Must be 'standalone' or 'lg_node'"})
+				return
+			}
 			node.Type = domain.NodeType(req.Type)
 		}
 		if req.City != "" {
@@ -1002,14 +1006,13 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
 				return
 			}
-			content := string(all)
-			if strings.Contains(strings.ToLower(content), "<script") ||
-				strings.Contains(strings.ToLower(content), "onload=") ||
-				strings.Contains(strings.ToLower(content), "onerror=") ||
-				strings.Contains(strings.ToLower(content), "onclick=") ||
-				strings.Contains(strings.ToLower(content), "onmouseover=") ||
-				strings.Contains(strings.ToLower(content), "javascript:") {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "SVG contains disallowed script content"})
+			lower := strings.ToLower(string(all))
+			if svgEventHandlers.MatchString(lower) ||
+				strings.Contains(lower, "<script") ||
+				strings.Contains(lower, "javascript:") ||
+				strings.Contains(lower, "<foreignobject") ||
+				svgExternalRef.MatchString(lower) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "SVG contains disallowed content"})
 				return
 			}
 			file.Seek(0, io.SeekStart)
@@ -1053,6 +1056,13 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 }
 
 var ipRegex = regexp.MustCompile(`\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b`)
+
+// svgEventHandlers matches any on* attribute (e.g. onload=, onbegin=, onclick=).
+// Applied to lowercased SVG content to catch mixed-case bypasses.
+var svgEventHandlers = regexp.MustCompile(`\bon[a-z]+=`)
+
+// svgExternalRef matches external URL references in href/src/xlink:href attributes.
+var svgExternalRef = regexp.MustCompile(`(?:x?link:href|href|src)\s*=\s*["']https?://`)
 
 func enrichLineWithAS(ctx context.Context, geoDB interface{ ResolveASN(context.Context, string) (*domain.ASInfo, error) }, line string) string {
 	matches := ipRegex.FindStringSubmatch(line)

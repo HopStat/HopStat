@@ -14,13 +14,13 @@ function getToken(): string | null {
 export function AuditPage() {
   const { t } = useI18n()
   const [entries, setEntries] = useState<AuditEntry[]>([])
-  const [page, setPage] = useState(0)
+  const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 20
 
   useEffect(() => {
     const token = getToken()
-    fetch(`/api/v1/admin/audit?limit=${limit}&page=${page}`, {
+    fetch(`/api/v1/admin/audit?limit=${limit}&page=${page - 1}`, {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     })
       .then(res => res.json())
