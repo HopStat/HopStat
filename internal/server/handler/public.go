@@ -400,6 +400,10 @@ func CreateNode(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node type. Must be 'standalone' or 'lg_node'"})
 			return
 		}
+		if req.Type == "lg_node" && req.AgentURL != "" && !strings.HasPrefix(req.AgentURL, "https://") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "agent_url must use HTTPS to protect the agent token"})
+			return
+		}
 
 		var enabledCmds []domain.CommandType
 		for _, cmd := range req.EnabledCmds {
@@ -510,6 +514,10 @@ func UpdateNode(db *sql.DB) gin.HandlerFunc {
 		}
 		if req.AgentToken != "" {
 			node.AgentToken = req.AgentToken
+		}
+		if string(node.Type) == "lg_node" && node.AgentURL != "" && !strings.HasPrefix(node.AgentURL, "https://") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "agent_url must use HTTPS to protect the agent token"})
+			return
 		}
 
 		updated, err := repo.Update(c.Request.Context(), node)

@@ -1,7 +1,10 @@
 package updater
 
 import (
+	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -73,15 +76,20 @@ func (u *Updater) Apply(ctx context.Context) error {
 	}
 
 	assetName := fmt.Sprintf("hopstat-%s-%s", runtime.GOOS, runtime.GOARCH)
-	var dlURL string
+	var dlURL, checksumURL string
 	for _, a := range rel.Assets {
-		if a.Name == assetName {
+		switch a.Name {
+		case assetName:
 			dlURL = a.BrowserDownloadURL
-			break
+		case "checksums.txt":
+			checksumURL = a.BrowserDownloadURL
 		}
 	}
 	if dlURL == "" {
 		return fmt.Errorf("no release asset for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+	if checksumURL == "" {
+		return fmt.Errorf("checksums.txt not found in release assets")
 	}
 
 	execPath, err := os.Executable()
@@ -99,6 +107,11 @@ func (u *Updater) Apply(ctx context.Context) error {
 	if err := u.download(ctx, dlURL, tmp); err != nil {
 		os.Remove(tmp)
 		return fmt.Errorf("download: %w", err)
+	}
+
+	if err := u.verifyChecksum(ctx, tmp, assetName, checksumURL); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("checksum verification failed: %w", err)
 	}
 
 	if err := os.Chmod(tmp, 0755); err != nil {
@@ -164,6 +177,54 @@ func (u *Updater) download(ctx context.Context, url, dest string) error {
 
 	_, err = io.Copy(f, io.LimitReader(resp.Body, 200<<20))
 	return err
+}
+
+func (u *Updater) verifyChecksum(ctx context.Context, filePath, assetName, checksumURL string) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", checksumURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := u.apiClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("fetch checksums: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("checksums.txt returned %d", resp.StatusCode)
+	}
+
+	var expected string
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) == 2 && fields[1] == assetName {
+			expected = fields[0]
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read checksums: %w", err)
+	}
+	if expected == "" {
+		return fmt.Errorf("no checksum entry for %s", assetName)
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return fmt.Errorf("hash binary: %w", err)
+	}
+	got := hex.EncodeToString(h.Sum(nil))
+	if got != expected {
+		return fmt.Errorf("SHA256 mismatch: got %s, want %s", got, expected)
+	}
+	slog.Info("checksum verified", "asset", assetName, "sha256", got)
+	return nil
 }
 
 // isNewer returns true if latest tag is a newer semver than current.
