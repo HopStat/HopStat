@@ -59,17 +59,23 @@ func resolveTarget(ctx context.Context, target string) (string, error) {
 }
 
 func isBlockedIP(ip net.IP) bool {
-	if ip.IsLoopback() || ip.IsUnspecified() {
+	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsPrivate() {
 		return true
 	}
-	if ip.IsPrivate() {
+	if ip.IsLinkLocalUnicast() || ip.IsMulticast() {
 		return true
 	}
 	if ip4 := ip.To4(); ip4 != nil {
+		// Link-local IPv4
 		if ip4[0] == 169 && ip4[1] == 254 {
 			return true
 		}
+		// 0.0.0.0/8
 		if ip4[0] == 0 {
+			return true
+		}
+		// CGNAT / Shared Address Space (RFC 6598) — 100.64.0.0/10
+		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
 			return true
 		}
 	}

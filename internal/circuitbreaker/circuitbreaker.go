@@ -9,13 +9,14 @@ import (
 var ErrCircuitOpen = errors.New("circuit breaker open")
 
 type CircuitBreaker struct {
-	mu          sync.Mutex
-	failures    int
-	lastFailure time.Time
-	state       cbState
-	threshold   int
-	resetTimeout time.Duration
-	halfOpenSeq uint64
+	mu               sync.Mutex
+	failures         int
+	lastFailure      time.Time
+	state            cbState
+	threshold        int
+	resetTimeout     time.Duration
+	halfOpenSeq      uint64
+	halfOpenInFlight bool
 }
 
 type cbState int
@@ -44,6 +45,14 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
 		cb.state = cbHalfOpen
 		cb.halfOpenSeq++
 	}
+	// Only allow one probe at a time in half-open state
+	if cb.state == cbHalfOpen && cb.halfOpenInFlight {
+		cb.mu.Unlock()
+		return ErrCircuitOpen
+	}
+	if cb.state == cbHalfOpen {
+		cb.halfOpenInFlight = true
+	}
 	seq := cb.halfOpenSeq
 	cb.mu.Unlock()
 
@@ -62,12 +71,14 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
 		if cb.failures >= cb.threshold {
 			cb.state = cbOpen
 		}
+		cb.halfOpenInFlight = false
 		cb.mu.Unlock()
 		return err
 	}
 
 	cb.failures = 0
 	cb.state = cbClosed
+	cb.halfOpenInFlight = false
 	cb.mu.Unlock()
 
 	return nil

@@ -115,7 +115,8 @@ func (u *Updater) downloadAndExtract(ctx context.Context, edition, targetPath st
 		return fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	dlClient := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := dlClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
@@ -170,7 +171,8 @@ func extractMMDB(r io.Reader, edition, tmpPath string) (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("create temp file: %w", err)
 			}
-			if _, err := io.Copy(f, tr); err != nil {
+			const maxMMDBSize = 200 << 20 // 200 MiB
+		if _, err := io.Copy(f, io.LimitReader(tr, maxMMDBSize)); err != nil {
 				f.Close()
 				return "", fmt.Errorf("write mmdb: %w", err)
 			}

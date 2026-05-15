@@ -50,6 +50,7 @@ func UISessionAuth(cfg *config.Config) gin.HandlerFunc {
 		}
 
 		c.Set("user_id", claims.UserID)
+		c.Set("user_role", claims.Role)
 		c.Next()
 	}
 }

@@ -194,7 +194,10 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 			e.enrichASPath(ctx, br, result)
 
 		case domain.CmdASPath:
-			asn, _ := strconv.ParseUint(query.Target, 10, 32)
+			asn, err := strconv.ParseUint(query.Target, 10, 32)
+			if err != nil || asn == 0 {
+				return domain.ErrInvalidTarget
+			}
 			if e.bgpMgr != nil && e.bgpMgr.HasActiveSession(query.NodeID) {
 				entries, err := e.bgpMgr.LookupASPath(ctx, query.NodeID, uint32(asn))
 				if err == nil && len(entries) > 0 {
@@ -226,7 +229,7 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 	if err != nil {
 		result.Status = domain.StatusError
 		result.ErrorCode = classifyError(err)
-		result.ErrorMsg = err.Error()
+		result.ErrorMsg = sanitizeErrorMsg(err)
 	} else {
 		result.Status = domain.StatusDone
 	}
@@ -294,6 +297,28 @@ func (e *QueryEngine) enrichASPath(ctx context.Context, br *domain.BGPResult, re
 				result.ASPathEnriched = append(result.ASPathEnriched, domain.ASInfo{ASN: asn})
 			}
 		}
+	}
+}
+
+func sanitizeErrorMsg(err error) string {
+	switch err {
+	case domain.ErrNodeNotFound:
+		return "node not found"
+	case domain.ErrCommandDisabled:
+		return "command not enabled for this node"
+	case domain.ErrInvalidTarget:
+		return "invalid target address"
+	case domain.ErrTimeout:
+		return "command timed out"
+	case domain.ErrRateLimited:
+		return "rate limit exceeded"
+	case domain.ErrQueryPoolFull:
+		return "server is busy, try again later"
+	default:
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			return "command timed out"
+		}
+		return "command execution failed"
 	}
 }
 

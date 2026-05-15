@@ -27,6 +27,8 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	return rl
 }
 
+const maxTrackedIPs = 100000
+
 func (rl *RateLimiter) Allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -44,6 +46,11 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	if len(valid) >= rl.limit {
 		rl.requests[ip] = valid
 		return false
+	}
+
+	// Cap total tracked IPs to prevent OOM under IP-rotation attacks
+	if _, exists := rl.requests[ip]; !exists && len(rl.requests) >= maxTrackedIPs {
+		return true // let excess IPs through rather than OOM
 	}
 
 	valid = append(valid, now)

@@ -199,7 +199,12 @@ func (s *Server) setupRoutes() {
 
 		c.Header("Content-Type", mime)
 		c.Header("Cache-Control", "public, max-age=31536000, immutable")
-		http.ServeContent(c.Writer, c.Request, stat.Name(), stat.ModTime(), f.(io.ReadSeeker))
+		rs, ok := f.(io.ReadSeeker)
+		if !ok {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		http.ServeContent(c.Writer, c.Request, stat.Name(), stat.ModTime(), rs)
 	})
 
 	// SPA fallback: serve index.html for all non-API, non-assets routes

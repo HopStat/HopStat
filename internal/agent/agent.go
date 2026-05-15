@@ -54,8 +54,10 @@ func (a *Agent) setupRoutes() {
 func (a *Agent) Run(ctx context.Context) error {
 	addr := fmt.Sprintf("%s:%d", a.cfg.Server.Host, a.cfg.Agent.Port)
 	a.server = &http.Server{
-		Addr:    addr,
-		Handler: a.router,
+		Addr:         addr,
+		Handler:      http.MaxBytesHandler(a.router, 1<<20), // 1 MiB max body
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 120 * time.Second,
 	}
 
 	slog.Info("agent starting", "addr", addr)
@@ -102,6 +104,9 @@ func (a *Agent) handlePing(c *gin.Context) {
 	if req.Count <= 0 {
 		req.Count = 5
 	}
+	if req.Count > 50 {
+		req.Count = 50
+	}
 
 	result, err := runPing(c.Request.Context(), req.Target, req.Count)
 	if err != nil {
@@ -123,6 +128,9 @@ func (a *Agent) handleTraceroute(c *gin.Context) {
 	if req.MaxHops <= 0 {
 		req.MaxHops = 30
 	}
+	if req.MaxHops > 64 {
+		req.MaxHops = 64
+	}
 
 	result, err := runTraceroute(c.Request.Context(), req.Target, req.MaxHops)
 	if err != nil {
@@ -143,6 +151,9 @@ func (a *Agent) handleMTR(c *gin.Context) {
 	}
 	if req.Cycles <= 0 {
 		req.Cycles = 10
+	}
+	if req.Cycles > 100 {
+		req.Cycles = 100
 	}
 
 	result, err := runMTR(c.Request.Context(), req.Target, req.Cycles)

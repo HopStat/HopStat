@@ -43,6 +43,8 @@ func New(asnPath, cityPath string) *GeoIPDB {
 }
 
 func (g *GeoIPDB) Enabled() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.enabled
 }
 

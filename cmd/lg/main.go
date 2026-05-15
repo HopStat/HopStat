@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -94,6 +95,7 @@ func main() {
 
 		// LG_ADMIN_PASSWORD env var takes precedence (useful in Docker/CI)
 		if pw := os.Getenv("LG_ADMIN_PASSWORD"); pw != "" {
+			os.Unsetenv("LG_ADMIN_PASSWORD")
 			if err := store.SeedAdminPassword(db, pw); err != nil {
 				slog.Error("failed to seed admin password", "error", err)
 			} else {
@@ -201,8 +203,12 @@ func runInstallService(cfgPath, mode string) error {
 			return fmt.Errorf("generate config: %w", err)
 		}
 		// Point database to a persistent data dir
-		replaceInFile(cfgDest, `path: "./lg.db"`, `path: "/var/lib/hopstat/lg.db"`)
-		replaceInFile(cfgDest, `db_dir: "./data/geoip"`, `db_dir: "/var/lib/hopstat/geoip"`)
+		if err := replaceInFile(cfgDest, `path: "./lg.db"`, `path: "/var/lib/hopstat/lg.db"`); err != nil {
+			slog.Warn("failed to update database path in config", "err", err)
+		}
+		if err := replaceInFile(cfgDest, `db_dir: "./data/geoip"`, `db_dir: "/var/lib/hopstat/geoip"`); err != nil {
+			slog.Warn("failed to update geoip path in config", "err", err)
+		}
 		if err := os.MkdirAll("/var/lib/hopstat", 0755); err != nil {
 			return fmt.Errorf("create data dir: %w", err)
 		}
@@ -269,18 +275,35 @@ WantedBy=multi-user.target
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {
-	data, err := os.ReadFile(src)
+	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, mode)
+	defer in.Close()
+
+	tmp := dst + ".tmp"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, dst)
 }
 
-func replaceInFile(path, old, new string) {
+func replaceInFile(path, old, new string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return
+		return err
 	}
 	updated := strings.ReplaceAll(string(data), old, new)
-	os.WriteFile(path, []byte(updated), 0600)
+	return os.WriteFile(path, []byte(updated), 0600)
 }

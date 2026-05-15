@@ -69,9 +69,12 @@ func (m *SessionManager) Start(ctx context.Context) error {
 		return fmt.Errorf("start bgp server: %w", err)
 	}
 
-	go m.bgpServer.Serve()
+	go func() {
+		m.bgpServer.Serve()
+		slog.Error("bgp server exited unexpectedly")
+	}()
 
-	watchCtx, cancel := context.WithCancel(context.Background())
+	watchCtx, cancel := context.WithCancel(ctx)
 	m.cancelWatch = cancel
 	go m.watchPeers(watchCtx)
 
@@ -154,10 +157,28 @@ func (m *SessionManager) RemoveNeighbor(id int64) error {
 }
 
 func (m *SessionManager) UpdateNeighbor(n *domain.BGPNeighbor) error {
-	if err := m.RemoveNeighbor(n.ID); err != nil {
-		return err
+	// Get old entry for rollback
+	m.mu.RLock()
+	oldEntry, hadOld := m.neighbors[n.ID]
+	m.mu.RUnlock()
+
+	// Add new peer first, before removing old one
+	if err := m.AddNeighbor(n); err != nil {
+		return fmt.Errorf("add updated neighbor: %w", err)
 	}
-	return m.AddNeighbor(n)
+
+	// Only remove old peer if it exists and has a different address
+	if hadOld && oldEntry.neighborIP != n.NeighborIP {
+		if err := m.bgpServer.DeletePeer(context.Background(), &api.DeletePeerRequest{Address: oldEntry.neighborIP}); err != nil {
+			slog.Warn("bgp old peer removal failed during update", "neighbor_ip", oldEntry.neighborIP, "err", err)
+		}
+	}
+	if hadOld && oldEntry.ipv6NeighborIP != "" && oldEntry.ipv6NeighborIP != n.IPv6NeighborIP {
+		if err := m.bgpServer.DeletePeer(context.Background(), &api.DeletePeerRequest{Address: oldEntry.ipv6NeighborIP}); err != nil {
+			slog.Warn("bgp old ipv6 peer removal failed during update", "neighbor_ip", oldEntry.ipv6NeighborIP, "err", err)
+		}
+	}
+	return nil
 }
 
 func (m *SessionManager) GetStatus(id int64) domain.BGPSessionState {
@@ -247,13 +268,19 @@ func (m *SessionManager) LookupASPath(ctx context.Context, nodeID int64, asn uin
 		return nil, fmt.Errorf("bgp server not started")
 	}
 
-	var results []*domain.BGPRouteEntry
+	var (
+		results []*domain.BGPRouteEntry
+		cbMu    sync.Mutex
+	)
 
 	for _, family := range []*api.Family{
 		{Afi: api.Family_AFI_IP, Safi: api.Family_SAFI_UNICAST},
 		{Afi: api.Family_AFI_IP6, Safi: api.Family_SAFI_UNICAST},
 	} {
-		if len(results) >= maxASPathResults {
+		cbMu.Lock()
+		atMax := len(results) >= maxASPathResults
+		cbMu.Unlock()
+		if atMax {
 			break
 		}
 		err := m.bgpServer.ListPath(ctx, &api.ListPathRequest{
@@ -261,13 +288,16 @@ func (m *SessionManager) LookupASPath(ctx context.Context, nodeID int64, asn uin
 			Family:    family,
 		}, func(dst *api.Destination) {
 			for _, path := range dst.Paths {
+				cbMu.Lock()
 				if len(results) >= maxASPathResults {
+					cbMu.Unlock()
 					return
 				}
 				if pathContainsASN(path, asn) {
 					entry := m.pathToRouteEntry(path, dst.Prefix)
 					results = append(results, entry)
 				}
+				cbMu.Unlock()
 			}
 		})
 		if err != nil {

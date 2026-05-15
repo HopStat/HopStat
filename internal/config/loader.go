@@ -115,6 +115,23 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("query.traceroute_timeout_sec", 60)
 }
 
+// isLowEntropy returns true if the string consists of a single repeated character
+// or is an obvious low-entropy value (all same chars, sequential digits, etc.)
+func isLowEntropy(s string) bool {
+	if len(s) == 0 {
+		return true
+	}
+	first := s[0]
+	allSame := true
+	for i := 1; i < len(s); i++ {
+		if s[i] != first {
+			allSame = false
+			break
+		}
+	}
+	return allSame
+}
+
 func validate(cfg *Config) error {
 	if cfg.Server.Mode != "server" && cfg.Server.Mode != "agent" {
 		return fmt.Errorf("invalid server.mode: %q (must be \"server\" or \"agent\")", cfg.Server.Mode)
@@ -128,6 +145,9 @@ func validate(cfg *Config) error {
 		}
 		if len(cfg.Security.JWTSecret) < 32 {
 			return fmt.Errorf("security.jwt_secret must be at least 32 characters")
+		}
+		if isLowEntropy(cfg.Security.JWTSecret) {
+			return fmt.Errorf("security.jwt_secret appears to have low entropy; use a randomly generated value (e.g. 'openssl rand -hex 32')")
 		}
 	}
 	if cfg.IsAgent() && strings.TrimSpace(cfg.Agent.Token) == "" {

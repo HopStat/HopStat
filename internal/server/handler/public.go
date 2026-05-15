@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -194,7 +195,7 @@ func SubmitQuery(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) gin.Handler
 
 		// Execute query asynchronously with line streaming
 		go func() {
-			consecutiveTimeouts := 0
+			var consecutiveTimeouts int64
 			const maxTimeouts = 5
 
 			result, err := h.engine.Execute(context.Background(), query, engine.ExecuteOption{
@@ -212,16 +213,16 @@ func SubmitQuery(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) gin.Handler
 						trimmed := strings.TrimSpace(line)
 						stripped := strings.TrimLeft(trimmed, "0123456789. \t")
 						if strings.HasPrefix(stripped, "* * *") || stripped == "* * *" {
-							consecutiveTimeouts++
+							atomic.AddInt64(&consecutiveTimeouts, 1)
 						} else if strings.Contains(stripped, "ms") {
-							consecutiveTimeouts = 0
+							atomic.StoreInt64(&consecutiveTimeouts, 0)
 						}
 					}
 
 					queryStore.AppendLine(queryID, enriched)
 				},
 				ShouldStop: func() bool {
-					return consecutiveTimeouts >= maxTimeouts
+					return atomic.LoadInt64(&consecutiveTimeouts) >= maxTimeouts
 				},
 			})
 			if err != nil {
@@ -405,8 +406,15 @@ func CreateNode(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		validCmdSet := map[string]bool{
+			"ping": true, "traceroute": true, "mtr": true, "bgp_route": true, "as_path": true,
+		}
 		var enabledCmds []domain.CommandType
 		for _, cmd := range req.EnabledCmds {
+			if !validCmdSet[cmd] {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid command in enabled_cmds: " + cmd})
+				return
+			}
 			enabledCmds = append(enabledCmds, domain.CommandType(cmd))
 		}
 		if len(enabledCmds) == 0 {
@@ -503,8 +511,15 @@ func UpdateNode(db *sql.DB) gin.HandlerFunc {
 			node.Active = *req.Active
 		}
 		if len(req.EnabledCmds) > 0 {
+			validCmdSet := map[string]bool{
+				"ping": true, "traceroute": true, "mtr": true, "bgp_route": true, "as_path": true,
+			}
 			var enabledCmds []domain.CommandType
 			for _, cmd := range req.EnabledCmds {
+				if !validCmdSet[cmd] {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid command in enabled_cmds: " + cmd})
+					return
+				}
 				enabledCmds = append(enabledCmds, domain.CommandType(cmd))
 			}
 			node.EnabledCmds = enabledCmds
@@ -622,6 +637,9 @@ func ListAudit(db *sql.DB) gin.HandlerFunc {
 				filter.Page = page
 			}
 		}
+		if filter.Limit == 0 {
+			filter.Limit = 50
+		}
 
 		repo := repo.NewAuditRepo(db)
 		entries, total, err := repo.List(c.Request.Context(), filter)
@@ -724,9 +742,13 @@ func CreateUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		validRoles := map[string]bool{"admin": true, "viewer": true}
 		role := req.Role
 		if role == "" {
-			role = "admin"
+			role = "viewer"
+		} else if !validRoles[role] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role: must be 'admin' or 'viewer'"})
+			return
 		}
 
 		user := &domain.User{
@@ -755,8 +777,26 @@ func DeleteUser(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		repo := repo.NewUserRepo(db)
-		if err := repo.Delete(c.Request.Context(), id); err != nil {
+		actingID, _ := c.Get("user_id")
+		if actingID == id {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete your own account"})
+			return
+		}
+		userRepo := repo.NewUserRepo(db)
+		allUsers, err := userRepo.List(c.Request.Context())
+		if err == nil {
+			adminCount := 0
+			for _, u := range allUsers {
+				if u.Role == "admin" && u.ID != id {
+					adminCount++
+				}
+			}
+			if adminCount == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete the last admin account"})
+				return
+			}
+		}
+		if err := userRepo.Delete(c.Request.Context(), id); err != nil {
 			slog.Error("failed to delete user", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": sanitizeError(err)})
 			return
@@ -942,6 +982,12 @@ func formatInt64Ptr(v *int64) string {
 	return strconv.FormatInt(*v, 10)
 }
 
+var publicSettingKeys = map[string]bool{
+	"site_name": true, "site_description": true, "logo_path": true,
+	"header_color": true, "url_website": true, "url_peeringdb": true,
+	"url_contact": true, "url_terms": true, "url_privacy": true,
+}
+
 func GetPublicSettings(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		q := queries.New(db)
@@ -950,7 +996,13 @@ func GetPublicSettings(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load settings"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": settings})
+		public := make(map[string]string, len(publicSettingKeys))
+		for k, v := range settings {
+			if publicSettingKeys[k] {
+				public[k] = v
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"data": public})
 	}
 }
 
@@ -967,7 +1019,7 @@ func GetAdminSettings(db *sql.DB) gin.HandlerFunc {
 }
 
 var allowedSettingKeys = map[string]bool{
-	"site_name": true, "site_description": true, "logo_path": true, "header_color": true,
+	"site_name": true, "site_description": true, "header_color": true,
 	"url_website": true, "url_peeringdb": true, "url_contact": true, "url_terms": true, "url_privacy": true,
 	"ping_count": true, "max_hops": true, "mtr_cycles": true,
 }
@@ -1036,6 +1088,7 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 				strings.Contains(lower, "<script") ||
 				strings.Contains(lower, "javascript:") ||
 				strings.Contains(lower, "<foreignobject") ||
+				strings.Contains(lower, "data:") ||
 				svgExternalRef.MatchString(lower) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "SVG contains disallowed content"})
 				return
@@ -1107,10 +1160,16 @@ func enrichLineWithAS(ctx context.Context, geoDB interface{ ResolveASN(context.C
 	if err != nil || info == nil || info.ASN == 0 {
 		return line
 	}
+	sanitizeName := func(s string) string {
+		return strings.Map(func(r rune) rune {
+			if r == '\n' || r == '\r' || r < 32 { return -1 }
+			return r
+		}, s)
+	}
 	suffix := " [AS" + strconv.FormatUint(uint64(info.ASN), 10) + " -"
-	name := info.ShortName
+	name := sanitizeName(info.ShortName)
 	if name == "" {
-		name = info.OrgName
+		name = sanitizeName(info.OrgName)
 	}
 	if name != "" {
 		suffix += " " + name

@@ -11,13 +11,45 @@ import (
 	"github.com/HopStat/HopStat/internal/parser"
 )
 
-func isValidTarget(target string) bool {
-	if net.ParseIP(target) != nil {
+func isBlockedIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsPrivate() {
 		return true
 	}
-	// Allow hostnames but reject obviously malicious input
-	if len(target) > 253 || strings.ContainsAny(target, ";|&`$(){}[]!><\n\r") {
+	if ip.IsLinkLocalUnicast() || ip.IsMulticast() {
+		return true
+	}
+	// CGNAT / Shared Address Space (RFC 6598)
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
+			return true
+		}
+		if ip4[0] == 169 && ip4[1] == 254 {
+			return true
+		}
+		if ip4[0] == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidTarget(target string) bool {
+	if strings.ContainsAny(target, ";|&`$(){}[]!><\n\r") || len(target) > 253 {
 		return false
+	}
+	// If it's already an IP, check the blocklist directly
+	if ip := net.ParseIP(target); ip != nil {
+		return !isBlockedIP(ip)
+	}
+	// For hostnames: resolve all addresses and verify none are blocked
+	addrs, err := net.LookupHost(target)
+	if err != nil || len(addrs) == 0 {
+		return false
+	}
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip != nil && isBlockedIP(ip) {
+			return false
+		}
 	}
 	return true
 }
