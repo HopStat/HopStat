@@ -58,12 +58,17 @@ func (m *SessionManager) Start(ctx context.Context) error {
 		listenPort = int32(m.cfg.ListenPort)
 	}
 
+	listenAddrs := m.cfg.ListenAddresses
+	if len(listenAddrs) == 0 {
+		listenAddrs = []string{"127.0.0.1"}
+	}
+
 	if err := m.bgpServer.StartBgp(ctx, &api.StartBgpRequest{
 		Global: &api.Global{
-			Asn:         0,
-			RouterId:    routerID,
-			ListenPort:  listenPort,
-			ListenAddresses: []string{"0.0.0.0"},
+			Asn:             m.cfg.LocalAS,
+			RouterId:        routerID,
+			ListenPort:      listenPort,
+			ListenAddresses: listenAddrs,
 		},
 	}); err != nil {
 		return fmt.Errorf("start bgp server: %w", err)

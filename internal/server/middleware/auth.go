@@ -16,7 +16,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func Auth(cfg *config.Config) gin.HandlerFunc {
+func Auth(cfg *config.Config, denyList *JTIDenyList) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.GetHeader("Authorization")
 		if auth == "" {
@@ -45,8 +45,17 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		if claims.ID != "" && denyList.IsRevoked(claims.ID) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token has been revoked"})
+			return
+		}
+
 		c.Set("user_id", claims.UserID)
 		c.Set("user_role", claims.Role)
+		c.Set("jti", claims.ID)
+		if claims.ExpiresAt != nil {
+			c.Set("token_exp", claims.ExpiresAt.Time)
+		}
 		c.Next()
 	}
 }

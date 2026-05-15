@@ -230,6 +230,8 @@ func SeedAdminPassword(db *sql.DB, password string) error {
 // EnsureFirstAdmin sets a random password on the admin account if it has never
 // been configured (i.e. still carries the DISABLED placeholder hash).
 // Returns the email and generated password when generated=true.
+// The final UPDATE is conditional on the hash still being DISABLED, so concurrent
+// calls are safe — only one will win and the others will return generated=false.
 func EnsureFirstAdmin(db *sql.DB) (email, password string, generated bool, err error) {
 	var hash string
 	row := db.QueryRow(`SELECT email, password_hash FROM users WHERE role = 'admin' LIMIT 1`)
@@ -249,8 +251,24 @@ func EnsureFirstAdmin(db *sql.DB) (email, password string, generated bool, err e
 	}
 	password = base64.RawURLEncoding.EncodeToString(b) // 24 URL-safe chars
 
-	if err = SeedAdminPassword(db, password); err != nil {
-		return "", "", false, err
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return "", "", false, fmt.Errorf("hash admin password: %w", err)
+	}
+
+	// Atomic conditional UPDATE: only succeeds if hash still has DISABLED prefix.
+	// If another process already set the password, RowsAffected == 0 and we return
+	// generated=false rather than claiming a password that was never stored.
+	res, err := db.Exec(
+		`UPDATE users SET password_hash = ? WHERE role = 'admin' AND password_hash LIKE '$2a$12$DISABLED%'`,
+		string(hashed),
+	)
+	if err != nil {
+		return "", "", false, fmt.Errorf("update admin password: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return email, "", false, nil
 	}
 	return email, password, true, nil
 }

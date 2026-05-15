@@ -74,8 +74,10 @@ type FooterConfig struct {
 }
 
 type BGPConfig struct {
-	ListenPort int    `mapstructure:"listen_port"`
-	RouterID   string `mapstructure:"router_id"`
+	ListenPort      int      `mapstructure:"listen_port"`
+	RouterID        string   `mapstructure:"router_id"`
+	LocalAS         uint32   `mapstructure:"local_as"`
+	ListenAddresses []string `mapstructure:"listen_addresses"`
 }
 
 type UpdateConfig struct {

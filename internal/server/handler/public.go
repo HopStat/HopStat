@@ -27,6 +27,7 @@ import (
 	"github.com/HopStat/HopStat/internal/driver"
 	"github.com/HopStat/HopStat/internal/engine"
 	"github.com/HopStat/HopStat/internal/geo"
+	"github.com/HopStat/HopStat/internal/server/middleware"
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/querystore"
 	"github.com/HopStat/HopStat/internal/store/repo"
@@ -47,7 +48,7 @@ func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) *Handler {
 		db:       db,
 		cfg:      cfg,
 		geoDB:    geoDB,
-		nodeRepo: repo.NewNodeRepo(db),
+		nodeRepo: repo.NewNodeRepo(db, cfg.Security.CredentialKey),
 	}
 	h.engine = engine.New(&engine.QueryConfig{
 		MaxConcurrent:        cfg.Query.MaxConcurrent,
@@ -62,9 +63,9 @@ func sanitizeError(err error) string {
 	return "internal error"
 }
 
-func ListNodes(db *sql.DB) gin.HandlerFunc {
+func ListNodes(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		nodes, err := repo.GetActive(c.Request.Context())
 		if err != nil {
 			slog.Error("failed to list active nodes", "error", err)
@@ -78,14 +79,14 @@ func ListNodes(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func GetNode(db *sql.DB) gin.HandlerFunc {
+func GetNode(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node id"})
 			return
 		}
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		node, err := repo.GetByID(c.Request.Context(), id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
@@ -128,7 +129,7 @@ func SubmitQuery(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) gin.Handler
 
 		// V-01b: Check node's enabled commands
 		{
-			nodeRepo := repo.NewNodeRepo(db)
+			nodeRepo := repo.NewNodeRepo(db, cfg.Security.CredentialKey)
 			node, err := nodeRepo.GetByID(c.Request.Context(), req.NodeID)
 			if err != nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
@@ -355,16 +356,27 @@ func Login(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
-func Logout() gin.HandlerFunc {
+func Logout(denyList *middleware.JTIDenyList) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if jti, ok := c.Get("jti"); ok {
+			if jtiStr, ok := jti.(string); ok && jtiStr != "" {
+				exp := time.Now().Add(24 * time.Hour)
+				if expVal, ok := c.Get("token_exp"); ok {
+					if t, ok := expVal.(time.Time); ok && !t.IsZero() {
+						exp = t
+					}
+				}
+				denyList.Revoke(jtiStr, exp)
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{"data": "logged out"})
 	}
 }
 
 // Admin handlers
-func ListAllNodes(db *sql.DB) gin.HandlerFunc {
+func ListAllNodes(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		nodes, err := repo.GetAll(c.Request.Context())
 		if err != nil {
 			slog.Error("failed to list all nodes", "error", err)
@@ -375,7 +387,7 @@ func ListAllNodes(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func CreateNode(db *sql.DB) gin.HandlerFunc {
+func CreateNode(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Name        string   `json:"name" binding:"required"`
@@ -435,7 +447,7 @@ func CreateNode(db *sql.DB) gin.HandlerFunc {
 			AgentToken:  req.AgentToken,
 		}
 
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		created, err := repo.Create(c.Request.Context(), node)
 		if err != nil {
 			slog.Error("failed to create node", "error", err)
@@ -448,7 +460,7 @@ func CreateNode(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func UpdateNode(db *sql.DB) gin.HandlerFunc {
+func UpdateNode(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
@@ -475,7 +487,7 @@ func UpdateNode(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		node, err := repo.GetByID(c.Request.Context(), id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
@@ -547,14 +559,14 @@ func UpdateNode(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func DeleteNode(db *sql.DB) gin.HandlerFunc {
+func DeleteNode(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		if err := repo.Delete(c.Request.Context(), id); err != nil {
 			slog.Error("failed to delete node", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": sanitizeError(err)})
@@ -564,14 +576,14 @@ func DeleteNode(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func TestNode(db *sql.DB) gin.HandlerFunc {
+func TestNode(db *sql.DB, credKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		repo := repo.NewNodeRepo(db)
+		repo := repo.NewNodeRepo(db, credKey)
 		node, err := repo.GetByID(c.Request.Context(), id)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
@@ -962,6 +974,7 @@ func generateJWT(userID int64, role string, secret string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"role":    role,
+		"jti":     uuid.NewString(),
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}

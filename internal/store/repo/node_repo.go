@@ -10,11 +10,35 @@ import (
 )
 
 type nodeRepo struct {
-	q *queries.Queries
+	q            *queries.Queries
+	credentialKey string
 }
 
-func NewNodeRepo(db *sql.DB) domain.NodeRepository {
-	return &nodeRepo{q: queries.New(db)}
+func NewNodeRepo(db *sql.DB, credentialKey string) domain.NodeRepository {
+	return &nodeRepo{q: queries.New(db), credentialKey: credentialKey}
+}
+
+func (r *nodeRepo) encryptToken(token string) string {
+	if token == "" || r.credentialKey == "" {
+		return token
+	}
+	enc, err := Encrypt(token, r.credentialKey)
+	if err != nil {
+		return token
+	}
+	return enc
+}
+
+func (r *nodeRepo) decryptToken(token string) string {
+	if token == "" || r.credentialKey == "" {
+		return token
+	}
+	dec, err := Decrypt(token, r.credentialKey)
+	if err != nil {
+		// Not yet encrypted (plaintext legacy value) — return as-is
+		return token
+	}
+	return dec
 }
 
 func (r *nodeRepo) GetAll(ctx context.Context) ([]*domain.Node, error) {
@@ -22,7 +46,11 @@ func (r *nodeRepo) GetAll(ctx context.Context) ([]*domain.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mapNodes(nodes), nil
+	result := mapNodes(nodes)
+	for _, n := range result {
+		n.AgentToken = r.decryptToken(n.AgentToken)
+	}
+	return result, nil
 }
 
 func (r *nodeRepo) GetActive(ctx context.Context) ([]*domain.Node, error) {
@@ -30,7 +58,11 @@ func (r *nodeRepo) GetActive(ctx context.Context) ([]*domain.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mapNodes(nodes), nil
+	result := mapNodes(nodes)
+	for _, n := range result {
+		n.AgentToken = r.decryptToken(n.AgentToken)
+	}
+	return result, nil
 }
 
 func (r *nodeRepo) GetByID(ctx context.Context, id int64) (*domain.Node, error) {
@@ -41,7 +73,9 @@ func (r *nodeRepo) GetByID(ctx context.Context, id int64) (*domain.Node, error) 
 	if node == nil {
 		return nil, domain.ErrNodeNotFound
 	}
-	return mapNode(node), nil
+	n := mapNode(node)
+	n.AgentToken = r.decryptToken(n.AgentToken)
+	return n, nil
 }
 
 func (r *nodeRepo) Create(ctx context.Context, node *domain.Node) (*domain.Node, error) {
@@ -56,12 +90,14 @@ func (r *nodeRepo) Create(ctx context.Context, node *domain.Node) (*domain.Node,
 		Active:      boolToInt(node.Active),
 		EnabledCmds: string(enabledCmds),
 		AgentURL:    node.AgentURL,
-		AgentToken:  node.AgentToken,
+		AgentToken:  r.encryptToken(node.AgentToken),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return mapNode(created), nil
+	n := mapNode(created)
+	n.AgentToken = r.decryptToken(n.AgentToken)
+	return n, nil
 }
 
 func (r *nodeRepo) Update(ctx context.Context, node *domain.Node) (*domain.Node, error) {
@@ -78,12 +114,14 @@ func (r *nodeRepo) Update(ctx context.Context, node *domain.Node) (*domain.Node,
 		Active:      boolToInt(node.Active),
 		EnabledCmds: string(enabledCmds),
 		AgentURL:    node.AgentURL,
-		AgentToken:  node.AgentToken,
+		AgentToken:  r.encryptToken(node.AgentToken),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return mapNode(updated), nil
+	n := mapNode(updated)
+	n.AgentToken = r.decryptToken(n.AgentToken)
+	return n, nil
 }
 
 func (r *nodeRepo) Delete(ctx context.Context, id int64) error {
@@ -96,6 +134,7 @@ func (r *nodeRepo) UpdateEnabledCmds(ctx context.Context, id int64, cmds []domai
 	if err != nil {
 		return err
 	}
+	// AgentToken is already encrypted in the DB; pass it through unchanged.
 	node.EnabledCmds = string(enabledCmds)
 	_, err = r.q.UpdateNode(ctx, node)
 	return err

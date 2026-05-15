@@ -65,7 +65,7 @@ func TestListNodes_Empty(t *testing.T) {
 	db := setupDB(t)
 	c, w := setupContext(db, http.MethodGet, "/nodes", "")
 
-	ListNodes(db)(c)
+	ListNodes(db, "")(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
@@ -93,7 +93,7 @@ func TestGetNode_NotFound(t *testing.T) {
 	c, w := setupContext(db, http.MethodGet, "/nodes/999", "")
 	c.Params = gin.Params{{Key: "id", Value: "999"}}
 
-	GetNode(db)(c)
+	GetNode(db, "")(c)
 
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
@@ -105,7 +105,7 @@ func TestGetNode_InvalidID(t *testing.T) {
 	c, w := setupContext(db, http.MethodGet, "/nodes/abc", "")
 	c.Params = gin.Params{{Key: "id", Value: "abc"}}
 
-	GetNode(db)(c)
+	GetNode(db, "")(c)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
@@ -191,7 +191,7 @@ func TestListAllNodes_Empty(t *testing.T) {
 	db := setupDB(t)
 	c, w := setupContext(db, http.MethodGet, "/admin/nodes", "")
 
-	ListAllNodes(db)(c)
+	ListAllNodes(db, "")(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)

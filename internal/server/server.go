@@ -69,6 +69,8 @@ func New(cfg *config.Config, db *sql.DB, geoDB *geo.GeoIPDB, distFS fs.FS, bgpMg
 
 func (s *Server) setupRoutes() {
 	r := s.router
+	credKey := s.cfg.Security.CredentialKey
+	denyList := middleware.NewJTIDenyList()
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "mode": "server"})
@@ -78,13 +80,13 @@ func (s *Server) setupRoutes() {
 	public := r.Group("/api/v1")
 	public.Use(middleware.RateLimit(s.cfg.Security.RateLimitPerMin))
 	{
-		public.GET("/nodes", handler.ListNodes(s.db))
-		public.GET("/nodes/:id", handler.GetNode(s.db))
+		public.GET("/nodes", handler.ListNodes(s.db, credKey))
+		public.GET("/nodes/:id", handler.GetNode(s.db, credKey))
 		public.POST("/query", handler.SubmitQuery(s.db, s.cfg, s.geoDB))
 		public.GET("/query/:id", handler.GetResult(s.db))
 		public.GET("/query/:id/stream", handler.StreamResult(s.db))
 		public.GET("/myip", handler.MyIP(s.geoDB))
-			public.GET("/settings", handler.GetPublicSettings(s.db))
+		public.GET("/settings", handler.GetPublicSettings(s.db))
 	}
 
 	// Auth routes
@@ -95,19 +97,19 @@ func (s *Server) setupRoutes() {
 	api := r.Group("/api/v1")
 	{
 		api.POST("/auth/login", bruteForceGuard.Middleware(), handler.Login(s.db, s.cfg))
-		api.POST("/auth/logout", middleware.Auth(s.cfg), handler.Logout())
+		api.POST("/auth/logout", middleware.Auth(s.cfg, denyList), handler.Logout(denyList))
 	}
 
 	// Admin routes (protected)
 	admin := r.Group("/api/v1/admin")
-	admin.Use(middleware.Auth(s.cfg), middleware.RequireAdmin(), middleware.RateLimit(s.cfg.Security.RateLimitPerMin))
+	admin.Use(middleware.Auth(s.cfg, denyList), middleware.RequireAdmin(), middleware.RateLimit(s.cfg.Security.RateLimitPerMin))
 	{
-		admin.GET("/nodes", handler.ListAllNodes(s.db))
-		admin.POST("/nodes", handler.CreateNode(s.db))
-		admin.GET("/nodes/:id", handler.GetNode(s.db))
-		admin.PUT("/nodes/:id", handler.UpdateNode(s.db))
-		admin.DELETE("/nodes/:id", handler.DeleteNode(s.db))
-		admin.POST("/nodes/:id/test", handler.TestNode(s.db))
+		admin.GET("/nodes", handler.ListAllNodes(s.db, credKey))
+		admin.POST("/nodes", handler.CreateNode(s.db, credKey))
+		admin.GET("/nodes/:id", handler.GetNode(s.db, credKey))
+		admin.PUT("/nodes/:id", handler.UpdateNode(s.db, credKey))
+		admin.DELETE("/nodes/:id", handler.DeleteNode(s.db, credKey))
+		admin.POST("/nodes/:id/test", handler.TestNode(s.db, credKey))
 
 		admin.GET("/audit", handler.ListAudit(s.db))
 		admin.GET("/audit/export", handler.ExportAudit(s.db))

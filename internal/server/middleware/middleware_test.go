@@ -142,7 +142,7 @@ func TestRateLimitMiddleware_AllowsUnderLimit_BlocksOverLimit(t *testing.T) {
 // --- Auth ---
 
 func TestAuth_RejectsMissingHeader(t *testing.T) {
-	handler := Auth(testConfig())
+	handler := Auth(testConfig(), NewJTIDenyList())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	c, w := newTestContext(req)
@@ -158,7 +158,7 @@ func TestAuth_RejectsMissingHeader(t *testing.T) {
 }
 
 func TestAuth_RejectsInvalidToken(t *testing.T) {
-	handler := Auth(testConfig())
+	handler := Auth(testConfig(), NewJTIDenyList())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer invalid.token.value")
@@ -176,7 +176,7 @@ func TestAuth_RejectsInvalidToken(t *testing.T) {
 
 func TestAuth_AcceptsValidToken(t *testing.T) {
 	cfg := testConfig()
-	handler := Auth(cfg)
+	handler := Auth(cfg, NewJTIDenyList())
 
 	tokenStr := makeTestToken(cfg.Security.JWTSecret)
 
@@ -259,7 +259,7 @@ func TestBruteForceGuard_BlocksAfterMaxFailures(t *testing.T) {
 
 func TestUISessionAuth_RedirectsWithoutToken(t *testing.T) {
 	cfg := testConfig()
-	handler := UISessionAuth(cfg)
+	handler := UISessionAuth(cfg, NewJTIDenyList())
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard", nil)
 	c, w := newTestContext(req)
@@ -280,7 +280,7 @@ func TestUISessionAuth_RedirectsWithoutToken(t *testing.T) {
 
 func TestUISessionAuth_AcceptsValidCookieToken(t *testing.T) {
 	cfg := testConfig()
-	handler := UISessionAuth(cfg)
+	handler := UISessionAuth(cfg, NewJTIDenyList())
 
 	tokenStr := makeTestToken(cfg.Security.JWTSecret)
 
@@ -304,7 +304,7 @@ func TestUISessionAuth_AcceptsValidCookieToken(t *testing.T) {
 
 func TestUISessionAuth_RedirectsWithInvalidCookieToken(t *testing.T) {
 	cfg := testConfig()
-	handler := UISessionAuth(cfg)
+	handler := UISessionAuth(cfg, NewJTIDenyList())
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/dashboard", nil)
 	req.AddCookie(&http.Cookie{Name: "lg_token", Value: "invalid.token.value"})
