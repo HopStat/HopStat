@@ -702,16 +702,27 @@ func ExportAudit(db *sql.DB) gin.HandlerFunc {
 
 		writer := csv.NewWriter(c.Writer)
 
-		// Write header
-		writer.Write([]string{"ID", "Created At", "Source IP", "User ID", "Node ID", "Command", "Params", "Duration (ms)", "Success", "Error"})
+		writeRow := func(fields []string) {
+			for i, f := range fields {
+				// Prevent CSV formula injection when opened in spreadsheet software.
+				if len(f) > 0 {
+					switch f[0] {
+					case '=', '+', '-', '@', '|', '%', '\t', '\r':
+						fields[i] = "'" + f
+					}
+				}
+			}
+			writer.Write(fields) //nolint:errcheck — errors surface via writer.Error()
+		}
 
-		// Write data
+		writeRow([]string{"ID", "Created At", "Source IP", "User ID", "Node ID", "Command", "Params", "Duration (ms)", "Success", "Error"})
+
 		for _, e := range entries {
 			success := "false"
 			if e.Success {
 				success = "true"
 			}
-			writer.Write([]string{
+			writeRow([]string{
 				strconv.FormatInt(e.ID, 10),
 				e.CreatedAt.Format(time.RFC3339),
 				e.SourceIP,
@@ -725,6 +736,9 @@ func ExportAudit(db *sql.DB) gin.HandlerFunc {
 			})
 		}
 		writer.Flush()
+		if err := writer.Error(); err != nil {
+			slog.Error("csv flush error", "error", err)
+		}
 	}
 }
 
@@ -888,13 +902,23 @@ func CreateCommunityRule(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		validSeverities := map[domain.Severity]bool{
+			domain.SeverityReject: true, domain.SeverityWarning: true,
+			domain.SeverityInfo: true, domain.SeveritySuccess: true,
+		}
 		severity := domain.Severity(req.Severity)
 		if severity == "" {
 			severity = domain.SeverityInfo
+		} else if !validSeverities[severity] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid severity: must be reject, warning, info, or success"})
+			return
 		}
 		scope := req.Scope
 		if scope == "" {
 			scope = "global"
+		} else if scope != "global" && scope != "node" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope: must be 'global' or 'node'"})
+			return
 		}
 		rule := &domain.CommunityRule{
 			Community:   req.Community,
@@ -932,12 +956,30 @@ func UpdateCommunityRule(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		validSeverities := map[domain.Severity]bool{
+			domain.SeverityReject: true, domain.SeverityWarning: true,
+			domain.SeverityInfo: true, domain.SeveritySuccess: true,
+		}
+		severity := domain.Severity(req.Severity)
+		if severity == "" {
+			severity = domain.SeverityInfo
+		} else if !validSeverities[severity] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid severity: must be reject, warning, info, or success"})
+			return
+		}
+		scope := req.Scope
+		if scope == "" {
+			scope = "global"
+		} else if scope != "global" && scope != "node" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope: must be 'global' or 'node'"})
+			return
+		}
 		rule := &domain.CommunityRule{
 			ID:          id,
 			Community:   req.Community,
-			Severity:    domain.Severity(req.Severity),
+			Severity:    severity,
 			MessageI18n: req.MessageI18n,
-			Scope:       req.Scope,
+			Scope:       scope,
 			Active:      req.Active,
 		}
 		repo := repo.NewCommunityRuleRepo(db)
@@ -1092,7 +1134,11 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 		}
 
 		buf := make([]byte, 512)
-		n, _ := file.Read(buf)
+		n, err := file.Read(buf)
+		if err != nil && err != io.EOF {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+			return
+		}
 		mime := http.DetectContentType(buf[:n])
 
 		// http.DetectContentType cannot detect SVG reliably; check content
@@ -1135,7 +1181,10 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 			ext = ".webp"
 		}
 
-		os.MkdirAll("data/uploads", 0o755)
+		if err := os.MkdirAll("data/uploads", 0o755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create upload directory"})
+			return
+		}
 		for _, oldExt := range []string{".png", ".jpg", ".svg", ".webp"} {
 			if oldExt != ext {
 				os.Remove("data/uploads/logo" + oldExt)

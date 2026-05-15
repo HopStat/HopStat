@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/store/queries"
@@ -169,7 +170,9 @@ func mapNode(r *queries.Node) *domain.Node {
 	if r.CredentialID.Valid {
 		n.CredentialID = &r.CredentialID.Int64
 	}
-	json.Unmarshal([]byte(r.EnabledCmds), &n.EnabledCmds)
+	if err := json.Unmarshal([]byte(r.EnabledCmds), &n.EnabledCmds); err != nil {
+		slog.Warn("failed to parse enabled_cmds for node", "node_id", r.ID, "error", err)
+	}
 	n.CreatedAt = parseTime(r.CreatedAt)
 	n.UpdatedAt = parseTime(r.UpdatedAt)
 	return n
