@@ -263,6 +263,8 @@ func (d *Driver) execCmdStream(ctx context.Context, onLine func(string), name st
 			stdout.Close()
 			return err
 		}
+		defer stdout.Close()
+		defer stderr.Close()
 
 		if err := cmd.Start(); err != nil {
 			return err

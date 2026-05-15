@@ -1150,7 +1150,10 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file type (allowed: png, jpeg, svg, webp)"})
 			return
 		}
-		file.Seek(0, io.SeekStart)
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+			return
+		}
 
 		if mime == "image/svg+xml" {
 			all, err := io.ReadAll(file)
@@ -1168,7 +1171,10 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "SVG contains disallowed content"})
 				return
 			}
-			file.Seek(0, io.SeekStart)
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+				return
+			}
 		}
 
 		ext := ".png"
