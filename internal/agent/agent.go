@@ -110,7 +110,11 @@ func (a *Agent) handlePing(c *gin.Context) {
 
 	result, err := runPing(c.Request.Context(), req.Target, req.Count)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"error": err.Error(), "raw": result.Raw, "packets_sent": result.PacketsSent})
+		raw := ""
+		if result != nil {
+			raw = result.Raw
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "raw": raw, "packets_sent": req.Count})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -134,7 +138,11 @@ func (a *Agent) handleTraceroute(c *gin.Context) {
 
 	result, err := runTraceroute(c.Request.Context(), req.Target, req.MaxHops)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"error": err.Error(), "raw": result.Raw})
+		raw := ""
+		if result != nil {
+			raw = result.Raw
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "raw": raw})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -158,7 +166,11 @@ func (a *Agent) handleMTR(c *gin.Context) {
 
 	result, err := runMTR(c.Request.Context(), req.Target, req.Cycles)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"error": err.Error(), "raw": result.Raw})
+		raw := ""
+		if result != nil {
+			raw = result.Raw
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "raw": raw})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -187,7 +199,7 @@ func (a *Agent) handleBGPRoute(c *gin.Context) {
 
 	result, err := runBGPRoute(c.Request.Context(), req.Prefix)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"error": err.Error(), "raw": ""})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "raw": ""})
 		return
 	}
 	c.JSON(http.StatusOK, result)
@@ -204,7 +216,7 @@ func (a *Agent) handleASPath(c *gin.Context) {
 
 	result, err := runASPath(c.Request.Context(), req.ASN)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"error": err.Error(), "raw": ""})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "raw": ""})
 		return
 	}
 	c.JSON(http.StatusOK, result)

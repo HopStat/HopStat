@@ -47,13 +47,12 @@ func (s *Store) SetRunning(id string) {
 func (s *Store) AppendLine(id, line string) {
 	s.mu.RLock()
 	e, ok := s.results[id]
-	s.mu.RUnlock()
-	if !ok {
-		return
+	if ok {
+		e.linesMu.Lock()
+		e.lines = append(e.lines, line)
+		e.linesMu.Unlock()
 	}
-	e.linesMu.Lock()
-	e.lines = append(e.lines, line)
-	e.linesMu.Unlock()
+	s.mu.RUnlock()
 }
 
 func (s *Store) GetLines(id string) ([]string, bool) {

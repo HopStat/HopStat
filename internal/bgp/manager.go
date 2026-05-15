@@ -107,17 +107,19 @@ func (m *SessionManager) AddNeighbor(n *domain.BGPNeighbor) error {
 		return fmt.Errorf("add bgp peer %s: %w", n.NeighborIP, err)
 	}
 
+	ipv6IP := ""
 	if n.IPv6NeighborIP != "" {
 		peer6 := m.buildPeerConfig(n, n.IPv6PeeringIP, n.IPv6NeighborIP)
 		if err := m.bgpServer.AddPeer(context.Background(), &api.AddPeerRequest{Peer: peer6}); err != nil {
 			slog.Warn("bgp ipv6 peer add failed", "id", n.ID, "neighbor_ip", n.IPv6NeighborIP, "err", err)
 		} else {
+			ipv6IP = n.IPv6NeighborIP
 			slog.Info("bgp ipv6 neighbor added", "id", n.ID, "neighbor_ip", n.IPv6NeighborIP)
 		}
 	}
 
 	m.mu.Lock()
-	m.neighbors[n.ID] = &neighborEntry{neighbor: n, neighborIP: n.NeighborIP, ipv6NeighborIP: n.IPv6NeighborIP}
+	m.neighbors[n.ID] = &neighborEntry{neighbor: n, neighborIP: n.NeighborIP, ipv6NeighborIP: ipv6IP}
 	m.nodeMap[n.NodeID] = n.ID
 	m.states[n.ID] = domain.BGPSessionIdle
 	m.mu.Unlock()
@@ -162,28 +164,12 @@ func (m *SessionManager) RemoveNeighbor(id int64) error {
 }
 
 func (m *SessionManager) UpdateNeighbor(n *domain.BGPNeighbor) error {
-	// Get old entry for rollback
-	m.mu.RLock()
-	oldEntry, hadOld := m.neighbors[n.ID]
-	m.mu.RUnlock()
-
-	// Add new peer first, before removing old one
-	if err := m.AddNeighbor(n); err != nil {
-		return fmt.Errorf("add updated neighbor: %w", err)
+	// Remove the existing peer (if any) then re-add with the new config.
+	// This avoids AddPeer failing with "already exists" when the IP hasn't changed.
+	if err := m.RemoveNeighbor(n.ID); err != nil {
+		slog.Warn("bgp update: failed to remove old neighbor", "id", n.ID, "err", err)
 	}
-
-	// Only remove old peer if it exists and has a different address
-	if hadOld && oldEntry.neighborIP != n.NeighborIP {
-		if err := m.bgpServer.DeletePeer(context.Background(), &api.DeletePeerRequest{Address: oldEntry.neighborIP}); err != nil {
-			slog.Warn("bgp old peer removal failed during update", "neighbor_ip", oldEntry.neighborIP, "err", err)
-		}
-	}
-	if hadOld && oldEntry.ipv6NeighborIP != "" && oldEntry.ipv6NeighborIP != n.IPv6NeighborIP {
-		if err := m.bgpServer.DeletePeer(context.Background(), &api.DeletePeerRequest{Address: oldEntry.ipv6NeighborIP}); err != nil {
-			slog.Warn("bgp old ipv6 peer removal failed during update", "neighbor_ip", oldEntry.ipv6NeighborIP, "err", err)
-		}
-	}
-	return nil
+	return m.AddNeighbor(n)
 }
 
 func (m *SessionManager) GetStatus(id int64) domain.BGPSessionState {
