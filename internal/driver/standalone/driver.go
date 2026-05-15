@@ -39,9 +39,10 @@ func NewDriver(node *domain.Node, cfg *config.Config) (*Driver, error) {
 }
 
 // resolveTarget resolves a hostname to an IP. If target is already an IP, returns it unchanged.
+// All resolved addresses are checked against the blocklist to prevent DNS-based bypasses.
 func resolveTarget(ctx context.Context, target string) (string, error) {
-	if net.ParseIP(target) != nil {
-		if isBlockedIP(net.ParseIP(target)) {
+	if ip := net.ParseIP(target); ip != nil {
+		if isBlockedIP(ip) {
 			return "", fmt.Errorf("target %s is not allowed", target)
 		}
 		return target, nil
@@ -51,11 +52,12 @@ func resolveTarget(ctx context.Context, target string) (string, error) {
 	if err != nil || len(ips) == 0 {
 		return "", fmt.Errorf("cannot resolve %s: %w", target, err)
 	}
-	ip := ips[0].IP
-	if isBlockedIP(ip) {
-		return "", fmt.Errorf("resolved target %s is not allowed", ip)
+	for _, addr := range ips {
+		if isBlockedIP(addr.IP) {
+			return "", fmt.Errorf("resolved target contains blocked address %s", addr.IP)
+		}
 	}
-	return ip.String(), nil
+	return ips[0].IP.String(), nil
 }
 
 func isBlockedIP(ip net.IP) bool {

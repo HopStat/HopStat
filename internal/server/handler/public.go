@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -60,6 +61,7 @@ func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) *Handler {
 }
 
 func sanitizeError(err error) string {
+	slog.Error("handler error", "error", err)
 	return "internal error"
 }
 
@@ -189,7 +191,11 @@ func SubmitQuery(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) gin.Handler
 			Params:    string(paramsJSON),
 			CreatedAt: time.Now(),
 		}
-		go auditRepo.Log(context.Background(), auditEntry)
+		go func() {
+			if err := auditRepo.Log(context.Background(), auditEntry); err != nil {
+				slog.Error("failed to write audit log", "error", err)
+			}
+		}()
 
 		// Store running entry immediately so SSE can start streaming
 		queryStore.SetRunning(queryID)
@@ -338,8 +344,11 @@ func Login(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		// A-06: Update last login timestamp
-		go userRepo.UpdateLastLogin(context.Background(), user.ID)
+		go func() {
+			if err := userRepo.UpdateLastLogin(context.Background(), user.ID); err != nil {
+				slog.Error("failed to update last login", "user_id", user.ID, "error", err)
+			}
+		}()
 
 		token, err := generateJWT(user.ID, user.Role, cfg.Security.JWTSecret)
 		if err != nil {
@@ -413,9 +422,12 @@ func CreateNode(db *sql.DB, credKey string) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node type. Must be 'standalone' or 'lg_node'"})
 			return
 		}
-		if req.Type == "lg_node" && req.AgentURL != "" && !strings.HasPrefix(req.AgentURL, "https://") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "agent_url must use HTTPS to protect the agent token"})
-			return
+		if req.Type == "lg_node" && req.AgentURL != "" {
+			u, err := url.Parse(req.AgentURL)
+			if err != nil || u.Scheme != "https" || u.Host == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "agent_url must be a valid HTTPS URL"})
+				return
+			}
 		}
 
 		validCmdSet := map[string]bool{
@@ -542,9 +554,12 @@ func UpdateNode(db *sql.DB, credKey string) gin.HandlerFunc {
 		if req.AgentToken != "" {
 			node.AgentToken = req.AgentToken
 		}
-		if string(node.Type) == "lg_node" && node.AgentURL != "" && !strings.HasPrefix(node.AgentURL, "https://") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "agent_url must use HTTPS to protect the agent token"})
-			return
+		if string(node.Type) == "lg_node" && node.AgentURL != "" {
+			u, err := url.Parse(node.AgentURL)
+			if err != nil || u.Scheme != "https" || u.Host == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "agent_url must be a valid HTTPS URL"})
+				return
+			}
 		}
 
 		updated, err := repo.Update(c.Request.Context(), node)
@@ -789,7 +804,8 @@ func DeleteUser(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		actingID, _ := c.Get("user_id")
+		actingIDRaw, _ := c.Get("user_id")
+		actingID, _ := actingIDRaw.(int64)
 		if actingID == id {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete your own account"})
 			return

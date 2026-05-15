@@ -18,9 +18,24 @@ func NewJTIDenyList() *JTIDenyList {
 	return dl
 }
 
+const maxDenyListEntries = 10_000
+
 func (d *JTIDenyList) Revoke(jti string, exp time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if len(d.entries) >= maxDenyListEntries {
+		// Evict one expired entry to make room; if none found, drop this revocation.
+		now := time.Now()
+		for k, v := range d.entries {
+			if now.After(v) {
+				delete(d.entries, k)
+				break
+			}
+		}
+		if len(d.entries) >= maxDenyListEntries {
+			return
+		}
+	}
 	d.entries[jti] = exp
 }
 
