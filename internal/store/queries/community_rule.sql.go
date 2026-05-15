@@ -35,6 +35,9 @@ func (q *Queries) GetAllCommunityRules(ctx context.Context) ([]CommunityRule, er
 		}
 		rules = append(rules, r)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return rules, nil
 }
 
@@ -57,6 +60,9 @@ func (q *Queries) GetActiveCommunityRulesForNode(ctx context.Context, nodeID int
 			return nil, err
 		}
 		rules = append(rules, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return rules, nil
 }

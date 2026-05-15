@@ -46,6 +46,9 @@ func (q *Queries) GetAllNodes(ctx context.Context) ([]Node, error) {
 		}
 		nodes = append(nodes, n)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return nodes, nil
 }
 
@@ -62,6 +65,9 @@ func (q *Queries) GetActiveNodes(ctx context.Context) ([]Node, error) {
 			return nil, err
 		}
 		nodes = append(nodes, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return nodes, nil
 }

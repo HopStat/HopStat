@@ -566,10 +566,11 @@ func TestNode(db *sql.DB) gin.HandlerFunc {
 		defer cancel()
 
 		if err := drv.TestConnection(testCtx); err != nil {
+			slog.Warn("node test failed", "node_id", node.ID, "error", err)
 			c.JSON(http.StatusOK, gin.H{
 				"data": gin.H{
 					"status":  "error",
-					"message": err.Error(),
+					"message": sanitizeError(err),
 					"node_id": node.ID,
 				},
 			})
@@ -734,6 +735,7 @@ func CreateUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		created.PasswordHash = ""
 		c.JSON(http.StatusCreated, gin.H{"data": created})
 	}
 }
@@ -956,6 +958,12 @@ func GetAdminSettings(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+var allowedSettingKeys = map[string]bool{
+	"site_name": true, "site_description": true, "logo_path": true, "header_color": true,
+	"url_website": true, "url_peeringdb": true, "url_contact": true, "url_terms": true, "url_privacy": true,
+	"ping_count": true, "max_hops": true, "mtr_cycles": true,
+}
+
 func UpdateSettings(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req map[string]string
@@ -963,8 +971,14 @@ func UpdateSettings(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		filtered := make(map[string]string, len(req))
+		for k, v := range req {
+			if allowedSettingKeys[k] {
+				filtered[k] = v
+			}
+		}
 		q := queries.New(db)
-		if err := q.SetSettings(req); err != nil {
+		if err := q.SetSettings(filtered); err != nil {
 			slog.Error("failed to update settings", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update settings"})
 			return

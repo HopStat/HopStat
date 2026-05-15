@@ -42,6 +42,9 @@ func (q *Queries) GetAllBGPNeighbors(ctx context.Context) ([]BGPNeighbor, error)
 		}
 		neighbors = append(neighbors, n)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return neighbors, nil
 }
 
@@ -59,6 +62,9 @@ func (q *Queries) GetBGPNeighborsByNodeID(ctx context.Context, nodeID int64) ([]
 			return nil, err
 		}
 		neighbors = append(neighbors, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return neighbors, nil
 }
