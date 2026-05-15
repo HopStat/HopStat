@@ -23,6 +23,7 @@ export function BGPNeighborsPage() {
   const [neighbors, setNeighbors] = useState<BGPNeighbor[]>([])
   const [nodes, setNodes] = useState<Node[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editItem, setEditItem] = useState<BGPNeighbor | null>(null)
   const [form, setForm] = useState({
     node_id: '' as string,
@@ -63,20 +64,25 @@ export function BGPNeighborsPage() {
   }
 
   async function handleSave() {
-    const body = {
-      node_id: Number(form.node_id),
-      local_as: Number(form.local_as),
-      remote_as: Number(form.remote_as),
-      peering_ip: form.peering_ip,
-      neighbor_ip: form.neighbor_ip,
-      ipv6_peering_ip: form.ipv6_peering_ip,
-      ipv6_neighbor_ip: form.ipv6_neighbor_ip,
-      multihop: form.multihop,
+    setSaving(true)
+    try {
+      const body = {
+        node_id: Number(form.node_id),
+        local_as: Number(form.local_as),
+        remote_as: Number(form.remote_as),
+        peering_ip: form.peering_ip,
+        neighbor_ip: form.neighbor_ip,
+        ipv6_peering_ip: form.ipv6_peering_ip,
+        ipv6_neighbor_ip: form.ipv6_neighbor_ip,
+        multihop: form.multihop,
+      }
+      if (editItem) await api.put(`/admin/bgp-neighbors/${editItem.id}`, body)
+      else await api.post('/admin/bgp-neighbors', body)
+      setDialogOpen(false)
+      load()
+    } finally {
+      setSaving(false)
     }
-    if (editItem) await api.put(`/admin/bgp-neighbors/${editItem.id}`, body)
-    else await api.post('/admin/bgp-neighbors', body)
-    setDialogOpen(false)
-    load()
   }
 
   async function handleDelete(id: number) {
@@ -171,7 +177,7 @@ export function BGPNeighborsPage() {
             </div>
             <div className="flex items-center gap-2"><Switch checked={form.multihop} onCheckedChange={v => setForm({ ...form, multihop: v })} /><Label>{t('admin.bgp_multihop')}</Label></div>
           </div>
-          <DialogFooter><Button onClick={handleSave}>{t('admin.save')}</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleSave} disabled={saving}>{t('admin.save')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -18,6 +18,7 @@ export function CommunityRulesPage() {
   const { t } = useI18n()
   const [rules, setRules] = useState<CommunityRule[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editRule, setEditRule] = useState<CommunityRule | null>(null)
   const [form, setForm] = useState({ community: '', severity: 'info' as string, message_i18n: '', scope: 'global', active: true })
 
@@ -37,11 +38,16 @@ export function CommunityRulesPage() {
   }
 
   async function handleSave() {
-    const body = { ...form }
-    if (editRule) await api.put(`/admin/community-rules/${editRule.id}`, body)
-    else await api.post('/admin/community-rules', body)
-    setDialogOpen(false)
-    load()
+    setSaving(true)
+    try {
+      const body = { ...form }
+      if (editRule) await api.put(`/admin/community-rules/${editRule.id}`, body)
+      else await api.post('/admin/community-rules', body)
+      setDialogOpen(false)
+      load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDelete(id: number) {
@@ -110,7 +116,7 @@ export function CommunityRulesPage() {
             <div className="space-y-2"><Label>{t('admin.message')}</Label><textarea className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.message_i18n} onChange={e => setForm({ ...form, message_i18n: e.target.value })} /></div>
             <div className="flex items-center gap-2"><Switch checked={form.active} onCheckedChange={v => setForm({ ...form, active: v })} /><Label>{t('admin.active')}</Label></div>
           </div>
-          <DialogFooter><Button onClick={handleSave}>{t('admin.save')}</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleSave} disabled={saving}>{t('admin.save')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

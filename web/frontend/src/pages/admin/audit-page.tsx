@@ -23,7 +23,11 @@ export function AuditPage() {
     fetch(`/api/v1/admin/audit?limit=${limit}&page=${page - 1}`, {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 401) { localStorage.removeItem('jwt_token'); window.location.href = '/admin/login'; throw new Error('Unauthorized') }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
       .then(json => {
         setEntries(json.data ?? [])
         setTotal(json.meta?.total ?? 0)

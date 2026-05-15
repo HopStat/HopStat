@@ -60,6 +60,7 @@ export function SettingsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
+      if (!res.ok) throw new Error(`Upload failed: HTTP ${res.status}`)
       const json = await res.json()
       if (json.data?.logo_path) {
         setSettings(s => ({ ...s, logo_path: json.data.logo_path }))

@@ -601,12 +601,15 @@ func ListAudit(db *sql.DB) gin.HandlerFunc {
 		filter.To = c.Query("to")
 
 		if limitStr := c.Query("limit"); limitStr != "" {
-			if limit, err := strconv.Atoi(limitStr); err == nil {
+			if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+				if limit > 200 {
+					limit = 200
+				}
 				filter.Limit = limit
 			}
 		}
 		if pageStr := c.Query("page"); pageStr != "" {
-			if page, err := strconv.Atoi(pageStr); err == nil {
+			if page, err := strconv.Atoi(pageStr); err == nil && page >= 0 {
 				filter.Page = page
 			}
 		}
@@ -1049,7 +1052,11 @@ func UploadLogo(db *sql.DB) gin.HandlerFunc {
 
 		logoPath := "/logo" + ext
 		q := queries.New(db)
-		q.SetSetting("logo_path", logoPath)
+		if err := q.SetSetting("logo_path", logoPath); err != nil {
+			slog.Error("failed to persist logo path", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "logo saved but settings update failed"})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{"data": gin.H{"logo_path": logoPath}})
 	}

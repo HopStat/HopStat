@@ -16,6 +16,7 @@ export function NodesPage() {
   const { t } = useI18n()
   const [nodes, setNodes] = useState<Node[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editNode, setEditNode] = useState<Node | null>(null)
   const [form, setForm] = useState({ name: '', description: '', type: 'standalone' as string, city: '', country: '', lat: '', lon: '', agent_url: '', agent_token: '', active: true, enabled_cmds: ['ping', 'traceroute', 'mtr', 'bgp_route', 'as_path'] as string[] })
 
@@ -52,15 +53,20 @@ export function NodesPage() {
   }
 
   async function handleSave() {
-    const body: Record<string, unknown> = { name: form.name, description: form.description, type: form.type, city: form.city, country: form.country, agent_url: form.agent_url, agent_token: form.agent_token, active: form.active, enabled_cmds: form.enabled_cmds }
-    const lat = parseFloat(form.lat)
-    const lon = parseFloat(form.lon)
-    if (!isNaN(lat)) body.lat = lat
-    if (!isNaN(lon)) body.lon = lon
-    if (editNode) await api.put(`/admin/nodes/${editNode.id}`, body)
-    else await api.post('/admin/nodes', body)
-    setDialogOpen(false)
-    load()
+    setSaving(true)
+    try {
+      const body: Record<string, unknown> = { name: form.name, description: form.description, type: form.type, city: form.city, country: form.country, agent_url: form.agent_url, agent_token: form.agent_token, active: form.active, enabled_cmds: form.enabled_cmds }
+      const lat = parseFloat(form.lat)
+      const lon = parseFloat(form.lon)
+      if (!isNaN(lat)) body.lat = lat
+      if (!isNaN(lon)) body.lon = lon
+      if (editNode) await api.put(`/admin/nodes/${editNode.id}`, body)
+      else await api.post('/admin/nodes', body)
+      setDialogOpen(false)
+      load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDelete(id: number) {
@@ -152,7 +158,7 @@ export function NodesPage() {
               </div>
             </div>
           </div>
-          <DialogFooter><Button onClick={handleSave}>{t('admin.save')}</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleSave} disabled={saving}>{t('admin.save')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

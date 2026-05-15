@@ -13,16 +13,22 @@ export function UsersPage() {
   const { t } = useI18n()
   const [users, setUsers] = useState<User[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ email: '', password: '', role: 'admin' })
 
   const load = () => api.get<User[]>('/admin/users').then(setUsers).catch(() => {})
   useEffect(() => { load() }, [])
 
   async function handleCreate() {
-    await api.post('/admin/users', form)
-    setDialogOpen(false)
-    setForm({ email: '', password: '', role: 'admin' })
-    load()
+    setSaving(true)
+    try {
+      await api.post('/admin/users', form)
+      setDialogOpen(false)
+      setForm({ email: '', password: '', role: 'admin' })
+      load()
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDelete(id: number) {
@@ -70,7 +76,7 @@ export function UsersPage() {
             <div className="space-y-2"><Label>{t('admin.password')}</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} minLength={8} /></div>
             <div className="space-y-2"><Label>{t('admin.role')}</Label><Input value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} /></div>
           </div>
-          <DialogFooter><Button onClick={handleCreate} disabled={!form.email || !form.password}>{t('admin.create')}</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleCreate} disabled={saving || !form.email || !form.password}>{t('admin.create')}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
