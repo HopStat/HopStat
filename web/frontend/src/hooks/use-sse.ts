@@ -1,0 +1,164 @@
+import { useState, useEffect, useRef } from 'react'
+import type { QueryResult } from '@/types/domain'
+
+interface UseQueryStreamReturn {
+  result: QueryResult | null
+  lines: string[]
+  error: string | null
+  outputComplete: boolean
+}
+
+export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
+  const [result, setResult] = useState<QueryResult | null>(null)
+  const [lines, setLines] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [outputComplete, setOutputComplete] = useState(false)
+  const esRef = useRef<EventSource | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (!queryId) {
+      setResult(null)
+      setLines([])
+      setError(null)
+      setOutputComplete(false)
+      return
+    }
+
+    setResult(null)
+    setLines([])
+    setError(null)
+    setOutputComplete(false)
+
+    const es = new EventSource(`/api/v1/query/${queryId}/stream`)
+    esRef.current = es
+    let finished = false
+
+    es.addEventListener('output', (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.line !== undefined) {
+          setLines(prev => [...prev, data.line])
+        }
+      } catch { /* ignore parse errors */ }
+    })
+
+    es.addEventListener('partial', (e) => {
+      try {
+        const data = JSON.parse(e.data) as {
+          parsed?: QueryResult['parsed']
+          raw?: string
+          matched_rules?: QueryResult['matched_rules']
+          as_path?: QueryResult['as_path']
+          as_path_prefix?: QueryResult['as_path_prefix']
+          as_path_enriched?: QueryResult['as_path_enriched']
+        }
+        setResult(prev => ({
+          id: queryId,
+          status: 'running',
+          raw: data.raw?.trim() ? data.raw : (prev?.raw ?? ''),
+          parsed: data.parsed ?? prev?.parsed ?? null,
+          duration_ms: prev?.duration_ms ?? 0,
+          error_msg: prev?.error_msg ?? '',
+          error_code: prev?.error_code ?? '',
+          matched_rules: data.matched_rules ?? prev?.matched_rules ?? [],
+          as_path: data.as_path?.length ? data.as_path : (prev?.as_path ?? []),
+          as_path_prefix: data.as_path_prefix ?? prev?.as_path_prefix,
+          as_path_enriched: data.as_path_enriched?.length
+            ? data.as_path_enriched
+            : (prev?.as_path_enriched ?? []),
+        }))
+      } catch { /* ignore parse errors */ }
+    })
+
+    es.addEventListener('output_done', () => {
+      setOutputComplete(true)
+    })
+
+    es.addEventListener('result', (e) => {
+      try {
+        const data = JSON.parse(e.data) as QueryResult
+        finished = true
+        setOutputComplete(true)
+        setResult(prev => ({
+          ...data,
+          as_path: data.as_path?.length ? data.as_path : (prev?.as_path ?? []),
+          as_path_prefix: data.as_path_prefix ?? prev?.as_path_prefix,
+          as_path_enriched: data.as_path_enriched?.length
+            ? data.as_path_enriched
+            : (prev?.as_path_enriched ?? []),
+        }))
+        if (data.raw) {
+          setLines(prev => prev.length > 0 ? prev : data.raw.split('\n').filter(l => l.length > 0))
+        }
+        if (data.status === 'done' || data.status === 'error') {
+          es.close()
+        }
+      } catch { /* ignore parse errors */ }
+    })
+
+    es.addEventListener('progress', (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.status) {
+          setResult(prev => prev ? { ...prev, status: data.status } : { id: queryId, status: data.status, raw: '', parsed: null, duration_ms: 0, error_msg: '', error_code: '', matched_rules: [], as_path: [], as_path_enriched: [] })
+        }
+      } catch { /* ignore */ }
+    })
+
+    es.onerror = () => {
+      if (finished) {
+        es.close()
+        return
+      }
+      es.close()
+      // Fallback to polling with limited retries for transient errors
+      let pollCount = 0
+      let consecutiveErrors = 0
+      const interval = setInterval(async () => {
+        pollCount++
+        if (pollCount > 60) {
+          clearInterval(interval)
+          intervalRef.current = null
+          setError('Timeout')
+          return
+        }
+        try {
+          const res = await fetch(`/api/v1/query/${queryId}`)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const json = await res.json()
+          const data = json.data as QueryResult
+          consecutiveErrors = 0
+          setResult(data)
+          if (data.raw) {
+            setLines(data.raw.split('\n').filter(l => l.length > 0))
+          }
+          if (data.status === 'done' || data.status === 'error') {
+            setOutputComplete(true)
+            clearInterval(interval)
+            intervalRef.current = null
+          }
+        } catch {
+          consecutiveErrors++
+          if (consecutiveErrors >= 5) {
+            clearInterval(interval)
+            intervalRef.current = null
+            setError('Failed to fetch result')
+          }
+        }
+      }, 1000)
+      intervalRef.current = interval
+    }
+
+    return () => {
+      es.close()
+      esRef.current = null
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [queryId])
+
+  return { result, lines, error, outputComplete }
+}

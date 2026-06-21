@@ -1,0 +1,71 @@
+package middleware
+
+import (
+	"sync"
+	"time"
+)
+
+// JTIDenyList tracks revoked JWT IDs so that logged-out tokens cannot be reused.
+// Entries expire automatically when the corresponding JWT would have expired anyway.
+type JTIDenyList struct {
+	mu      sync.Mutex
+	entries map[string]time.Time // jti → token expiry
+}
+
+func NewJTIDenyList() *JTIDenyList {
+	dl := &JTIDenyList{entries: make(map[string]time.Time)}
+	go dl.purgeLoop()
+	return dl
+}
+
+const maxDenyListEntries = 10_000
+
+func (d *JTIDenyList) Revoke(jti string, exp time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.entries) >= maxDenyListEntries {
+		// Evict one expired entry to make room; if none found, drop this revocation.
+		now := time.Now()
+		for k, v := range d.entries {
+			if now.After(v) {
+				delete(d.entries, k)
+				break
+			}
+		}
+		if len(d.entries) >= maxDenyListEntries {
+			return
+		}
+	}
+	d.entries[jti] = exp
+}
+
+func (d *JTIDenyList) IsRevoked(jti string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	exp, ok := d.entries[jti]
+	if !ok {
+		return false
+	}
+	if time.Now().After(exp) {
+		delete(d.entries, jti)
+		return false
+	}
+	return true
+}
+
+var denyListPurgeInterval = 10 * time.Minute
+
+func (d *JTIDenyList) purgeLoop() {
+	ticker := time.NewTicker(denyListPurgeInterval)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now()
+		d.mu.Lock()
+		for jti, exp := range d.entries {
+			if now.After(exp) {
+				delete(d.entries, jti)
+			}
+		}
+		d.mu.Unlock()
+	}
+}

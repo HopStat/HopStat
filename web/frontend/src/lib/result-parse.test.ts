@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest'
+import {
+  isPingOutputComplete,
+  mergePingResult,
+  parsePingFromLines,
+} from './result-parse'
+
+describe('parsePingFromLines', () => {
+  it('parses transmitted and received counts', () => {
+    const result = parsePingFromLines([
+      'PING 8.8.8.8 (8.8.8.8): 56 data bytes',
+      '64 bytes from 8.8.8.8: icmp_seq=0 ttl=118 time=10.2 ms',
+      '--- 8.8.8.8 ping statistics ---',
+      '5 packets transmitted, 5 received, 0% packet loss',
+      'rtt min/avg/max/mdev = 9.1/10.2/11.0/0.5 ms',
+    ])
+    expect(result.packets_sent).toBe(5)
+    expect(result.packets_recv).toBe(5)
+    expect(result.packet_loss).toBe(0)
+    expect(result.avg_rtt).toBeCloseTo(10.2)
+  })
+
+  it('updates sent and received live without premature loss', () => {
+    const result = parsePingFromLines([
+      'PING 8.8.8.8 (8.8.8.8): 56 data bytes',
+      '64 bytes from 8.8.8.8: icmp_seq=0 ttl=118 time=10.2 ms',
+      '64 bytes from 8.8.8.8: icmp_seq=1 ttl=118 time=9.8 ms',
+    ])
+    expect(result.packets_sent).toBe(2)
+    expect(result.packets_recv).toBe(2)
+    expect(result.packet_loss).toBeUndefined()
+  })
+
+  it('counts timeout lines toward sent probes', () => {
+    const result = parsePingFromLines([
+      '64 bytes from 8.8.8.8: icmp_seq=0 ttl=118 time=10.2 ms',
+      'Request timeout for icmp_seq 1',
+      '64 bytes from 8.8.8.8: icmp_seq=2 ttl=118 time=11.0 ms',
+    ])
+    expect(result.packets_sent).toBe(3)
+    expect(result.packets_recv).toBe(2)
+    expect(result.packet_loss).toBeUndefined()
+  })
+})
+
+describe('isPingOutputComplete', () => {
+  it('detects summary line', () => {
+    expect(isPingOutputComplete(['5 packets transmitted, 5 received'])).toBe(true)
+    expect(isPingOutputComplete(['64 bytes from 8.8.8.8'])).toBe(false)
+  })
+})
+
+describe('mergePingResult', () => {
+  it('prefers server values when present', () => {
+    const merged = mergePingResult(
+      { packets_sent: 5, packets_recv: 2 },
+      { packets_sent: 5, packets_recv: 5, avg_rtt: 12 },
+    )
+    expect(merged.packets_recv).toBe(5)
+    expect(merged.avg_rtt).toBe(12)
+  })
+})

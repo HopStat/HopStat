@@ -1,0 +1,70 @@
+# Binaries
+/lg
+/hopstat
+lg-looking-glass
+dist/
+!web/dist/
+
+# Config with secrets (use config.example.yaml as template)
+config.yaml
+*.pem
+*.key
+*.crt
+
+# Internal planning & AI prompt documents
+md/
+CLAUDE.md
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# GeoIP databases
+*.mmdb
+!internal/geo/testdata/*.mmdb
+
+# Runtime data
+data/
+logo.svg
+
+# Build cache
+.vite/
+.playwright-mcp/
+web/frontend/SQLite
+.golangci.bck.yml
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment secrets
+.env
+.env.local
+.wrongstack/
+
+# Local dev screenshots and ad-hoc tools
+/*.png
+/tools/
+
+# Lint backup
+.golangci.bck.yml
+
+# Accidental scratch file
+web/frontend/SQLite

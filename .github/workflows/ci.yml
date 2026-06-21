@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd web/frontend
+          npm ci
+
+      - name: Frontend unit tests
+        run: |
+          cd web/frontend
+          npm test
+
+      - name: Build frontend
+        run: |
+          cd web/frontend
+          npm run build
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --config=.golangci.ci.yml ./internal/... ./cmd/...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Tests
+        run: |
+          go test -race -count=1 \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            -coverpkg=./internal/... \
+            $(go list ./... | grep -v node_modules)
+
+      - name: Coverage summary
+        run: |
+          go tool cover -func=coverage.out | tail -1
+          pct=$(go tool cover -func=coverage.out | tail -1 | sed -E 's/.*[^0-9]([0-9]+\.[0-9]+)%/\1/')
+          awk -v p="$pct" 'BEGIN { if (p+0 < 100) { printf "coverage %.1f%% below 100%% threshold\n", p; exit 1 } }'
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -o /dev/null ./cmd/lg/
