@@ -59,6 +59,26 @@ func isUnsafeTarget(target string) bool {
 	return strings.ContainsAny(target, ";|&`$(){}[]!><\n\r") || len(target) > 253
 }
 
+// Host-length BGP prefixes (/32, /128) are normalized to a bare IP so lookup
+// uses longest-prefix match instead of an exact host route that may be missing.
+func normalizeBGPLookupTarget(target string) (string, error) {
+	if !strings.Contains(target, "/") {
+		return target, nil
+	}
+	ip, ipNet, err := net.ParseCIDR(target)
+	if err != nil {
+		return "", fmt.Errorf("invalid prefix: %s", target)
+	}
+	ones, bits := ipNet.Mask.Size()
+	if ones == bits {
+		if IsBlockedIP(ip) {
+			return "", fmt.Errorf("target %s is not allowed", ip)
+		}
+		return ip.String(), nil
+	}
+	return target, nil
+}
+
 // ValidateQueryTarget resolves hostnames to IPs before query execution.
 // CIDR prefixes (BGP) are validated without DNS lookup.
 func ValidateQueryTarget(ctx context.Context, command, target string) (string, error) {
@@ -67,11 +87,15 @@ func ValidateQueryTarget(ctx context.Context, command, target string) (string, e
 		return "", domain.ErrInvalidTarget
 	}
 
-	if command == string(domain.CmdBGPRoute) && strings.Contains(target, "/") {
-		if _, _, err := net.ParseCIDR(target); err != nil {
+	if command == string(domain.CmdBGPRoute) {
+		normalized, err := NormalizeBGPLookup(ctx, target)
+		if err != nil {
+			if errors.Is(err, domain.ErrDNSNotFound) {
+				return "", domain.ErrDNSNotFound
+			}
 			return "", domain.ErrInvalidTarget
 		}
-		return target, nil
+		return normalized, nil
 	}
 
 	if ip := net.ParseIP(target); ip != nil {
@@ -98,10 +122,11 @@ func NormalizeBGPLookup(ctx context.Context, target string) (string, error) {
 		return "", fmt.Errorf("empty target")
 	}
 	if strings.Contains(target, "/") {
-		if _, _, err := net.ParseCIDR(target); err != nil {
-			return "", fmt.Errorf("invalid prefix: %s", target)
+		normalized, err := normalizeBGPLookupTarget(target)
+		if err != nil {
+			return "", err
 		}
-		return target, nil
+		return normalized, nil
 	}
 	if ip := net.ParseIP(target); ip != nil {
 		if IsBlockedIP(ip) {

@@ -215,7 +215,7 @@ function buildBgpTableColumns(
       colClass: 'result-bgp-table__col-metric',
       headClass: 'result-bgp-table__metric',
       cellClass: 'result-bgp-table__metric font-data text-xs tabular-nums text-muted-foreground whitespace-nowrap',
-      header: t('result.local_pref'),
+      header: <span className="sr-only">{t('result.local_pref')}</span>,
       renderCell: route => formatMetric(route.local_pref),
     })
   }
@@ -309,7 +309,7 @@ export function ResultBGP({ result, enriched }: Props) {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               {tableColumns.map(column => (
-                <TableHead key={column.id} className={column.headClass}>
+                <TableHead key={column.id} className={`${column.headClass} text-center`}>
                   {column.header}
                 </TableHead>
               ))}

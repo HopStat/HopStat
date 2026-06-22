@@ -48,6 +48,26 @@ const result185: BGPResult = {
 }
 
 describe('ResultBGP communities column alignment', () => {
+  it('centers route table headers horizontally', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    })
+
+    render(<ResultBGP result={result185} enriched={enriched} />)
+
+    for (const label of ['Age', 'Prefix', 'AS Path', 'Communities']) {
+      const header = screen.getByText(label).closest('th')
+      expect(header).toBeTruthy()
+      expect(header?.className).toContain('text-center')
+    }
+  })
+
   it('keeps Communities header vertically centered like other headers', () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,

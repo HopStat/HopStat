@@ -1539,6 +1539,11 @@
     min-width: 44rem;
   }
 
+  .result-bgp-table thead th.result-bgp-table__star {
+    padding-left: 0.375rem !important;
+    padding-right: 0.375rem !important;
+  }
+
   .result-bgp-table__col-star {
     width: 2.75rem;
   }

@@ -29,6 +29,26 @@ func TestNormalizeBGPLookupCIDR(t *testing.T) {
 	}
 }
 
+func TestNormalizeBGPLookupHostCIDR(t *testing.T) {
+	got, err := NormalizeBGPLookup(context.Background(), "185.193.165.238/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "185.193.165.238" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestValidateQueryTargetBGPHostCIDR(t *testing.T) {
+	got, err := ValidateQueryTarget(context.Background(), "bgp_route", "185.193.165.238/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "185.193.165.238" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestNormalizeBGPLookupBlocked(t *testing.T) {
 	_, err := NormalizeBGPLookup(context.Background(), "127.0.0.1")
 	if err == nil {
