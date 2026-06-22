@@ -5,16 +5,18 @@ Network looking glass platform with BGP route lookup, ping, traceroute and AS pa
 ## Features
 
 - **BGP route lookup** — query routes from connected routers or an embedded GoBGP peer; community badges show rule descriptions on hover; AS path map visualises each hop
-- **Ping / Tracert** — run from any node; RTT stats and hops stream live via SSE (including remote lg-node agents); hostnames are DNS-validated before dispatch
-- **AS path map** — visual hop-by-hop ASN breakdown with GeoIP enrichment on every BGP result (MaxMind first, Cymru fallback)
+- **Ping / Traceroute** — run from any node; RTT stats and hops stream live via SSE (including remote lg-node agents)
+- **Hostname resolution** — query targets that are hostnames are resolved to IP on the HopStat server (Go `net.DefaultResolver`) before dispatch; private and link-local addresses are blocked
+- **AS path map** — visual hop-by-hop ASN breakdown with GeoIP enrichment on every BGP result (MaxMind first, Team Cymru DNS fallback)
 - **BGP Communities** — define community string rules in admin; matched badges on BGP results; public `/communities` catalogue linked from the footer
+- **Quick queries** — preset command/target shortcuts on the public home page, managed in **Admin → Quick Queries**
 - **Multi-node** — direct router connections (SSH/Telnet) or remote agent deployment
 - **Vendor support** — Cisco IOS/XR, Juniper JunOS, MikroTik RouterOS, Bird, Generic
 - **Responsive public UI** — mobile-friendly query page with five locales (EN, TR, DE, FR, RU) and SEO metadata
 - **Cloudflare-aware** — optional `behind_cloudflare` mode shows real visitor IP via `CF-Connecting-IP`
-- **Admin panel** — manage nodes, site branding, BGP neighbors, Communities rules, footer links and audit logs
+- **Admin panel** — manage nodes, site branding, BGP neighbors, Communities rules, quick queries, GeoIP lookup, footer links and audit logs
 - **GeoIP** — MaxMind ASN + City databases with interval-based downloads (timestamps stored in SQLite)
-- **Auto-update** — self-updater checks GitHub releases and hot-swaps the binary
+- **Auto-update** — self-updater checks GitHub releases and hot-swaps the binary (disable in Docker — use image pull instead)
 - **Single binary** — React SPA, SQLite migrations and static assets are all embedded
 
 ## Quick Start
@@ -47,36 +49,42 @@ Download from [Releases](https://github.com/HopStat/HopStat/releases):
 
 ### Docker
 
+Build and run with Docker Compose (recommended):
+
 ```bash
-docker run -d \
-  --cap-add NET_RAW --cap-add NET_ADMIN \
-  -p 8080:8080 \
-  -v hopstat-data:/data \
-  -e LG_ADMIN_PASSWORD=changeme \
-  ghcr.io/hopstat/hopstat:latest
+cp .env.example .env   # set LG_ADMIN_PASSWORD
+docker compose up -d --build
 ```
 
-Config and secrets are **auto-generated** inside the `/data` volume on first start.  
+The container stores config and data under the `hopstat-data` volume (`/data`). On first start HopStat generates `/data/config.yaml` with random secrets unless you pin them via environment variables.
+
 Admin credentials are written to the container log — check with `docker logs <container>`.
 
-To pin secrets across image rebuilds (stateless deployments):
+**Docker notes:**
+
+- Set `LG_ADMIN_PASSWORD` for a known initial password (see `.env.example`).
+- Set `LG_UPDATE_ENABLED=false` in containers — self-update replaces the binary inside the image; pull a new image instead.
+- `NET_RAW` and `NET_ADMIN` capabilities are required for ping and traceroute.
+- Optional GeoIP: uncomment `LG_GEOIP_LICENSE_KEY` and `LG_GEOIP_ACCOUNT_ID` in `docker-compose.yml`.
+
+To pin secrets across image rebuilds:
 
 ```bash
 -e LG_SECURITY_JWT_SECRET=$(openssl rand -hex 32) \
 -e LG_SECURITY_CREDENTIAL_KEY=$(openssl rand -hex 32)
 ```
 
-Or use Docker Compose:
+Or bootstrap with the installer:
 
 ```bash
-docker compose up -d
+bash install.sh --docker
 ```
 
 See [`docker-compose.yml`](docker-compose.yml) for the full example.
 
 ### Build from source
 
-Requires Go 1.23+ and Node.js 22+.
+Requires Go 1.25+ and Node.js 24+ (frontend build).
 
 ```bash
 git clone https://github.com/HopStat/HopStat.git
@@ -88,9 +96,9 @@ make build
 
 ## Configuration
 
-`config.yaml` is **auto-generated on first start** with every section from `config.example.yaml` — including flood control, GeoIP, BGP and TLS placeholders — plus random `jwt_secret` and `credential_key` values. No manual setup needed.
+`config.yaml` is **auto-generated on first start** with every section from `config.example.yaml` — including flood control, GeoIP, BGP, query limits and TLS placeholders — plus random `jwt_secret` and `credential_key` values. No manual setup needed.
 
-Site name, AS number and footer contact links are configured in **Admin → Settings**, not in YAML.
+Site name, branding, query defaults and footer links are configured in **Admin → Settings**, not in YAML.
 
 To customise, edit the generated file or override individual values with environment variables.
 
@@ -105,45 +113,74 @@ All config keys can be overridden with `LG_` + the key path (dots → underscore
 | `server.port` | `LG_SERVER_PORT` |
 | `server.behind_cloudflare` | `LG_SERVER_BEHIND_CLOUDFLARE` |
 | `database.path` | `LG_DATABASE_PATH` |
+| `flood_control.enabled` | `LG_FLOOD_CONTROL_ENABLED` |
+| `flood_control.http_rate_limit_per_min` | `LG_FLOOD_CONTROL_HTTP_RATE_LIMIT_PER_MIN` |
+| `flood_control.query_rate_limit_per_min` | `LG_FLOOD_CONTROL_QUERY_RATE_LIMIT_PER_MIN` |
+| `geoip.license_key` | `LG_GEOIP_LICENSE_KEY` |
+| `geoip.account_id` | `LG_GEOIP_ACCOUNT_ID` |
 | `geoip.update_interval` | `LG_GEOIP_UPDATE_INTERVAL` |
+| `update.enabled` | `LG_UPDATE_ENABLED` |
+| `query.max_concurrent` | `LG_QUERY_MAX_CONCURRENT` |
 
 > **Note:** `LG_ADMIN_PASSWORD` is a special variable read directly at startup to set the admin password. It does not follow the viper key-path convention.
 
-### Minimal config reference
+### Config reference
+
+See [`config.example.yaml`](config.example.yaml) for the complete reference. Key sections:
 
 ```yaml
 server:
   host: "0.0.0.0"
   port: 8080
-  behind_cloudflare: false   # true when behind Cloudflare proxy
-  trusted_proxies: []        # optional extra reverse-proxy CIDRs
+  mode: "server"              # server | agent
+  tls_cert: ""                # optional TLS certificate path
+  tls_key: ""
+  behind_cloudflare: false    # true when behind Cloudflare proxy
+  trusted_proxies: []         # optional extra reverse-proxy CIDRs
+
+database:
+  path: "./lg.db"
 
 security:
-  # Auto-generated on first start — override only if you need stable values
-  # (e.g. stateless Docker deployments without a persistent volume).
-  jwt_secret: ""        # 64 hex chars: openssl rand -hex 32
-  credential_key: ""    # 64 hex chars: openssl rand -hex 32
+  jwt_secret: ""              # auto-generated; min 32 chars
+  credential_key: ""          # auto-generated; 64 hex chars (AES-256-GCM for node credentials)
 
 flood_control:
   enabled: true
-  http_rate_limit_per_min: 10
-  query_rate_limit_per_min: 10
+  http_rate_limit_per_min: 100
+  query_rate_limit_per_min: 100
+  brute_force_max: 5
+  brute_force_ban_min: 15
+
+audit:
+  retention_days: 90
+  async_write: true
+
+query:
+  max_concurrent: 50
+  default_timeout_sec: 30
+  traceroute_timeout_sec: 60
 
 geoip:
-  license_key: ""       # MaxMind account (free tier)
+  asn_db_path: ""
+  city_db_path: ""
+  license_key: ""             # MaxMind account (free tier)
   account_id: ""
   db_dir: "./data/geoip"
-  update_interval: "72h"  # downloads skipped until interval elapsed
+  update_interval: "72h"      # downloads skipped until interval elapsed
 
 update:
   enabled: true
 
 bgp:
   listen_port: 11790
+  router_id: ""
   local_as: 0
+  listen_addresses: []
+  add_path_receive: true      # learn multiple paths per prefix from ADD-PATH peers
 ```
 
-See [`config.example.yaml`](config.example.yaml) for the complete reference.
+**Agent mode** uses a separate template (`agent.port`, `agent.token`, etc.) — see [Deployment Modes](#deployment-modes).
 
 ## Deployment Modes
 
@@ -157,13 +194,14 @@ Runs the HTTP API, React SPA and query engine. Connects directly to routers via 
 
 ### Agent mode
 
-Lightweight REST server deployed on remote POPs. The central server discovers it as a node.
-Agents v2+ expose SSE streaming endpoints for live ping/tracert output.
+Lightweight REST server deployed on remote POPs. The central server discovers it as a node. Agents expose SSE streaming endpoints for live ping/traceroute output.
 
 ```bash
 ./hopstat --mode=agent
-# Default port: 9090
+# Default port: 9090 (agent.port in config)
 ```
+
+Auto-generated agent config includes a random `agent.token` used by the central server.
 
 ### Systemd service
 
@@ -176,14 +214,18 @@ journalctl -u hopstat | grep -A 10 HOPSTAT   # view first-run credentials
 
 ## Admin Panel
 
-Access at `/admin`. On a fresh install, a random admin password is generated and shown once in the installer output or service log. Change it in **Admin → Settings** after logging in.
+Access at `/admin`. On a fresh install, a random admin password is generated and shown once in the installer output or service log. Change it in **Admin → Settings → Account** after logging in.
 
 From the panel you can:
+
 - Add router nodes (SSH/Telnet credentials are encrypted with AES-256-GCM)
-- Configure site name, AS number and footer links (web, contact, terms, privacy, PeeringDB) in **Admin → Settings**
+- Configure site name, logo, header colour, active languages and query defaults in **Admin → Settings**
+- Configure footer links (website, contact, terms, privacy, PeeringDB)
 - Configure standalone nodes with an agent token for embedded API queries
-- Configure BGP neighbors for the embedded GoBGP peer
+- Configure BGP neighbors and default route AS for the embedded GoBGP peer (**Admin → BGP Neighbors**)
 - Manage **Communities** rules — community string, severity, description and active toggle
+- Manage **Quick Queries** — preset shortcuts shown on the public query page
+- Run **GeoIP lookup** — inspect MaxMind/Cymru enrichment for any IP (**Admin → GeoIP**)
 - View audit logs
 
 ### Communities
@@ -193,8 +235,6 @@ BGP community rules are configured in **Admin → Communities**. Each rule maps 
 - Matched automatically on BGP route lookups — colour-coded badges with hover descriptions
 - Listed on the public **`/communities`** page (linked from the site footer)
 - Exposed via **`GET /api/v1/communities`** (no authentication; active rules only)
-
-The UI label **Communities** is used in all supported locales (EN, TR, DE, FR, RU).
 
 ## Cloudflare
 
@@ -221,7 +261,7 @@ geoip:
 
 Databases are downloaded automatically. Last-download timestamps are stored in SQLite so restarts within the interval do not trigger a new download.
 
-HopStat prefers **MaxMind** for per-hop ASN and country enrichment (traceroute, AS path map). When databases are unavailable, **Team Cymru DNS** (`origin.asn.cymru.com`) is used as fallback.
+HopStat prefers **MaxMind** for per-hop ASN and country enrichment (traceroute, AS path map). When databases are unavailable, **Team Cymru DNS** (`origin.asn.cymru.com` TXT lookups) is used as fallback.
 
 ## Development
 
@@ -239,7 +279,9 @@ Run tests:
 ```bash
 make test
 make test-race
+make test-cover    # internal packages — 100% statement coverage required
 make lint
+cd web/frontend && npm test
 ```
 
 ## License
