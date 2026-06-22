@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -134,6 +134,121 @@ function RouteMobileCard({
   )
 }
 
+interface BgpTableColumn {
+  id: string
+  colClass: string
+  headClass: string
+  cellClass: string
+  header: ReactNode
+  renderCell: (route: BGPRoute) => ReactNode
+}
+
+function buildBgpTableColumns(
+  t: (key: string) => string,
+  enriched: ASInfo[],
+  options: {
+    showNode: boolean
+    showLocalPref: boolean
+    showMed: boolean
+    showCommunities: boolean
+  },
+): BgpTableColumn[] {
+  const columns: BgpTableColumn[] = [
+    {
+      id: 'star',
+      colClass: 'result-bgp-table__col-star',
+      headClass: 'result-bgp-table__star',
+      cellClass: 'result-bgp-table__star text-center align-middle',
+      header: <span className="sr-only">{t('result.best')}</span>,
+      renderCell: route => route.best ? (
+        <Star
+          className="w-3.5 h-3.5 mx-auto fill-amber-400 text-amber-400"
+          aria-label={t('result.best_route')}
+        />
+      ) : null,
+    },
+  ]
+
+  if (options.showNode) {
+    columns.push({
+      id: 'node',
+      colClass: 'result-bgp-table__col-node',
+      headClass: 'result-bgp-table__node',
+      cellClass: 'result-bgp-table__node text-xs font-medium text-muted-foreground whitespace-nowrap',
+      header: t('result.node'),
+      renderCell: route => route.node_name || '—',
+    })
+  }
+
+  columns.push(
+    {
+      id: 'age',
+      colClass: 'result-bgp-table__col-age',
+      headClass: 'result-bgp-table__age',
+      cellClass: 'result-bgp-table__age font-data text-xs text-muted-foreground whitespace-nowrap',
+      header: t('result.age'),
+      renderCell: route => route.age || '—',
+    },
+    {
+      id: 'prefix',
+      colClass: 'result-bgp-table__col-prefix',
+      headClass: 'result-bgp-table__prefix',
+      cellClass: 'result-bgp-table__prefix font-data text-sm font-medium whitespace-nowrap',
+      header: t('result.prefix'),
+      renderCell: route => route.prefix || '—',
+    },
+    {
+      id: 'as-path',
+      colClass: 'result-bgp-table__col-as-path',
+      headClass: 'result-bgp-table__as-path',
+      cellClass: 'result-bgp-table__as-path relative overflow-visible font-data text-xs text-muted-foreground',
+      header: t('result.as_path'),
+      renderCell: route => (
+        <AsPathInline path={route.as_path} enriched={enriched} tooltipPlacement="bottom" nowrap />
+      ),
+    },
+  )
+
+  if (options.showLocalPref) {
+    columns.push({
+      id: 'local-pref',
+      colClass: 'result-bgp-table__col-metric',
+      headClass: 'result-bgp-table__metric',
+      cellClass: 'result-bgp-table__metric font-data text-xs tabular-nums text-muted-foreground whitespace-nowrap',
+      header: t('result.local_pref'),
+      renderCell: route => formatMetric(route.local_pref),
+    })
+  }
+
+  if (options.showMed) {
+    columns.push({
+      id: 'med',
+      colClass: 'result-bgp-table__col-metric',
+      headClass: 'result-bgp-table__metric',
+      cellClass: 'result-bgp-table__metric font-data text-xs tabular-nums text-muted-foreground whitespace-nowrap',
+      header: t('result.med'),
+      renderCell: route => formatMetric(route.med),
+    })
+  }
+
+  if (options.showCommunities) {
+    columns.push({
+      id: 'communities',
+      colClass: 'result-bgp-table__col-communities',
+      headClass: 'result-bgp-table__communities',
+      cellClass: 'result-bgp-table__communities align-top',
+      header: t('result.communities'),
+      renderCell: route => (
+        <div className="result-bgp-table__communities-inner min-w-0">
+          <RouteMetaBlock route={route} compact />
+        </div>
+      ),
+    })
+  }
+
+  return columns
+}
+
 export function ResultBGP({ result, enriched }: Props) {
   const { t } = useI18n()
   const routes = useMemo(() => {
@@ -148,6 +263,16 @@ export function ResultBGP({ result, enriched }: Props) {
   const uniqueNodeNames = useMemo(
     () => new Set(routes.map(r => r.node_name?.trim()).filter(Boolean)),
     [routes],
+  )
+
+  const tableColumns = useMemo(
+    () => buildBgpTableColumns(t, enriched, {
+      showNode: uniqueNodeNames.size > 1,
+      showLocalPref: shouldShowRouteMetric(routes, 'local_pref'),
+      showMed: shouldShowRouteMetric(routes, 'med'),
+      showCommunities: routes.some(routeHasMeta),
+    }),
+    [t, enriched, routes, uniqueNodeNames],
   )
 
   if (routes.length === 0) return null
@@ -176,71 +301,31 @@ export function ResultBGP({ result, enriched }: Props) {
 
       <div className="result-table-frame hidden animate-fade-up md:block">
         <Table className="result-bgp-table md:table" containerClassName="result-table-wrap">
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="result-bgp-table__star">
-              <span className="sr-only">{t('result.best')}</span>
-            </TableHead>
-            {showNode && <TableHead className="result-bgp-table__node">{t('result.node')}</TableHead>}
-            <TableHead className="result-bgp-table__age hidden lg:table-cell">{t('result.age')}</TableHead>
-            <TableHead className="result-bgp-table__prefix">{t('result.prefix')}</TableHead>
-            <TableHead className="result-bgp-table__as-path">{t('result.as_path')}</TableHead>
-            {showLocalPref && (
-              <TableHead className="result-bgp-table__metric">{t('result.local_pref')}</TableHead>
-            )}
-            {showMed && (
-              <TableHead className="result-bgp-table__metric">{t('result.med')}</TableHead>
-            )}
-            {showCommunities && (
-              <TableHead className="result-bgp-table__communities">{t('result.communities')}</TableHead>
-            )}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {routes.map((route, i) => (
-            <TableRow key={`${route.prefix}-${i}`} className="relative hover:z-20">
-              <TableCell className="result-bgp-table__star text-center align-middle">
-                {route.best ? (
-                  <Star
-                    className="w-3.5 h-3.5 mx-auto fill-amber-400 text-amber-400"
-                    aria-label={t('result.best_route')}
-                  />
-                ) : null}
-              </TableCell>
-              {showNode && (
-                <TableCell className="result-bgp-table__node text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  {route.node_name || '—'}
-                </TableCell>
-              )}
-              <TableCell className="result-bgp-table__age hidden lg:table-cell font-data text-xs text-muted-foreground whitespace-nowrap">
-                {route.age || '—'}
-              </TableCell>
-              <TableCell className="result-bgp-table__prefix font-data text-sm font-medium whitespace-nowrap">
-                {route.prefix || '—'}
-              </TableCell>
-              <TableCell className="result-bgp-table__as-path relative overflow-visible font-data text-xs text-muted-foreground">
-                <AsPathInline path={route.as_path} enriched={enriched} tooltipPlacement="bottom" nowrap />
-              </TableCell>
-              {showLocalPref && (
-                <TableCell className="result-bgp-table__metric font-data text-xs tabular-nums text-muted-foreground whitespace-nowrap">
-                  {formatMetric(route.local_pref)}
-                </TableCell>
-              )}
-              {showMed && (
-                <TableCell className="result-bgp-table__metric font-data text-xs tabular-nums text-muted-foreground whitespace-nowrap">
-                  {formatMetric(route.med)}
-                </TableCell>
-              )}
-              {showCommunities && (
-                <TableCell className="result-bgp-table__communities align-top py-3">
-                  <div className="result-bgp-table__communities-inner min-w-0">
-                    <RouteMetaBlock route={route} compact />
-                  </div>
-                </TableCell>
-              )}
+          <colgroup>
+            {tableColumns.map(column => (
+              <col key={column.id} className={column.colClass} />
+            ))}
+          </colgroup>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              {tableColumns.map(column => (
+                <TableHead key={column.id} className={column.headClass}>
+                  {column.header}
+                </TableHead>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
+          </TableHeader>
+          <TableBody>
+            {routes.map((route, i) => (
+              <TableRow key={`${route.prefix}-${i}`} className="relative hover:z-20">
+                {tableColumns.map(column => (
+                  <TableCell key={column.id} className={column.cellClass}>
+                    {column.renderCell(route)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
         </Table>
       </div>
     </>
