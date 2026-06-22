@@ -399,7 +399,6 @@ func (e *QueryEngine) applyBGPASPath(ctx context.Context, br *domain.BGPResult, 
 
 	route := bgp.BestRoute(br.Routes)
 	if br == nil || route == nil || len(route.ASPath) == 0 {
-		e.ensureTargetASInResult(br, result, opt)
 		return
 	}
 	result.ASPathPrefix = route.Prefix

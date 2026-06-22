@@ -7,7 +7,7 @@ import { AsPathMap } from './as-path-map'
 import { ResultBGP } from './result-bgp'
 import { ResultPing } from './result-ping'
 import { QueryErrorAlert } from './query-error-alert'
-import { extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, hasPingData, isPingOutputComplete, bestBGPRoute } from '@/lib/result-parse'
+import { buildBgpMapAsPath, extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, hasPingData, isPingOutputComplete, bestBGPRoute, shouldShowBgpAsPathMap } from '@/lib/result-parse'
 import { translateQueryError, translateBgpRawMessage } from '@/lib/query-errors'
 import type { BGPResult, PingResult } from '@/types/domain'
 
@@ -72,9 +72,7 @@ export function ResultContainer({ queryId, command, historyContext, onHistorySav
   const enrichedForDisplay = !targetAS?.asn || enrichedBase.some(entry => entry.asn === targetAS.asn)
     ? enrichedBase
     : [...enrichedBase, targetAS]
-  const mapAsPath = !targetAS?.asn || asPath.includes(targetAS.asn)
-    ? asPath
-    : [...asPath, targetAS.asn]
+  const mapAsPath = buildBgpMapAsPath(asPath, targetAS?.asn)
 
   if (!queryId) return null
 
@@ -90,7 +88,11 @@ export function ResultContainer({ queryId, command, historyContext, onHistorySav
   const isRunning = !result || result.status === 'pending' || result.status === 'running'
   const isError = result?.status === 'error'
 
-  const showAsPathMap = command === 'bgp_route' && (mapAsPath.length > 0)
+  const hasBgpRoutes = Boolean(bgpParsed?.routes?.length)
+  const showAsPathMap = shouldShowBgpAsPathMap(command, mapAsPath, {
+    hasBgpRoutes,
+    hasServerAsPath: asPathFromResult.length > 0,
+  })
 
   const selectedRoute = bestBGPRoute(bgpParsed?.routes)
 
@@ -107,7 +109,7 @@ export function ResultContainer({ queryId, command, historyContext, onHistorySav
     age: selectedRoute?.age ?? bgpParsed?.routes?.[0]?.age ?? '',
   }]
 
-  const showBgpRoutes = Boolean(command === 'bgp_route' && bgpParsed?.routes?.length)
+  const showBgpRoutes = Boolean(command === 'bgp_route' && hasBgpRoutes)
   const showBgpRawMessage = Boolean(
     command === 'bgp_route' &&
     !showBgpRoutes &&

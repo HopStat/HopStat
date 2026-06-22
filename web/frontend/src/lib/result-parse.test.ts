@@ -1,9 +1,47 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildBgpMapAsPath,
   isPingOutputComplete,
   mergePingResult,
   parsePingFromLines,
+  shouldShowBgpAsPathMap,
 } from './result-parse'
+
+describe('buildBgpMapAsPath', () => {
+  it('returns empty when there is no BGP AS path', () => {
+    expect(buildBgpMapAsPath([], 9121)).toEqual([])
+  })
+
+  it('does not synthesize a path from target ASN alone', () => {
+    expect(buildBgpMapAsPath([], 9121)).toEqual([])
+  })
+
+  it('appends target ASN when missing from an existing path', () => {
+    expect(buildBgpMapAsPath([9121, 174], 15169)).toEqual([9121, 174, 15169])
+  })
+
+  it('keeps path unchanged when target ASN is already present', () => {
+    expect(buildBgpMapAsPath([9121, 174], 174)).toEqual([9121, 174])
+  })
+
+  it('drops invalid zero ASNs', () => {
+    expect(buildBgpMapAsPath([0, 0], 9121)).toEqual([])
+  })
+})
+
+describe('shouldShowBgpAsPathMap', () => {
+  it('hides the map when there is no AS path', () => {
+    expect(shouldShowBgpAsPathMap('bgp_route', [], { hasBgpRoutes: false })).toBe(false)
+  })
+
+  it('shows the map when routes include a path', () => {
+    expect(shouldShowBgpAsPathMap('bgp_route', [9121, 174], { hasBgpRoutes: true })).toBe(true)
+  })
+
+  it('hides the map for target-only enrichment without BGP routes', () => {
+    expect(shouldShowBgpAsPathMap('bgp_route', [9121], { hasBgpRoutes: false })).toBe(false)
+  })
+})
 
 describe('parsePingFromLines', () => {
   it('parses transmitted and received counts', () => {

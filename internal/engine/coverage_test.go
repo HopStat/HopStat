@@ -684,6 +684,25 @@ func TestNodeNameForNeighborIPNilManager(t *testing.T) {
 	}
 }
 
+func TestApplyBGPASPathNoRoutesWithTargetAS(t *testing.T) {
+	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, nil, nil, nil, 0)
+	br := &domain.BGPResult{
+		Raw:      "no matching BGP routes for 185.203.171.1",
+		TargetAS: &domain.ASInfo{ASN: 9121, OrgName: "TURKNET"},
+	}
+	result := &domain.QueryResult{}
+	var partials int
+	e.applyBGPASPath(context.Background(), br, "185.203.171.1", result, ExecuteOption{
+		OnPartial: func(*domain.QueryResult) { partials++ },
+	})
+	if len(result.ASPathEnriched) != 0 {
+		t.Fatalf("ASPathEnriched = %v", result.ASPathEnriched)
+	}
+	if partials != 0 {
+		t.Fatal("expected no partial AS path when BGP route is missing")
+	}
+}
+
 func TestApplyBGPASPathNilRoute(t *testing.T) {
 	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, nil, nil, nil, 0)
 	result := &domain.QueryResult{}

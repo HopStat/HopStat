@@ -25,6 +25,7 @@ export function AsPathMap({ routes, enriched }: Props) {
 
   const byAsn = buildAsInfoMap(enriched)
   const hops = compressConsecutiveASPath(asPath)
+  if (hops.length === 0) return null
 
   return (
     <div className="result-surface result-surface--path px-3 py-3 sm:px-5 sm:py-4">

@@ -11,6 +11,25 @@ export function extractASPathFromBGP(parsed: BGPResult | null | undefined): numb
   return []
 }
 
+/** Build AS path for the BGP map; never synthesize a path from target ASN alone. */
+export function buildBgpMapAsPath(asPath: number[], targetAsn?: number | null): number[] {
+  const validPath = asPath.filter(asn => asn > 0)
+  if (validPath.length === 0) return []
+  if (!targetAsn || targetAsn <= 0 || validPath.includes(targetAsn)) return validPath
+  return [...validPath, targetAsn]
+}
+
+/** Show the AS path map only when BGP returned a real path to visualize. */
+export function shouldShowBgpAsPathMap(
+  command: string | undefined,
+  mapAsPath: number[],
+  options?: { hasBgpRoutes?: boolean; hasServerAsPath?: boolean },
+): boolean {
+  if (command !== 'bgp_route' || mapAsPath.length === 0) return false
+  if (options?.hasBgpRoutes || options?.hasServerAsPath) return true
+  return false
+}
+
 export function extractASPathFromLines(lines: string[]): number[] {
   for (const line of lines) {
     const m = line.match(/AS_PATH:\s*(\[[^\]]+\]|\d+(?:\s+\d+)*)/i)
