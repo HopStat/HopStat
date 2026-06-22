@@ -1,11 +1,38 @@
 import { useState, useEffect, useRef } from 'react'
-import type { QueryResult } from '@/types/domain'
+import type { ASInfo, QueryResult } from '@/types/domain'
 
 interface UseQueryStreamReturn {
   result: QueryResult | null
   lines: string[]
   error: string | null
   outputComplete: boolean
+}
+
+function mergeAsPathEnriched(
+  data: { as_path?: number[]; as_path_enriched?: ASInfo[] },
+  prev: QueryResult | null,
+): ASInfo[] {
+  if (data.as_path_enriched?.length) {
+    return data.as_path_enriched
+  }
+  if (data.as_path?.length) {
+    return []
+  }
+  return prev?.as_path_enriched ?? []
+}
+
+function mergeQueryStreamResult(
+  queryId: string,
+  data: QueryResult,
+  prev: QueryResult | null,
+): QueryResult {
+  const base = prev?.id === queryId ? prev : null
+  return {
+    ...data,
+    as_path: data.as_path?.length ? data.as_path : (base?.as_path ?? []),
+    as_path_prefix: data.as_path_prefix ?? base?.as_path_prefix,
+    as_path_enriched: mergeAsPathEnriched(data, base),
+  }
 }
 
 export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
@@ -53,21 +80,22 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
           as_path_prefix?: QueryResult['as_path_prefix']
           as_path_enriched?: QueryResult['as_path_enriched']
         }
-        setResult(prev => ({
-          id: queryId,
-          status: 'running',
-          raw: data.raw?.trim() ? data.raw : (prev?.raw ?? ''),
-          parsed: data.parsed ?? prev?.parsed ?? null,
-          duration_ms: prev?.duration_ms ?? 0,
-          error_msg: prev?.error_msg ?? '',
-          error_code: prev?.error_code ?? '',
-          matched_rules: data.matched_rules ?? prev?.matched_rules ?? [],
-          as_path: data.as_path?.length ? data.as_path : (prev?.as_path ?? []),
-          as_path_prefix: data.as_path_prefix ?? prev?.as_path_prefix,
-          as_path_enriched: data.as_path_enriched?.length
-            ? data.as_path_enriched
-            : (prev?.as_path_enriched ?? []),
-        }))
+        setResult(prev => {
+          const base = prev?.id === queryId ? prev : null
+          return {
+            id: queryId,
+            status: 'running',
+            raw: data.raw?.trim() ? data.raw : (base?.raw ?? ''),
+            parsed: data.parsed ?? base?.parsed ?? null,
+            duration_ms: base?.duration_ms ?? 0,
+            error_msg: base?.error_msg ?? '',
+            error_code: base?.error_code ?? '',
+            matched_rules: data.matched_rules ?? base?.matched_rules ?? [],
+            as_path: data.as_path?.length ? data.as_path : (base?.as_path ?? []),
+            as_path_prefix: data.as_path_prefix ?? base?.as_path_prefix,
+            as_path_enriched: mergeAsPathEnriched(data, base),
+          }
+        })
       } catch { /* ignore parse errors */ }
     })
 
@@ -80,14 +108,7 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
         const data = JSON.parse(e.data) as QueryResult
         finished = true
         setOutputComplete(true)
-        setResult(prev => ({
-          ...data,
-          as_path: data.as_path?.length ? data.as_path : (prev?.as_path ?? []),
-          as_path_prefix: data.as_path_prefix ?? prev?.as_path_prefix,
-          as_path_enriched: data.as_path_enriched?.length
-            ? data.as_path_enriched
-            : (prev?.as_path_enriched ?? []),
-        }))
+        setResult(prev => mergeQueryStreamResult(queryId, data, prev))
         if (data.raw) {
           setLines(prev => prev.length > 0 ? prev : data.raw.split('\n').filter(l => l.length > 0))
         }

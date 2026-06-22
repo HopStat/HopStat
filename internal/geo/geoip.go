@@ -352,7 +352,7 @@ func (g *GeoIPDB) LookupASByNumber(ctx context.Context, asn uint32) (*domain.ASI
 		return &domain.ASInfo{}, nil
 	}
 	if info, ok := g.lookupASNFromIndex(asn); ok {
-		if info.CountryCode != "" {
+		if info.OrgName != "" && info.CountryCode != "" {
 			return info, nil
 		}
 		return g.mergeASByNumberDNS(ctx, info), nil

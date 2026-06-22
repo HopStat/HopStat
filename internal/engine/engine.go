@@ -453,7 +453,7 @@ func (e *QueryEngine) enrichASPath(ctx context.Context, br *domain.BGPResult, re
 	}
 	seen := map[uint32]bool{}
 	result.ASPathEnriched = result.ASPathEnriched[:0]
-	for _, asn := range result.ASPath {
+	for _, asn := range collectBGPASPathASNs(result, br) {
 		if seen[asn] || asn == 0 {
 			continue
 		}
@@ -470,6 +470,29 @@ func (e *QueryEngine) enrichASPath(ctx context.Context, br *domain.BGPResult, re
 		}
 	}
 	e.emitASPathPartial(result, opt)
+}
+
+func collectBGPASPathASNs(result *domain.QueryResult, br *domain.BGPResult) []uint32 {
+	seen := map[uint32]bool{}
+	var asns []uint32
+	add := func(path []uint32) {
+		for _, asn := range path {
+			if asn == 0 || seen[asn] {
+				continue
+			}
+			seen[asn] = true
+			asns = append(asns, asn)
+		}
+	}
+	if result != nil {
+		add(result.ASPath)
+	}
+	if br != nil {
+		for i := range br.Routes {
+			add(br.Routes[i].ASPath)
+		}
+	}
+	return asns
 }
 
 func SanitizeErrorMsg(err error) string {

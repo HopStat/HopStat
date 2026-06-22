@@ -236,7 +236,7 @@ function buildBgpTableColumns(
       id: 'communities',
       colClass: 'result-bgp-table__col-communities',
       headClass: 'result-bgp-table__communities',
-      cellClass: 'result-bgp-table__communities align-top',
+      cellClass: 'result-bgp-table__communities',
       header: t('result.communities'),
       renderCell: route => (
         <div className="result-bgp-table__communities-inner min-w-0">

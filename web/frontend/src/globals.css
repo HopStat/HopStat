@@ -1596,6 +1596,13 @@
     width: 14rem;
     min-width: 12rem;
     white-space: normal;
+  }
+
+  .result-bgp-table thead th.result-bgp-table__communities {
+    vertical-align: middle;
+  }
+
+  .result-bgp-table tbody td.result-bgp-table__communities {
     vertical-align: top;
   }
 
