@@ -256,6 +256,8 @@
   "admin.bgp_status_established": "Established",
   "admin.bgp_peering_ip": "Peering IP",
   "admin.bgp_select_peering_ip": "Lokale IP wählen",
+  "admin.bgp_manual_ipv4_placeholder": "IPv4-Adresse eingeben",
+  "admin.bgp_manual_ipv6_placeholder": "IPv6-Adresse eingeben",
   "admin.bgp_pick_system_address": "Aus Systemadressen wählen",
   "admin.bgp_enter_manually": "Manuell eingeben",
   "admin.bgp_link_local": "link-local",

@@ -10,7 +10,6 @@ interface Props {
   value: string
   options: SystemAddressOption[]
   onChange: (value: string) => void
-  placeholder?: string
   family?: 'ipv4' | 'ipv6'
 }
 
@@ -26,24 +25,30 @@ function optionLabel(option: SystemAddressOption, t: (key: string) => string): s
   return label
 }
 
-export function SystemAddressField({ value, options, onChange, placeholder, family = 'ipv4' }: Props) {
+export function SystemAddressField({ value, options, onChange, family = 'ipv4' }: Props) {
   const { t } = useI18n()
   const optionIPs = useMemo(() => options.map(option => option.ip), [options])
-  const [manual, setManual] = useState(() => value !== '' && !optionIPs.includes(value))
+  const [manual, setManual] = useState(false)
+  const selectPlaceholder = t('admin.bgp_select_peering_ip')
+  const manualPlaceholder = family === 'ipv6'
+    ? t('admin.bgp_manual_ipv6_placeholder')
+    : t('admin.bgp_manual_ipv4_placeholder')
 
   useEffect(() => {
-    if (value !== '' && !optionIPs.includes(value)) {
+    if (value === '') {
+      setManual(false)
+    } else if (!optionIPs.includes(value)) {
       setManual(true)
     }
   }, [value, optionIPs])
 
-  if (manual || options.length === 0) {
+  if (manual) {
     return (
       <div className="space-y-2">
         <Input
           value={value}
           onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
+          placeholder={manualPlaceholder}
           className="font-data"
         />
         {options.length > 0 ? (
@@ -59,11 +64,29 @@ export function SystemAddressField({ value, options, onChange, placeholder, fami
           >
             {t('admin.bgp_pick_system_address')}
           </button>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            {family === 'ipv6' ? t('admin.bgp_no_system_ipv6') : t('admin.bgp_no_system_ipv4')}
-          </p>
-        )}
+        ) : null}
+      </div>
+    )
+  }
+
+  if (options.length === 0) {
+    return (
+      <div className="space-y-2">
+        <Select disabled>
+          <SelectTrigger className="font-data">
+            <SelectValue placeholder={selectPlaceholder} />
+          </SelectTrigger>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {family === 'ipv6' ? t('admin.bgp_no_system_ipv6') : t('admin.bgp_no_system_ipv4')}
+        </p>
+        <button
+          type="button"
+          className="text-xs text-brand hover:underline"
+          onClick={() => setManual(true)}
+        >
+          {t('admin.bgp_enter_manually')}
+        </button>
       </div>
     )
   }
@@ -80,7 +103,7 @@ export function SystemAddressField({ value, options, onChange, placeholder, fami
       }}
     >
       <SelectTrigger className="font-data">
-        <SelectValue placeholder={placeholder ?? t('admin.bgp_select_peering_ip')} />
+        <SelectValue placeholder={selectPlaceholder} />
       </SelectTrigger>
       <SelectContent>
         {options.map(option => (

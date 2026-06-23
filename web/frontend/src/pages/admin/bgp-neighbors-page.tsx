@@ -387,10 +387,10 @@ export function BGPNeighborsPage() {
               <div className="space-y-2">
                 <Label>{t('admin.bgp_peering_ip')}</Label>
                 <SystemAddressField
+                  key={`peering-v4-${editItem?.id ?? 'new'}`}
                   value={form.peering_ip}
                   options={systemAddresses.ipv4}
                   onChange={peering_ip => setForm({ ...form, peering_ip })}
-                  placeholder="192.168.1.1"
                   family="ipv4"
                 />
               </div>
@@ -401,10 +401,10 @@ export function BGPNeighborsPage() {
               <div className="space-y-2">
                 <Label>{t('admin.bgp_peering_ip')}</Label>
                 <SystemAddressField
+                  key={`peering-v6-${editItem?.id ?? 'new'}`}
                   value={form.ipv6_peering_ip}
                   options={systemAddresses.ipv6}
                   onChange={ipv6_peering_ip => setForm({ ...form, ipv6_peering_ip })}
-                  placeholder="2001:db8::1"
                   family="ipv6"
                 />
               </div>

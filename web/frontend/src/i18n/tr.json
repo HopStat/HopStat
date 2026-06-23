@@ -256,6 +256,8 @@
   "admin.bgp_status_established": "Established",
   "admin.bgp_peering_ip": "Peering IP",
   "admin.bgp_select_peering_ip": "Yerel IP seç",
+  "admin.bgp_manual_ipv4_placeholder": "IPv4 adresi girin",
+  "admin.bgp_manual_ipv6_placeholder": "IPv6 adresi girin",
   "admin.bgp_pick_system_address": "Sistem adreslerinden seç",
   "admin.bgp_enter_manually": "Elle gir",
   "admin.bgp_link_local": "link-local",
