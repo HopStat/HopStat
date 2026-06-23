@@ -46,6 +46,7 @@ web/frontend/SQLite
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~

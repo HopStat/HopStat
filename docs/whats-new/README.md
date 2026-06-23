@@ -36,6 +36,11 @@ When the user says **build al** or **deploy et**:
 1. Draft `docs/whats-new/vX.Y.Z.md` from the actual diff (English, formatted as above).
 2. Commit code + whats-new file.
 3. Tag `vX.Y.Z` and push.
-4. Ensure GitHub Release uses this markdown as the release body.
+## Content rules
 
-See also: `.cursor/rules/release-whats-new.mdc`
+- English only — no TR/DE/FR/RU translations of release notes.
+- User-facing: short title line, then `## What's New`, optional `## Fixes` / `## Improvements`.
+- Bullet points, not walls of text; one line per change when possible.
+- Mention admin-visible behavior (e.g. What's New modal, BGP, ping fixes).
+
+Do not tag a release without the matching `docs/whats-new/vX.Y.Z.md` file.
