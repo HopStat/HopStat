@@ -64,7 +64,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           name: HopStat ${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          body_path: docs/whats-new/${{ steps.version.outputs.version }}.md
           files: |
             dist/hopstat-linux-amd64
             dist/hopstat-linux-arm64

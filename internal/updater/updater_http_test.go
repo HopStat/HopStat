@@ -126,7 +126,7 @@ func TestFetchLatestErrors(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"tag_name":"v2.0.0","html_url":"https://example.com/v2.0.0","assets":[]}`)
+		fmt.Fprint(w, `{"tag_name":"v2.0.0","name":"HopStat v2.0.0","body":"- Fix ping\n- Fix BGP","html_url":"https://example.com/v2.0.0","assets":[]}`)
 	}))
 	defer srv.Close()
 
@@ -141,6 +141,12 @@ func TestStatus(t *testing.T) {
 	}
 	if st.ReleaseURL != "https://example.com/v2.0.0" {
 		t.Fatalf("release url = %q", st.ReleaseURL)
+	}
+	if st.ReleaseName != "HopStat v2.0.0" {
+		t.Fatalf("release name = %q", st.ReleaseName)
+	}
+	if st.ReleaseNotes != "- Fix ping\n- Fix BGP" {
+		t.Fatalf("release notes = %q", st.ReleaseNotes)
 	}
 	if runtime.GOOS != "linux" && st.SelfUpdateEnabled {
 		t.Fatal("expected self update disabled off linux")

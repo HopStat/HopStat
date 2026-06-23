@@ -30,6 +30,8 @@ var (
 
 type Release struct {
 	TagName string  `json:"tag_name"`
+	Name    string  `json:"name"`
+	Body    string  `json:"body"`
 	HTMLURL string  `json:"html_url"`
 	Assets  []Asset `json:"assets"`
 }
@@ -44,6 +46,8 @@ type Status struct {
 	Latest            string `json:"latest"`
 	UpdateAvailable   bool   `json:"update_available"`
 	ReleaseURL        string `json:"release_url"`
+	ReleaseName       string `json:"release_name,omitempty"`
+	ReleaseNotes      string `json:"release_notes,omitempty"`
 	SelfUpdateEnabled bool   `json:"self_update_enabled"`
 	SelfUpdateReason  string `json:"self_update_reason,omitempty"`
 }
@@ -90,6 +94,8 @@ func (u *Updater) Status(ctx context.Context) (*Status, error) {
 		Latest:            rel.TagName,
 		UpdateAvailable:   isNewer(rel.TagName, u.current),
 		ReleaseURL:        rel.HTMLURL,
+		ReleaseName:       rel.Name,
+		ReleaseNotes:      rel.Body,
 		SelfUpdateEnabled: selfUpdateEnabled,
 		SelfUpdateReason:  selfUpdateReason,
 	}, nil

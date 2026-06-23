@@ -201,6 +201,8 @@ export interface UpdateStatus {
   latest: string
   update_available: boolean
   release_url: string
+  release_name?: string
+  release_notes?: string
   self_update_enabled: boolean
   self_update_reason?: string
 }

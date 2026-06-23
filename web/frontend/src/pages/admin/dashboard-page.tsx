@@ -13,6 +13,8 @@ import { formatMemoryDetail, formatCpuDetail, resourceLevelLabel } from '@/lib/r
 import type { Node, AuditEntry, UpdateStatus, GeoIPStatus, BGPNeighbor, SystemStatus } from '@/types/domain'
 import { commandBadgeLabel, formatAuditParams } from '@/lib/audit-params'
 import { waitForHealth } from '@/lib/wait-for-health'
+import { getLastSeenVersion, setLastSeenVersion, shouldShowPostUpdateWhatsNew } from '@/lib/version-seen'
+import { WhatsNewDialog, type WhatsNewMode } from '@/components/admin/whats-new-dialog'
 
 type UpdateState = 'idle' | 'applying' | 'restarting'
 
@@ -110,6 +112,10 @@ function VersionStatCard() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [updateError, setUpdateError] = useState<string | null>(null)
   const [updateState, setUpdateState] = useState<UpdateState>('idle')
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+  const [whatsNewMode, setWhatsNewMode] = useState<WhatsNewMode>('confirm')
+  const [whatsNewVersion, setWhatsNewVersion] = useState('')
+  const postUpdateShownRef = useRef(false)
   const restartAbortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -119,18 +125,45 @@ function VersionStatCard() {
   }, [])
 
   useEffect(() => {
+    if (!status || postUpdateShownRef.current) return
+    if (!getLastSeenVersion()) {
+      setLastSeenVersion(status.current)
+      return
+    }
+    if (status.update_available || !shouldShowPostUpdateWhatsNew(status.current)) return
+    postUpdateShownRef.current = true
+    setWhatsNewVersion(status.current)
+    setWhatsNewMode('post_update')
+    setWhatsNewOpen(true)
+  }, [status])
+
+  useEffect(() => {
     return () => {
       restartAbortRef.current?.abort()
     }
   }, [])
 
-  async function handleUpdate() {
+  function openWhatsNew(mode: WhatsNewMode, version: string) {
+    setWhatsNewVersion(version)
+    setWhatsNewMode(mode)
+    setWhatsNewOpen(true)
+  }
+
+  function dismissWhatsNew() {
+    const version = whatsNewVersion || status?.current || ''
+    if (version) {
+      setLastSeenVersion(version)
+    }
+  }
+
+  async function applyUpdate() {
     if (!status?.update_available || !status.self_update_enabled || updateState !== 'idle') return
     const targetVersion = status.latest
     setUpdateState('applying')
     setUpdateError(null)
     try {
       await api.post('/admin/update/apply')
+      setWhatsNewOpen(false)
       setUpdateState('restarting')
       restartAbortRef.current?.abort()
       restartAbortRef.current = new AbortController()
@@ -144,6 +177,11 @@ function VersionStatCard() {
       setUpdateError(t('admin.update_failed'))
       setUpdateState('idle')
     }
+  }
+
+  function handleUpdateClick() {
+    if (!status?.update_available || updateState !== 'idle') return
+    openWhatsNew('confirm', status.latest)
   }
 
   if (loadError) {
@@ -169,57 +207,71 @@ function VersionStatCard() {
   const Icon = status.update_available ? AlertCircle : CheckCircle
 
   return (
-    <div className="admin-stat-card">
-      <div className={`admin-stat-card__icon ${iconClass}`}>
-        <Icon className="w-[1.125rem] h-[1.125rem]" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="admin-stat-card__label">{t('admin.version')}</div>
-        <div className="admin-stat-card__value font-data truncate">{formatVersion(status.current)}</div>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-          {status.update_available ? (
-            <>
-              <span className="admin-stat-card__meta shrink-0 text-amber-600 dark:text-amber-400">
-                → {formatVersion(status.latest)}
-              </span>
-              {status.self_update_enabled ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 max-w-full shrink-0 px-2 text-[10px]"
-                  onClick={handleUpdate}
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? (
-                    <>
-                      <RefreshCw className="mr-1 h-3 w-3 shrink-0 animate-spin" />
-                      <span className="truncate">{t('admin.update_applying')}</span>
-                    </>
-                  ) : (
-                    t('admin.update_apply')
-                  )}
-                </Button>
-              ) : status.release_url ? (
-                <a
-                  href={status.release_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="admin-stat-card__meta truncate text-brand hover:underline"
-                  title={status.self_update_reason}
-                >
-                  {t('admin.release_notes')}
-                </a>
-              ) : null}
-            </>
-          ) : (
-            <span className="admin-stat-card__meta">{t('admin.up_to_date')}</span>
+    <>
+      <div className="admin-stat-card">
+        <div className={`admin-stat-card__icon ${iconClass}`}>
+          <Icon className="w-[1.125rem] h-[1.125rem]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="admin-stat-card__label">{t('admin.version')}</div>
+          <div className="admin-stat-card__value font-data truncate">{formatVersion(status.current)}</div>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+            {status.update_available ? (
+              <>
+                <span className="admin-stat-card__meta shrink-0 text-amber-600 dark:text-amber-400">
+                  → {formatVersion(status.latest)}
+                </span>
+                {status.self_update_enabled ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 max-w-full shrink-0 px-2 text-[10px]"
+                    onClick={handleUpdateClick}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <>
+                        <RefreshCw className="mr-1 h-3 w-3 shrink-0 animate-spin" />
+                        <span className="truncate">{t('admin.update_applying')}</span>
+                      </>
+                    ) : (
+                      t('admin.update_apply')
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 max-w-full shrink-0 px-2 text-[10px] text-brand"
+                    onClick={() => openWhatsNew('view', status.latest)}
+                  >
+                    {t('admin.whats_new_link')}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <span className="admin-stat-card__meta">{t('admin.up_to_date')}</span>
+            )}
+          </div>
+          {updateError && (
+            <p className="admin-stat-card__meta mt-1 truncate text-destructive">{updateError}</p>
           )}
         </div>
-        {updateError && (
-          <p className="admin-stat-card__meta mt-1 truncate text-destructive">{updateError}</p>
-        )}
       </div>
-    </div>
+
+      <WhatsNewDialog
+        open={whatsNewOpen}
+        onOpenChange={setWhatsNewOpen}
+        version={whatsNewVersion || status.latest}
+        releaseName={status.release_name}
+        releaseNotes={status.release_notes}
+        releaseUrl={status.release_url}
+        mode={whatsNewMode}
+        onConfirm={applyUpdate}
+        confirming={isUpdating}
+        onDismiss={dismissWhatsNew}
+      />
+    </>
   )
 }
 

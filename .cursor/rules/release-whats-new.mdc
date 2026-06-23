@@ -1,0 +1,31 @@
+---
+description: Release/build workflow — commit formatted English What's New notes to git
+alwaysApply: true
+---
+
+# Release build — What's New in git
+
+When the user says **build al**, **deploy et**, asks for a **release/tag**, or otherwise requests a production build:
+
+## Required before commit + tag
+
+1. **Write What's New** for the target version in **English only** (single language for all UI locales).
+2. **Add to git** as a new file:
+   ```
+   docs/whats-new/vX.Y.Z.md
+   ```
+   Example: `docs/whats-new/v2.1.64.md`
+3. Use the markdown format in `docs/whats-new/README.md` (sections, bullets, clear prose).
+4. **Commit** the whats-new file together with the code changes for that release.
+5. **Tag** after push (`vX.Y.Z`); GitHub Release body should match this file (prefer `body_path` in release workflow over auto-generated notes when wired).
+
+## Content rules
+
+- English only — no TR/DE/FR/RU translations of release notes.
+- User-facing: short title line, then `## What's New`, optional `## Fixes` / `## Improvements`.
+- Bullet points, not walls of text; one line per change when possible.
+- Mention admin-visible behavior (e.g. What's New modal, BGP, ping fixes).
+
+## Do not skip
+
+If the user asks for a build/release and there is no `docs/whats-new/vX.Y.Z.md` for that version yet, **create it first**, then commit, tag, and push.
