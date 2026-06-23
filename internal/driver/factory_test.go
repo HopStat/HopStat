@@ -5,7 +5,7 @@ import (
 
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
-	"github.com/HopStat/HopStat/internal/driver/lgnode"
+	"github.com/HopStat/HopStat/internal/driver/standalone"
 )
 
 func TestNewDriverStandalone(t *testing.T) {
@@ -22,7 +22,7 @@ func TestNewDriverStandalone(t *testing.T) {
 	}
 }
 
-func TestNewDriverStandaloneWithTokenUsesAgentAPI(t *testing.T) {
+func TestNewDriverStandaloneWithTokenUsesStandaloneDriver(t *testing.T) {
 	node := &domain.Node{
 		Type:        domain.NodeTypeStandalone,
 		AgentToken:  "secret-token",
@@ -33,8 +33,8 @@ func TestNewDriverStandaloneWithTokenUsesAgentAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDriver error: %v", err)
 	}
-	if _, ok := drv.(*lgnode.Driver); !ok {
-		t.Fatalf("expected lgnode driver for tokenized standalone node, got %T", drv)
+	if _, ok := drv.(*standalone.Driver); !ok {
+		t.Fatalf("expected standalone driver for tokenized standalone node, got %T", drv)
 	}
 }
 

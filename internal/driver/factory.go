@@ -10,15 +10,10 @@ import (
 )
 
 func NewDriver(node *domain.Node, cfg *config.Config) (NodeDriver, error) {
-	if node.Type == domain.NodeTypeStandalone && node.AgentToken != "" && cfg != nil && cfg.Server.Port > 0 {
-		proxy := *node
-		proxy.Type = domain.NodeTypeLGNode
-		proxy.AgentURL = fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port)
-		return lgnode.NewDriver(&proxy, cfg)
-	}
-
 	switch node.Type {
 	case domain.NodeTypeStandalone:
+		// Run commands in-process. Do not loop back through the local agent HTTP
+		// API: same-process self-requests can deadlock until query timeout.
 		return standalone.NewDriver(node, cfg)
 	case domain.NodeTypeLGNode:
 		return lgnode.NewDriver(node, cfg)

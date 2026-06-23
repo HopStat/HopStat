@@ -538,10 +538,7 @@ func ClassifyError(err error) string {
 	case errors.Is(err, domain.ErrRateLimited):
 		return "RATE_LIMITED"
 	default:
-		if err == context.Canceled {
-			return "COMMAND_TIMEOUT"
-		}
-		if err == context.DeadlineExceeded {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return "COMMAND_TIMEOUT"
 		}
 		return "INTERNAL_ERROR"
