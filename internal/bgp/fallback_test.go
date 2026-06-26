@@ -139,8 +139,20 @@ func TestTargetIPAndDisplayPrefix(t *testing.T) {
 	if got := displayPrefix("already/24"); got != "already/24" {
 		t.Fatalf("displayPrefix existing = %q", got)
 	}
+	if got := displayPrefix("8.8.8.8/"); got != "8.8.8.8/32" {
+		t.Fatalf("displayPrefix trailing slash = %q", got)
+	}
 	if got := displayPrefix("bad"); got != "bad" {
 		t.Fatalf("displayPrefix bad = %q", got)
+	}
+}
+
+func TestIsDefaultRoutePrefix(t *testing.T) {
+	if !isDefaultRoutePrefix("0.0.0.0/0") || !isDefaultRoutePrefix("::/0") {
+		t.Fatal("expected default route prefixes")
+	}
+	if isDefaultRoutePrefix("8.8.8.8/32") {
+		t.Fatal("host prefix should not be default")
 	}
 }
 

@@ -40,8 +40,34 @@ func targetIP(normalized string) net.IP {
 	return net.ParseIP(normalized)
 }
 
+func isDefaultRoutePrefix(prefix string) bool {
+	switch strings.TrimSpace(prefix) {
+	case "0.0.0.0/0", "::/0":
+		return true
+	default:
+		return false
+	}
+}
+
+func isBareIPQuery(normalized string) bool {
+	return !strings.Contains(normalized, "/") && net.ParseIP(normalized) != nil
+}
+
 func displayPrefix(normalized string) string {
+	normalized = strings.TrimSpace(normalized)
+	if normalized == "" {
+		return normalized
+	}
 	if strings.Contains(normalized, "/") {
+		if _, _, err := net.ParseCIDR(normalized); err == nil {
+			return normalized
+		}
+		if ip := net.ParseIP(strings.TrimSuffix(normalized, "/")); ip != nil {
+			if ip.To4() == nil {
+				return ip.String() + "/128"
+			}
+			return ip.String() + "/32"
+		}
 		return normalized
 	}
 	ip := net.ParseIP(normalized)
@@ -52,6 +78,11 @@ func displayPrefix(normalized string) string {
 		return normalized + "/128"
 	}
 	return normalized + "/32"
+}
+
+// normalizeRoutePrefix ensures prefixes shown in the UI always include a valid mask.
+func normalizeRoutePrefix(prefix string) string {
+	return displayPrefix(strings.TrimSpace(prefix))
 }
 
 func (fb RouteFallback) ASPath() []uint32 {

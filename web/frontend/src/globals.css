@@ -1581,7 +1581,9 @@
 
   .result-bgp-table__col-prefix,
   .result-bgp-table__prefix {
-    width: 9rem;
+    width: 11.5rem;
+    min-width: 11.5rem;
+    max-width: 11.5rem;
     white-space: nowrap;
   }
 

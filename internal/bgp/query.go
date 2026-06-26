@@ -120,16 +120,23 @@ func (m *SessionManager) BuildRouteResult(ctx context.Context, nodeID int64, pre
 	})
 	br := &domain.BGPResult{Raw: formatRouteEntries(entries)}
 	for _, entry := range entries {
+		prefix := normalizeRoutePrefix(entry.Prefix)
+		viaDefault := false
+		if isBareIPQuery(normalized) && isDefaultRoutePrefix(entry.Prefix) {
+			prefix = displayPrefix(normalized)
+			viaDefault = true
+		}
 		route := domain.BGPRoute{
-			Prefix:      entry.Prefix,
-			NextHop:     entry.NextHop,
-			ASPath:      parseASPath(entry.ASPath),
-			Origin:      entry.Origin,
-			LocalPref:   parseUint(entry.LocalPref),
-			MED:         parseUint(entry.MED),
-			Age:         entry.Age,
-			Best:        entry.Best,
-			Communities: append([]string(nil), entry.Communities...),
+			Prefix:          prefix,
+			NextHop:         entry.NextHop,
+			ASPath:          parseASPath(entry.ASPath),
+			Origin:          entry.Origin,
+			LocalPref:       parseUint(entry.LocalPref),
+			MED:             parseUint(entry.MED),
+			Age:             entry.Age,
+			Best:            entry.Best,
+			Communities:     append([]string(nil), entry.Communities...),
+			ViaDefaultRoute: viaDefault,
 		}
 		if nodeNameForNeighbor != nil {
 			route.NodeName = nodeNameForNeighbor(entry.NeighborIP)

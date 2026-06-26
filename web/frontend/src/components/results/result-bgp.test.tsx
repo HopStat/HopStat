@@ -132,4 +132,27 @@ describe('ResultBGP communities column alignment', () => {
     expect(ageCell?.className).toContain('tabular-nums')
     expect(ageCell?.className).toContain('whitespace-nowrap')
   })
+
+  it('renders full IPv4 /32 prefixes in the Prefix column', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    })
+
+    const hostResult: BGPResult = {
+      ...result185,
+      routes: [{ ...result185.routes[0], prefix: '213.146.165.165/32', via_default_route: true }],
+    }
+
+    render(<ResultBGP result={hostResult} enriched={enriched} />)
+
+    const prefixCell = document.querySelector('.result-bgp-table tbody td.result-bgp-table__prefix')
+    expect(prefixCell?.textContent).toBe('213.146.165.165/32')
+    expect(prefixCell?.className).toContain('whitespace-nowrap')
+  })
 })

@@ -1,10 +1,13 @@
 package bgp
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	api "github.com/osrg/gobgp/v3/api"
 
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
@@ -249,4 +252,32 @@ func TestBuildRouteResultWithDefaultEntry(t *testing.T) {
 		t.Fatal("expected synthesized default route")
 	}
 	_ = time.Second
+}
+
+func TestBuildRouteResultDefaultRouteHostQuery(t *testing.T) {
+	mgr, ctx := startTestManager(t, config.BGPConfig{LocalAS: 65000, RouterID: "127.0.0.1"})
+	old := lookupListPathHook
+	lookupListPathHook = func(_ context.Context, _ *api.ListPathRequest, fn func(*api.Destination)) error {
+		fn(&api.Destination{
+			Prefix: "0.0.0.0/0",
+			Paths:  []*api.Path{{NeighborIp: "10.0.0.1", Best: true}},
+		})
+		return nil
+	}
+	defer func() { lookupListPathHook = old }()
+
+	result, err := mgr.BuildRouteResult(ctx, 0, "213.146.165.165", nil)
+	if err != nil {
+		t.Fatalf("BuildRouteResult: %v", err)
+	}
+	if len(result.Routes) != 1 {
+		t.Fatalf("routes = %+v", result.Routes)
+	}
+	r := result.Routes[0]
+	if r.Prefix != "213.146.165.165/32" {
+		t.Fatalf("prefix = %q", r.Prefix)
+	}
+	if !r.ViaDefaultRoute {
+		t.Fatal("expected via_default_route for host covered by default route")
+	}
 }
