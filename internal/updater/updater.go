@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -42,14 +43,15 @@ type Asset struct {
 }
 
 type Status struct {
-	Current           string `json:"current"`
-	Latest            string `json:"latest"`
-	UpdateAvailable   bool   `json:"update_available"`
-	ReleaseURL        string `json:"release_url"`
-	ReleaseName       string `json:"release_name,omitempty"`
-	ReleaseNotes      string `json:"release_notes,omitempty"`
-	SelfUpdateEnabled bool   `json:"self_update_enabled"`
-	SelfUpdateReason  string `json:"self_update_reason,omitempty"`
+	Current           string   `json:"current"`
+	Latest            string   `json:"latest"`
+	UpdateAvailable   bool     `json:"update_available"`
+	ReleaseURL        string   `json:"release_url"`
+	ReleaseName       string   `json:"release_name,omitempty"`
+	ReleaseNotes      string   `json:"release_notes,omitempty"`
+	ReleaseVersions   []string `json:"release_versions,omitempty"`
+	SelfUpdateEnabled bool     `json:"self_update_enabled"`
+	SelfUpdateReason  string   `json:"self_update_reason,omitempty"`
 }
 
 type Updater struct {
@@ -59,7 +61,18 @@ type Updater struct {
 	releaseAPIURL string
 	apiClient     *http.Client
 	dlClient      *http.Client
+	statusCacheMu sync.Mutex
+	statusCache   map[string]cachedStatus
 }
+
+type cachedStatus struct {
+	status *Status
+	err    error
+	until  time.Time
+}
+
+const statusCacheTTL = 60 * time.Second
+const statusErrorCacheTTL = 15 * time.Second
 
 func New(repo, currentVersion string, enabled bool) *Updater {
 	return &Updater{
@@ -76,10 +89,51 @@ func (u *Updater) SetReleaseAPIURL(url string) {
 	u.releaseAPIURL = strings.TrimSpace(url)
 }
 
-func (u *Updater) Status(ctx context.Context) (*Status, error) {
-	rel, err := u.fetchLatest(ctx)
+func (u *Updater) Status(ctx context.Context, since string) (*Status, error) {
+	since = normalizeTag(since)
+	if cached, ok := u.cachedStatus(since); ok {
+		if cached.err != nil {
+			return nil, cached.err
+		}
+		return cached.status, nil
+	}
+
+	status, err := u.buildStatus(ctx, since)
+	u.storeStatusCache(since, status, err)
 	if err != nil {
 		return nil, err
+	}
+	return status, nil
+}
+
+func (u *Updater) cachedStatus(since string) (cachedStatus, bool) {
+	u.statusCacheMu.Lock()
+	defer u.statusCacheMu.Unlock()
+	entry, ok := u.statusCache[since]
+	if !ok || time.Now().After(entry.until) {
+		return cachedStatus{}, false
+	}
+	return entry, true
+}
+
+func (u *Updater) storeStatusCache(since string, status *Status, err error) {
+	u.statusCacheMu.Lock()
+	defer u.statusCacheMu.Unlock()
+	if u.statusCache == nil {
+		u.statusCache = make(map[string]cachedStatus)
+	}
+	ttl := statusCacheTTL
+	if err != nil {
+		ttl = statusErrorCacheTTL
+	}
+	u.statusCache[since] = cachedStatus{status: status, err: err, until: time.Now().Add(ttl)}
+}
+
+func (u *Updater) buildStatus(ctx context.Context, since string) (*Status, error) {
+	rel, err := u.fetchLatest(ctx)
+	if err != nil {
+		slog.Warn("github release check failed, using embedded release notes", "error", err)
+		return u.buildStatusFromEmbedded(ctx, since), nil
 	}
 	supported, reason := SelfUpdateSupported()
 	selfUpdateEnabled := u.enabled && supported
@@ -89,16 +143,88 @@ func (u *Updater) Status(ctx context.Context) (*Status, error) {
 	} else if supported {
 		selfUpdateReason = ""
 	}
+
+	releaseName := rel.Name
+	releaseNotes := rel.Body
+	var releaseVersions []string
+	since = normalizeTag(since)
+	if since != "" && isNewer(rel.TagName, since) {
+		if agg, versions, aggErr := u.AggregateReleaseNotes(ctx, since, rel.TagName); aggErr == nil && strings.TrimSpace(agg) != "" {
+			releaseNotes = agg
+			releaseVersions = versions
+			if name := aggregatedReleaseName(versions); name != "" {
+				releaseName = name
+			}
+		}
+	}
+
 	return &Status{
 		Current:           u.current,
 		Latest:            rel.TagName,
 		UpdateAvailable:   isNewer(rel.TagName, u.current),
 		ReleaseURL:        rel.HTMLURL,
-		ReleaseName:       rel.Name,
-		ReleaseNotes:      rel.Body,
+		ReleaseName:       releaseName,
+		ReleaseNotes:      releaseNotes,
+		ReleaseVersions:   releaseVersions,
 		SelfUpdateEnabled: selfUpdateEnabled,
 		SelfUpdateReason:  selfUpdateReason,
 	}, nil
+}
+
+func (u *Updater) buildStatusFromEmbedded(ctx context.Context, since string) *Status {
+	latest := normalizeTag(latestEmbeddedVersion())
+	if latest == "" {
+		latest = normalizeTag(u.current)
+	}
+	since = normalizeTag(since)
+
+	releaseName := "HopStat " + latest
+	releaseNotes := ""
+	var releaseVersions []string
+	if since != "" && isNewer(latest, since) {
+		if agg, versions, aggErr := u.AggregateReleaseNotes(ctx, since, latest); aggErr == nil && strings.TrimSpace(agg) != "" {
+			releaseNotes = agg
+			releaseVersions = versions
+			if name := aggregatedReleaseName(versions); name != "" {
+				releaseName = name
+			}
+		}
+	} else if note, ok := readEmbeddedNote(latest); ok {
+		releaseNotes = note
+	}
+
+	supported, reason := SelfUpdateSupported()
+	selfUpdateEnabled := u.enabled && supported
+	selfUpdateReason := reason
+	if !u.enabled {
+		selfUpdateReason = "disabled in config (update.enabled: false)"
+	} else if supported {
+		selfUpdateReason = ""
+	}
+
+	return &Status{
+		Current:           u.current,
+		Latest:            latest,
+		UpdateAvailable:   isNewer(latest, u.current),
+		ReleaseURL:        fmt.Sprintf("https://github.com/%s/releases/tag/%s", u.repo, latest),
+		ReleaseName:       releaseName,
+		ReleaseNotes:      releaseNotes,
+		ReleaseVersions:   releaseVersions,
+		SelfUpdateEnabled: selfUpdateEnabled,
+		SelfUpdateReason:  selfUpdateReason,
+	}
+}
+
+func setGitHubRequestHeaders(req *http.Request) {
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "hopstat")
+	token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
+	if token == "" {
+		token = strings.TrimSpace(os.Getenv("LG_GITHUB_TOKEN"))
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 }
 
 // Apply downloads the latest binary, replaces the executable, and execs the new process.
@@ -177,8 +303,7 @@ func (u *Updater) fetchLatest(ctx context.Context) (*Release, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "hopstat")
+	setGitHubRequestHeaders(req)
 
 	resp, err := u.apiClient.Do(req)
 	if err != nil {

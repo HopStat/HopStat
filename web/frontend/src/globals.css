@@ -1533,10 +1533,10 @@
     background-color: var(--color-card);
   }
 
-  .result-table-frame .result-bgp-table {
-    table-layout: fixed;
-    width: 100%;
-    min-width: 44rem;
+  .result-table-frame .result-table-wrap .result-bgp-table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
   }
 
   .result-bgp-table thead th.result-bgp-table__star {
@@ -1581,10 +1581,10 @@
 
   .result-bgp-table__col-prefix,
   .result-bgp-table__prefix {
-    width: 11.5rem;
-    min-width: 11.5rem;
-    max-width: 11.5rem;
+    width: 1%;
     white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .result-bgp-table__col-as-path,
@@ -2597,6 +2597,141 @@
     font-size: 0.625rem;
     line-height: 1.35;
     color: var(--color-muted-foreground);
+  }
+
+  .admin-version-card {
+    display: flex;
+    min-height: 5.75rem;
+    flex-direction: column;
+    gap: 0.45rem;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--brand) 3%, var(--color-card)) 0%,
+      var(--color-card) 100%
+    );
+    padding: 0.75rem 0.85rem;
+    box-shadow: var(--shadow-soft);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .admin-version-card--interactive {
+    cursor: pointer;
+  }
+
+  .admin-version-card--interactive:hover {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 42%, var(--color-border));
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .admin-version-card--interactive:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--brand-accent-line) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  .admin-version-card--busy {
+    cursor: wait;
+    opacity: 0.92;
+  }
+
+  .admin-version-card--update {
+    border-color: color-mix(in srgb, #f59e0b 22%, var(--color-border));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, #f59e0b 5%, var(--color-card)) 0%,
+      var(--color-card) 100%
+    );
+  }
+
+  .admin-version-card--error {
+    border-color: color-mix(in srgb, var(--color-destructive) 28%, var(--color-border));
+  }
+
+  .admin-version-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .admin-version-card__label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--brand) 38%, var(--color-muted-foreground));
+  }
+
+  .admin-version-card__path {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .admin-version-card__ver {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    border-radius: 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
+    background: color-mix(in srgb, var(--brand) 5%, var(--color-muted));
+    padding: 0.2rem 0.55rem;
+    font-family: var(--font-data);
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    color: var(--color-foreground);
+  }
+
+  .admin-version-card__ver--solo {
+    font-size: 1.15rem;
+    padding: 0.28rem 0.65rem;
+  }
+
+  .admin-version-card__ver--target {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 40%, var(--color-border));
+    background: color-mix(in srgb, var(--brand-accent-line) 10%, var(--color-muted));
+    color: color-mix(in srgb, var(--brand-accent-line) 82%, var(--color-foreground));
+  }
+
+  .admin-version-card__arrow {
+    height: 0.9rem;
+    width: 0.9rem;
+    flex-shrink: 0;
+    color: color-mix(in srgb, var(--brand) 45%, var(--color-muted-foreground));
+  }
+
+  .admin-version-card__hint {
+    margin: 0;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--color-muted-foreground);
+  }
+
+  .admin-version-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0.15rem;
+  }
+
+  .release-notes-section + .release-notes-section {
+    padding-top: 0.85rem;
+    border-top: 1px solid color-mix(in srgb, var(--brand) 10%, var(--color-border));
+  }
+
+  .release-notes-section__version {
+    margin: 0 0 0.45rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: color-mix(in srgb, var(--brand-accent-line) 78%, var(--color-foreground));
   }
 
   .admin-dashboard-recent__title {

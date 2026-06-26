@@ -203,6 +203,7 @@ export interface UpdateStatus {
   release_url: string
   release_name?: string
   release_notes?: string
+  release_versions?: string[]
   self_update_enabled: boolean
   self_update_reason?: string
 }

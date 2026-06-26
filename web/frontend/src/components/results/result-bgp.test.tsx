@@ -155,4 +155,29 @@ describe('ResultBGP communities column alignment', () => {
     expect(prefixCell?.textContent).toBe('213.146.165.165/32')
     expect(prefixCell?.className).toContain('whitespace-nowrap')
   })
+
+  it('renders full IPv6 /128 prefixes without a fixed width cap', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    })
+
+    const ipv6Prefix = '2001:0db8:85a3:0000:0000:8a2e:0370:7334/128'
+    const ipv6Result: BGPResult = {
+      ...result185,
+      routes: [{ ...result185.routes[0], prefix: ipv6Prefix }],
+    }
+
+    render(<ResultBGP result={ipv6Result} enriched={enriched} />)
+
+    const prefixCell = document.querySelector('.result-bgp-table tbody td.result-bgp-table__prefix') as HTMLElement | null
+    expect(prefixCell?.textContent).toBe(ipv6Prefix)
+    expect(prefixCell?.className).toContain('whitespace-nowrap')
+    expect(getComputedStyle(prefixCell!).maxWidth).toBe('none')
+  })
 })

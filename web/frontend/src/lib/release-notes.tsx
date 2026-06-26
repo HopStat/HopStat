@@ -2,6 +2,22 @@ import type { ReactNode } from 'react'
 
 const INLINE_PATTERN = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g
 
+export function formatReleaseVersion(v: string): string {
+  const core = v.trim().replace(/^v/i, '')
+  if (!core) return ''
+  return `v${core}`
+}
+
+function splitReleaseSections(markdown: string): string[] {
+  const cleaned = stripReleaseTitleHeadings(markdown)
+  if (!cleaned) return []
+  if (!cleaned.includes('\n\n---\n\n')) return [cleaned]
+  return cleaned
+    .split('\n\n---\n\n')
+    .map(section => section.trim())
+    .filter(Boolean)
+}
+
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const parts = text.split(INLINE_PATTERN).filter(part => part !== '')
   return parts.map((part, index) => {
@@ -27,6 +43,23 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   })
 }
 
+export function stripReleaseTitleHeadings(markdown: string): string {
+  const stripSection = (section: string) =>
+    section
+      .replace(/\r\n/g, '\n')
+      .replace(/^#\s+HopStat\s+v[^\n]*\n+/i, '')
+      .trim()
+
+  const normalized = markdown.replace(/\r\n/g, '\n').trim()
+  if (!normalized.includes('\n\n---\n\n')) {
+    return stripSection(normalized)
+  }
+  return normalized
+    .split('\n\n---\n\n')
+    .map(stripSection)
+    .join('\n\n---\n\n')
+}
+
 export function ReleaseNotesContent({ markdown }: { markdown: string }) {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n')
   const blocks: ReactNode[] = []
@@ -36,7 +69,7 @@ export function ReleaseNotesContent({ markdown }: { markdown: string }) {
   const flushList = () => {
     if (listItems.length === 0) return
     blocks.push(
-      <ul key={`list-${blockIndex++}`} className="list-disc space-y-1 pl-5">
+      <ul key={`list-${blockIndex++}`} className="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-muted-foreground">
         {listItems.map((item, index) => (
           <li key={`item-${index}`}>{renderInline(item, `item-${index}`)}</li>
         ))}
@@ -51,10 +84,24 @@ export function ReleaseNotesContent({ markdown }: { markdown: string }) {
       flushList()
       continue
     }
+    if (trimmed.startsWith('# ') && !trimmed.startsWith('## ')) {
+      flushList()
+      blocks.push(
+        <h3 key={`h3-${blockIndex++}`} className="text-sm font-semibold text-foreground">
+          {renderInline(trimmed.slice(2), `h1-${blockIndex}`)}
+        </h3>,
+      )
+      continue
+    }
+    if (trimmed === '---') {
+      flushList()
+      blocks.push(<hr key={`hr-${blockIndex++}`} className="border-border/70" />)
+      continue
+    }
     if (trimmed.startsWith('### ')) {
       flushList()
       blocks.push(
-        <h4 key={`h4-${blockIndex++}`} className="text-sm font-semibold text-foreground">
+        <h4 key={`h4-${blockIndex++}`} className="text-xs font-semibold text-foreground">
           {renderInline(trimmed.slice(4), `h4-${blockIndex}`)}
         </h4>,
       )
@@ -63,7 +110,7 @@ export function ReleaseNotesContent({ markdown }: { markdown: string }) {
     if (trimmed.startsWith('## ')) {
       flushList()
       blocks.push(
-        <h3 key={`h3-${blockIndex++}`} className="text-base font-semibold text-foreground">
+        <h3 key={`h3-${blockIndex++}`} className="text-sm font-semibold text-foreground">
           {renderInline(trimmed.slice(3), `h3-${blockIndex}`)}
         </h3>,
       )
@@ -75,7 +122,7 @@ export function ReleaseNotesContent({ markdown }: { markdown: string }) {
     }
     flushList()
     blocks.push(
-      <p key={`p-${blockIndex++}`} className="text-sm leading-relaxed text-muted-foreground">
+      <p key={`p-${blockIndex++}`} className="text-xs leading-relaxed text-muted-foreground">
         {renderInline(trimmed, `p-${blockIndex}`)}
       </p>,
     )
@@ -83,8 +130,37 @@ export function ReleaseNotesContent({ markdown }: { markdown: string }) {
   flushList()
 
   return (
-    <div lang="en" className="space-y-3">
+    <div lang="en" className="space-y-2">
       {blocks}
+    </div>
+  )
+}
+
+export function ReleaseNotesPanel({
+  markdown,
+  releaseVersions,
+}: {
+  markdown: string
+  releaseVersions?: string[]
+}) {
+  const sections = splitReleaseSections(markdown)
+  const versions = (releaseVersions ?? []).map(formatReleaseVersion).filter(Boolean)
+  const aggregated = versions.length > 1 && sections.length > 1
+
+  if (!aggregated) {
+    return <ReleaseNotesContent markdown={sections[0] ?? markdown} />
+  }
+
+  return (
+    <div className="space-y-4">
+      {sections.map((section, index) => (
+        <section key={versions[index] ?? `section-${index}`} className="release-notes-section">
+          {versions[index] ? (
+            <h3 className="release-notes-section__version font-data tabular-nums">{versions[index]}</h3>
+          ) : null}
+          <ReleaseNotesContent markdown={section} />
+        </section>
+      ))}
     </div>
   )
 }

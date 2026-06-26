@@ -10,6 +10,16 @@ export class ApiError extends Error {
   }
 }
 
+function formatApiError(error: unknown, fallback = 'Request failed'): string {
+  if (typeof error === 'string' && error.trim()) return error
+  if (error && typeof error === 'object') {
+    const payload = error as { message?: string; code?: string }
+    if (payload.message?.trim()) return payload.message
+    if (payload.code?.trim()) return payload.code
+  }
+  return fallback
+}
+
 const defaultFetchOptions: RequestInit = {
   credentials: 'include',
 }
@@ -35,7 +45,12 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 
   const data = await res.json()
   if (!res.ok) {
-    throw new ApiError(data.error || 'Request failed', data.error_code)
+    const code =
+      data.error_code ??
+      (typeof data.error === 'object' && data.error
+        ? (data.error as { code?: string }).code
+        : undefined)
+    throw new ApiError(formatApiError(data.error), code)
   }
   return data.data as T
 }

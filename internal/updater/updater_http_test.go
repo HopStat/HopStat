@@ -124,6 +124,28 @@ func TestFetchLatestErrors(t *testing.T) {
 	}
 }
 
+func TestStatusCachesSuccessfulResult(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		fmt.Fprint(w, `{"tag_name":"v2.0.0","html_url":"https://example.com/v2.0.0","assets":[]}`)
+	}))
+	defer srv.Close()
+
+	u := New("HopStat/HopStat", "v1.0.0", true)
+	u.SetReleaseAPIURL(srv.URL)
+
+	if _, err := u.Status(context.Background(), ""); err != nil {
+		t.Fatalf("first Status: %v", err)
+	}
+	if _, err := u.Status(context.Background(), ""); err != nil {
+		t.Fatalf("second Status: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("github calls = %d, want 1", calls)
+	}
+}
+
 func TestStatus(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"tag_name":"v2.0.0","name":"HopStat v2.0.0","body":"- Fix ping\n- Fix BGP","html_url":"https://example.com/v2.0.0","assets":[]}`)
@@ -132,7 +154,7 @@ func TestStatus(t *testing.T) {
 
 	u := New("HopStat/HopStat", "v1.0.0", true)
 	u.SetReleaseAPIURL(srv.URL)
-	st, err := u.Status(context.Background())
+	st, err := u.Status(context.Background(), "")
 	if err != nil {
 		t.Fatalf("Status error: %v", err)
 	}
@@ -164,7 +186,7 @@ func TestStatusDisabledInConfig(t *testing.T) {
 
 	u := New("HopStat/HopStat", "v1.0.0", false)
 	u.SetReleaseAPIURL(srv.URL)
-	st, err := u.Status(context.Background())
+	st, err := u.Status(context.Background(), "")
 	if err != nil {
 		t.Fatalf("Status error: %v", err)
 	}
@@ -388,11 +410,18 @@ func TestApplySuccessWithoutExec(t *testing.T) {
 	}
 }
 
-func TestStatusFetchError(t *testing.T) {
-	u := New("HopStat/HopStat", "v1.0.0", true)
+func TestStatusFetchErrorFallsBackToEmbedded(t *testing.T) {
+	u := New("HopStat/HopStat", "v2.1.63", true)
 	u.SetReleaseAPIURL("http://127.0.0.1:1")
-	if _, err := u.Status(context.Background()); err == nil {
-		t.Fatal("expected fetch error")
+	st, err := u.Status(context.Background(), "")
+	if err != nil {
+		t.Fatalf("expected embedded fallback, got error: %v", err)
+	}
+	if !st.UpdateAvailable || st.Latest != "v2.1.67" {
+		t.Fatalf("status = %+v", st)
+	}
+	if strings.TrimSpace(st.ReleaseNotes) == "" {
+		t.Fatal("expected embedded release notes")
 	}
 }
 
@@ -722,7 +751,7 @@ func TestStatusEnabledOnLinux(t *testing.T) {
 
 	u := New("HopStat/HopStat", "v1.0.0", true)
 	u.SetReleaseAPIURL(srv.URL)
-	st, err := u.Status(context.Background())
+	st, err := u.Status(context.Background(), "")
 	if err != nil {
 		t.Fatalf("Status error: %v", err)
 	}
