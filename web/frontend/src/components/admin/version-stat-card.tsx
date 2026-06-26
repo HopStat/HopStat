@@ -126,7 +126,9 @@ export function VersionStatCard() {
       <div className="admin-version-card admin-version-card--error">
         <div className="admin-version-card__header">
           <span className="admin-version-card__label">{t('admin.version')}</span>
-          <Badge variant="destructive">{t('admin.version_status_error')}</Badge>
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+            {t('admin.version_status_error')}
+          </Badge>
         </div>
         <p className="admin-version-card__hint text-destructive" title={loadError}>
           {loadError}
@@ -142,7 +144,7 @@ export function VersionStatCard() {
   }
 
   if (!status) {
-    return <Skeleton className="admin-version-card h-[5.75rem] w-full rounded-xl" />
+    return <Skeleton className="admin-version-card h-[5rem] w-full rounded-xl" />
   }
 
   const isUpdating = updateState === 'applying' || updateState === 'restarting'
@@ -163,7 +165,7 @@ export function VersionStatCard() {
       >
         <div className="admin-version-card__header">
           <span className="admin-version-card__label">{t('admin.version')}</span>
-          <Badge variant={status.update_available ? 'warning' : 'success'}>
+          <Badge variant={status.update_available ? 'warning' : 'success'} className="text-[10px] px-1.5 py-0">
             {status.update_available ? t('admin.update_available') : t('admin.up_to_date')}
           </Badge>
         </div>

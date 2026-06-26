@@ -2601,7 +2601,7 @@
 
   .admin-version-card {
     display: flex;
-    min-height: 5.75rem;
+    min-height: 5rem;
     flex-direction: column;
     gap: 0.45rem;
     overflow: hidden;
@@ -2676,21 +2676,22 @@
     display: inline-flex;
     max-width: 100%;
     align-items: center;
-    border-radius: 0.55rem;
+    border-radius: 0.45rem;
     border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
     background: color-mix(in srgb, var(--brand) 5%, var(--color-muted));
-    padding: 0.2rem 0.55rem;
+    padding: 0.12rem 0.4rem;
     font-family: var(--font-data);
-    font-size: 0.95rem;
+    font-size: 0.625rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    line-height: 1.2;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
     color: var(--color-foreground);
   }
 
   .admin-version-card__ver--solo {
-    font-size: 1.15rem;
-    padding: 0.28rem 0.65rem;
+    font-size: 0.625rem;
+    padding: 0.12rem 0.4rem;
   }
 
   .admin-version-card__ver--target {
@@ -2700,16 +2701,16 @@
   }
 
   .admin-version-card__arrow {
-    height: 0.9rem;
-    width: 0.9rem;
+    height: 0.65rem;
+    width: 0.65rem;
     flex-shrink: 0;
     color: color-mix(in srgb, var(--brand) 45%, var(--color-muted-foreground));
   }
 
   .admin-version-card__hint {
     margin: 0;
-    font-size: 0.6875rem;
-    line-height: 1.4;
+    font-size: 0.625rem;
+    line-height: 1.25;
     color: var(--color-muted-foreground);
   }
 
