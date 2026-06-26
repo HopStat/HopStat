@@ -185,7 +185,7 @@ function buildBgpTableColumns(
       id: 'age',
       colClass: 'result-bgp-table__col-age',
       headClass: 'result-bgp-table__age',
-      cellClass: 'result-bgp-table__age font-data text-xs text-muted-foreground whitespace-nowrap',
+      cellClass: 'result-bgp-table__age font-data text-xs tabular-nums text-muted-foreground whitespace-nowrap',
       header: t('result.age'),
       renderCell: route => route.age || '—',
     },

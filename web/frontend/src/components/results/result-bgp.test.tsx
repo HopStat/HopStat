@@ -107,4 +107,29 @@ describe('ResultBGP communities column alignment', () => {
     expect(communitiesCell).toBeTruthy()
     expect(communitiesCell?.className).toContain('result-bgp-table__communities')
   })
+
+  it('fits long route age values in the Age column without clipping', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+    })
+
+    const longAgeResult: BGPResult = {
+      ...result185,
+      routes: [{ ...result185.routes[0], age: '13h52m54s' }],
+    }
+
+    render(<ResultBGP result={longAgeResult} enriched={enriched} />)
+
+    expect(screen.getByText('13h52m54s')).toBeTruthy()
+    const ageCell = document.querySelector('.result-bgp-table tbody td.result-bgp-table__age')
+    expect(ageCell).toBeTruthy()
+    expect(ageCell?.className).toContain('tabular-nums')
+    expect(ageCell?.className).toContain('whitespace-nowrap')
+  })
 })

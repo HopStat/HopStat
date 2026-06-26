@@ -265,6 +265,8 @@ HopStat prefers **MaxMind** for per-hop ASN and country enrichment (traceroute, 
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for commit attribution (human authors only — no AI co-author trailers), repo hygiene, and release notes.
+
 ```bash
 # Backend (restart manually after changes)
 make run-server

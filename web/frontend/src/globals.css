@@ -1564,7 +1564,9 @@
   .result-bgp-table__col-age,
   .result-bgp-table__age {
     display: none;
-    width: 4.5rem;
+    width: 7.25rem;
+    min-width: 7.25rem;
+    max-width: 7.25rem;
   }
 
   @media (min-width: 1024px) {

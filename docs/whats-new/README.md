@@ -44,3 +44,8 @@ When the user says **build al** or **deploy et**:
 - Mention admin-visible behavior (e.g. What's New modal, BGP, ping fixes).
 
 Do not tag a release without the matching `docs/whats-new/vX.Y.Z.md` file.
+
+## Git / contributors
+
+- Commits must **not** include `Co-authored-by: Cursor` or other bot co-authors — see [CONTRIBUTING.md](../../CONTRIBUTING.md).
+- Never commit `.cursor/`; keep agent/IDE config local only.
