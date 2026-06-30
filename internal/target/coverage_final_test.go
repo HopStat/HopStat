@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net"
 	"testing"
+
+	"github.com/HopStat/HopStat/internal/domain"
 )
 
 type fakeNetAddr struct{}
@@ -73,6 +75,25 @@ func TestIsBlockedIPLinkLocal169Block(t *testing.T) {
 	t.Cleanup(func() { ipIsLinkLocalUnicast = old })
 	if !IsBlockedIP(net.ParseIP("169.254.1.1")) {
 		t.Fatal("expected 169.254 block")
+	}
+}
+
+func TestNormalizeBGPLookupBlockedHostCIDR(t *testing.T) {
+	_, err := NormalizeBGPLookup(context.Background(), "127.0.0.1/32")
+	if err == nil {
+		t.Fatal("expected blocked IP error for loopback /32")
+	}
+}
+
+func TestValidateQueryTargetBGPDNSNotFound(t *testing.T) {
+	old := lookupHostAddrs
+	lookupHostAddrs = func(ctx context.Context, host string) ([]net.IPAddr, error) {
+		return nil, errors.New("no such host")
+	}
+	t.Cleanup(func() { lookupHostAddrs = old })
+	_, err := ValidateQueryTarget(context.Background(), "bgp_route", "invalid.bgp.host.example")
+	if !errors.Is(err, domain.ErrDNSNotFound) {
+		t.Fatalf("expected ErrDNSNotFound, got %v", err)
 	}
 }
 

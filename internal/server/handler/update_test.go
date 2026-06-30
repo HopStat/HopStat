@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -112,6 +113,34 @@ func TestUpdateApply_NoUpdateAvailable(t *testing.T) {
 	UpdateApply(upd)(c)
 
 	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+}
+
+func TestUpdateStatus_StatusHookError(t *testing.T) {
+	orig := updater.StatusErrHook
+	updater.StatusErrHook = errors.New("forced status error")
+	t.Cleanup(func() { updater.StatusErrHook = orig })
+
+	upd := updater.New("HopStat/HopStat", "v1.0.0", true)
+	c, w := setupAdminContext(nil, http.MethodGet, "/admin/update/status", "", 1)
+	UpdateStatus(upd)(c)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+}
+
+func TestUpdateApply_StatusHookError(t *testing.T) {
+	orig := updater.StatusErrHook
+	updater.StatusErrHook = errors.New("forced apply status error")
+	t.Cleanup(func() { updater.StatusErrHook = orig })
+
+	upd := updater.New("HopStat/HopStat", "v1.0.0", true)
+	c, w := setupAdminContext(nil, http.MethodPost, "/admin/update/apply", "", 1)
+	UpdateApply(upd)(c)
+
+	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
 }

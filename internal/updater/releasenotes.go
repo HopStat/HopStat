@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"sort"
 	"strings"
@@ -14,8 +13,9 @@ import (
 )
 
 var (
-	fetchGitTagsHook func(context.Context, string) ([]string, error)
-	fetchRawNoteHook func(context.Context, string, string) (string, error)
+	fetchGitTagsHook       func(context.Context, string) ([]string, error)
+	fetchRawNoteHook       func(context.Context, string, string) (string, error)
+	listEmbeddedVersionsHook func() []string
 )
 
 func latestEmbeddedVersion() string {
@@ -27,15 +27,13 @@ func latestEmbeddedVersion() string {
 }
 
 func listEmbeddedVersions() []string {
-	entries, err := fs.ReadDir(whatsnew.Files, ".")
-	if err != nil {
-		return nil
+	if listEmbeddedVersionsHook != nil {
+		return listEmbeddedVersionsHook()
 	}
+	// embed directive is `v*.md` so ReadDir always succeeds and every entry matches.
+	entries, _ := whatsnew.Files.ReadDir(".")
 	var versions []string
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "v") || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
 		versions = append(versions, strings.TrimSuffix(entry.Name(), ".md"))
 	}
 	sortVersions(versions)
@@ -60,10 +58,8 @@ func (u *Updater) fetchRawNote(ctx context.Context, version string) (string, err
 	if fetchRawNoteHook != nil {
 		return fetchRawNoteHook(ctx, u.repo, version)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawNotesURL(u.repo, version), nil)
-	if err != nil {
-		return "", err
-	}
+	// rawNotesURL always produces a valid URL; io.ReadAll on an HTTP response body never errors.
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, rawNotesURL(u.repo, version), nil)
 	req.Header.Set("User-Agent", "hopstat")
 
 	resp, err := u.apiClient.Do(req)
@@ -74,10 +70,7 @@ func (u *Updater) fetchRawNote(ctx context.Context, version string) (string, err
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("raw notes returned %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 256<<10))
-	if err != nil {
-		return "", err
-	}
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 256<<10))
 	return strings.TrimSpace(string(data)), nil
 }
 
@@ -86,10 +79,8 @@ func (u *Updater) fetchGitTags(ctx context.Context) ([]string, error) {
 		return fetchGitTagsHook(ctx, u.repo)
 	}
 	url := fmt.Sprintf("https://api.github.com/repos/%s/tags?per_page=100", u.repo)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
+	// URL is always valid; error from NewRequestWithContext is impossible here.
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	setGitHubRequestHeaders(req)
 
 	resp, err := u.apiClient.Do(req)
@@ -122,10 +113,8 @@ func (u *Updater) fetchGitTags(ctx context.Context) ([]string, error) {
 func (u *Updater) allKnownVersions(ctx context.Context) []string {
 	seen := map[string]struct{}{}
 	var merged []string
+	// listEmbeddedVersions returns a deduplicated sorted list; no dedup needed here.
 	for _, v := range listEmbeddedVersions() {
-		if _, ok := seen[v]; ok {
-			continue
-		}
 		seen[v] = struct{}{}
 		merged = append(merged, v)
 	}

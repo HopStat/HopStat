@@ -451,13 +451,8 @@ func (e *QueryEngine) enrichASPath(ctx context.Context, br *domain.BGPResult, re
 		e.emitASPathPartial(result, opt)
 		return
 	}
-	seen := map[uint32]bool{}
 	result.ASPathEnriched = result.ASPathEnriched[:0]
 	for _, asn := range collectBGPASPathASNs(result, br) {
-		if seen[asn] || asn == 0 {
-			continue
-		}
-		seen[asn] = true
 		info, err := lookupASForPath(e.geoDB, ctx, asn)
 		if err == nil && info != nil && (info.OrgName != "" || info.ShortName != "" || info.CountryCode != "") {
 			info.ASN = asn

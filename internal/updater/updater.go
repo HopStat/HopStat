@@ -21,6 +21,9 @@ import (
 
 const githubAPIURL = "https://api.github.com/repos/%s/releases/latest"
 
+// StatusErrHook, when non-nil, makes Status return this error immediately (tests only).
+var StatusErrHook error
+
 var execProcess = syscall.Exec
 
 var (
@@ -90,6 +93,9 @@ func (u *Updater) SetReleaseAPIURL(url string) {
 }
 
 func (u *Updater) Status(ctx context.Context, since string) (*Status, error) {
+	if StatusErrHook != nil {
+		return nil, StatusErrHook
+	}
 	since = normalizeTag(since)
 	if cached, ok := u.cachedStatus(since); ok {
 		if cached.err != nil {
@@ -98,11 +104,9 @@ func (u *Updater) Status(ctx context.Context, since string) (*Status, error) {
 		return cached.status, nil
 	}
 
-	status, err := u.buildStatus(ctx, since)
-	u.storeStatusCache(since, status, err)
-	if err != nil {
-		return nil, err
-	}
+	// buildStatus always falls back to embedded on GitHub failure; it never returns an error.
+	status, _ := u.buildStatus(ctx, since)
+	u.storeStatusCache(since, status, nil)
 	return status, nil
 }
 

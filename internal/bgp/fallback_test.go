@@ -142,8 +142,14 @@ func TestTargetIPAndDisplayPrefix(t *testing.T) {
 	if got := displayPrefix("8.8.8.8/"); got != "8.8.8.8/32" {
 		t.Fatalf("displayPrefix trailing slash = %q", got)
 	}
+	if got := displayPrefix("::1/"); got != "::1/128" {
+		t.Fatalf("displayPrefix v6 trailing slash = %q", got)
+	}
 	if got := displayPrefix("bad"); got != "bad" {
 		t.Fatalf("displayPrefix bad = %q", got)
+	}
+	if got := displayPrefix(""); got != "" {
+		t.Fatalf("displayPrefix empty = %q", got)
 	}
 }
 

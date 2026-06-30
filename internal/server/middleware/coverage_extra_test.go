@@ -38,11 +38,14 @@ func TestJTIDenyList_RevokeAtCapacity(t *testing.T) {
 }
 
 func TestDenylistRevokeEvictsExpired(t *testing.T) {
-	dl := NewJTIDenyList()
+	// Do not use NewJTIDenyList(): timing_test.go sets denyListPurgeInterval to
+	// 5ms so the purge goroutine fires between setup and Revoke under -race,
+	// deleting the expired entries before the eviction branch can be reached.
+	dl := &JTIDenyList{entries: make(map[string]time.Time)}
 	past := time.Now().Add(-time.Hour)
 	future := time.Now().Add(time.Hour)
 	for i := 0; i < maxDenyListEntries; i++ {
-		dl.Revoke(fmt.Sprintf("old-%d", i), past)
+		dl.entries[fmt.Sprintf("old-%d", i)] = past
 	}
 	dl.Revoke("new-jti", future)
 	if !dl.IsRevoked("new-jti") {
@@ -62,6 +65,19 @@ func TestBruteForceCleanupRemovesStaleAttempts(t *testing.T) {
 	guard.mu.Unlock()
 	if exists {
 		t.Fatal("expected stale attempt to be cleaned up")
+	}
+}
+
+func TestPurgeLoopDeletesExpiredEntry(t *testing.T) {
+	dl := NewJTIDenyList()
+	// Add an already-expired entry; the 5ms purge goroutine (set by timing_test.go) will delete it.
+	dl.Revoke("old-jti", time.Now().Add(-time.Hour))
+	time.Sleep(50 * time.Millisecond)
+	dl.mu.Lock()
+	_, still := dl.entries["old-jti"]
+	dl.mu.Unlock()
+	if still {
+		t.Fatal("expected purge loop to remove expired entry")
 	}
 }
 

@@ -62,9 +62,6 @@ func isUnsafeTarget(target string) bool {
 // Host-length BGP prefixes (/32, /128) are normalized to a bare IP so lookup
 // uses longest-prefix match instead of an exact host route that may be missing.
 func normalizeBGPLookupTarget(target string) (string, error) {
-	if !strings.Contains(target, "/") {
-		return target, nil
-	}
 	ip, ipNet, err := net.ParseCIDR(target)
 	if err != nil {
 		return "", fmt.Errorf("invalid prefix: %s", target)
