@@ -35,7 +35,13 @@ export function communitySeverityLabel(severity: string, t: (key: string) => str
   const normalized = normalizeCommunitySeverity(severity)
   const key = `admin.severity_${normalized}`
   const label = t(key)
-  return label !== key ? label : String(normalized)
+  const resolved = label !== key ? label : String(normalized)
+  // Badges render these labels in caps. The Badge component uses CSS
+  // `text-transform: uppercase`, which is locale-sensitive: under `lang="tr"`
+  // the lowercase `i` in "Warning" uppercases to the dotted `İ` ("WARNİNG").
+  // Uppercase here with a fixed locale so the label is correct regardless of
+  // the active UI language.
+  return resolved.toLocaleUpperCase('en-US')
 }
 
 export function normCommunity(c: string): string {
