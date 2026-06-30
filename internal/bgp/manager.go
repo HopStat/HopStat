@@ -647,6 +647,7 @@ func (m *SessionManager) buildAfiSafi(afi api.Family_Afi, safi api.Family_Safi, 
 
 // injectPeerWatchErr, when set, overrides the error returned from WatchEvent (tests only).
 var injectPeerWatchErr error
+var injectPeerWatchErrMu sync.Mutex
 
 // lookupListPathHook, when set, replaces bgpServer.ListPath in LookupRoute (tests only).
 var lookupListPathHook func(context.Context, *api.ListPathRequest, func(*api.Destination)) error
@@ -667,8 +668,11 @@ var deletePeerHook func(context.Context, *api.DeletePeerRequest) error
 var lookupNormalizeHook func(context.Context, string) (string, error)
 
 func (m *SessionManager) peerWatchDone(err error, ctx context.Context) {
-	if injectPeerWatchErr != nil {
-		err = injectPeerWatchErr
+	injectPeerWatchErrMu.Lock()
+	injected := injectPeerWatchErr
+	injectPeerWatchErrMu.Unlock()
+	if injected != nil {
+		err = injected
 	}
 	if err != nil && ctx.Err() == nil {
 		slog.Error("bgp peer watch error", "err", err)

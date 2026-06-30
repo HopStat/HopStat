@@ -197,8 +197,8 @@ func (d *Driver) execCmdStream(ctx context.Context, onLine func(string), name st
 			mu.Lock()
 			buf.WriteString(line)
 			buf.WriteByte('\n')
-			mu.Unlock()
 			onLine(line)
+			mu.Unlock()
 		}
 
 		wg.Add(2)

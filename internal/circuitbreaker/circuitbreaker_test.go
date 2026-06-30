@@ -2,6 +2,7 @@ package circuitbreaker
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -148,7 +149,10 @@ func TestCircuitBreakerHalfOpenSeqMismatch(t *testing.T) {
 
 	block := make(chan struct{})
 	var probeErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		probeErr = cb.Call(func() error {
 			cb.mu.Lock()
 			cb.halfOpenSeq++
@@ -160,7 +164,7 @@ func TestCircuitBreakerHalfOpenSeqMismatch(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 	close(block)
-	time.Sleep(20 * time.Millisecond)
+	wg.Wait()
 
 	if probeErr == nil {
 		t.Fatal("expected probe error from half-open failure")

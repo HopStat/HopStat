@@ -858,8 +858,14 @@ func TestRestartNeighborLogsEnableWarn(t *testing.T) {
 
 func TestWatchPeersLogsWatchError(t *testing.T) {
 	mgr := NewSessionManager(config.BGPConfig{})
+	injectPeerWatchErrMu.Lock()
 	injectPeerWatchErr = errors.New("watch failed")
-	defer func() { injectPeerWatchErr = nil }()
+	injectPeerWatchErrMu.Unlock()
+	defer func() {
+		injectPeerWatchErrMu.Lock()
+		injectPeerWatchErr = nil
+		injectPeerWatchErrMu.Unlock()
+	}()
 	mgr.peerWatchDone(errors.New("original"), context.Background())
 }
 
