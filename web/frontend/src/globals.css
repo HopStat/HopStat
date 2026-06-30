@@ -1202,6 +1202,32 @@
     color: var(--color-foreground);
   }
 
+  /* Locale select — inside header band: use theme-aware card/brand mix colors */
+  .query-header-band .locale-switcher__select {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 28%, var(--color-border));
+    background: color-mix(in srgb, var(--color-card) 88%, var(--brand) 12%);
+    color: var(--color-foreground);
+  }
+  .query-header-band .locale-switcher__select:hover {
+    background: color-mix(in srgb, var(--color-card) 78%, var(--brand) 22%);
+  }
+  .query-header-band .locale-switcher__chevron {
+    color: var(--color-muted-foreground);
+  }
+
+  /* Locale select — standalone header (brand-color background): use on-dark contrast */
+  .locale-switcher__select {
+    border-color: color-mix(in srgb, var(--brand-on-dark) 24%, transparent);
+    background: color-mix(in srgb, var(--brand-on-dark) 10%, transparent);
+    color: var(--brand-on-dark);
+  }
+  .locale-switcher__select:hover {
+    background: color-mix(in srgb, var(--brand-on-dark) 18%, transparent);
+  }
+  .locale-switcher__chevron {
+    color: color-mix(in srgb, var(--brand-on-dark) 70%, transparent);
+  }
+
   .query-form-band {
     position: relative;
     overflow: hidden;
