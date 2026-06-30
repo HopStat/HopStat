@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -14,8 +15,15 @@ import (
 
 type platformCollector struct{}
 
+var (
+	linuxOpenStat       = func() (io.ReadCloser, error) { return os.Open("/proc/stat") }
+	linuxOpenMeminfo    = func() (io.ReadCloser, error) { return os.Open("/proc/meminfo") }
+	linuxReadLoadavg    = func() ([]byte, error) { return os.ReadFile("/proc/loadavg") }
+	snapshotCPUInterval = 200 * time.Millisecond
+)
+
 func (platformCollector) Snapshot(ctx context.Context) (Snapshot, error) {
-	cpu, err := cpuPercentLinux(ctx, 200*time.Millisecond)
+	cpu, err := cpuPercentLinux(ctx, snapshotCPUInterval)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -49,7 +57,7 @@ type cpuSample struct {
 }
 
 func readCPUSample() (cpuSample, error) {
-	f, err := os.Open("/proc/stat")
+	f, err := linuxOpenStat()
 	if err != nil {
 		return cpuSample{}, err
 	}
@@ -72,10 +80,8 @@ func readCPUSample() (cpuSample, error) {
 		}
 		total += v
 	}
-	idle, err := strconv.ParseUint(fields[4], 10, 64)
-	if err != nil {
-		return cpuSample{}, fmt.Errorf("parse /proc/stat idle: %w", err)
-	}
+	// fields[4] (idle) was already validated by the loop above.
+	idle, _ := strconv.ParseUint(fields[4], 10, 64)
 	return cpuSample{idle: idle, total: total}, scanner.Err()
 }
 
@@ -109,7 +115,7 @@ func cpuPercentLinux(ctx context.Context, interval time.Duration) (float64, erro
 }
 
 func loadAvg1Linux() (float64, error) {
-	data, err := os.ReadFile("/proc/loadavg")
+	data, err := linuxReadLoadavg()
 	if err != nil {
 		return 0, err
 	}
@@ -125,7 +131,7 @@ func loadAvg1Linux() (float64, error) {
 }
 
 func memoryLinux() (used, total uint64, err error) {
-	f, err := os.Open("/proc/meminfo")
+	f, err := linuxOpenMeminfo()
 	if err != nil {
 		return 0, 0, err
 	}

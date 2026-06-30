@@ -9,9 +9,9 @@ import (
 )
 
 func TestSelfUpdateSupportedNonLinux(t *testing.T) {
-	if runtime.GOOS == "linux" {
-		t.Skip("non-linux branch")
-	}
+	origGOOS := runtimeGOOS
+	t.Cleanup(func() { runtimeGOOS = origGOOS })
+	runtimeGOOS = "darwin"
 	t.Setenv("LG_UPDATE_ENABLED", "")
 	supported, reason := SelfUpdateSupported()
 	if supported {
