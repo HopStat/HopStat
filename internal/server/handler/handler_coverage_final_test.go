@@ -1496,23 +1496,28 @@ func TestUpdateApply_DefaultBlockedAndAsync(t *testing.T) {
 
 	upd := updater.New("HopStat/HopStat", "v1.0.0", true)
 	upd.SetReleaseAPIURL(srv.URL)
+
+	// Replace hooks BEFORE the first call so the default-path goroutine (on Linux,
+	// where self-update is supported and the first call returns 202) never races
+	// with later writes to these globals.
+	prevDelay := updateApplyDelay
+	updateApplyDelay = func() {}
+	t.Cleanup(func() { updateApplyDelay = prevDelay })
+
+	done := make(chan struct{}, 2)
+	prevAsync := updateApplyAsync
+	updateApplyAsync = func(fn func()) { fn(); done <- struct{}{} }
+	t.Cleanup(func() { updateApplyAsync = prevAsync })
+
+	// First call with default blocked state.
 	c, w := setupAdminContext(nil, http.MethodPost, "/admin/update/apply", "", 1)
 	UpdateApply(upd)(c)
 	if w.Code != http.StatusAccepted && w.Code != http.StatusBadRequest {
 		t.Fatalf("default blocked status = %d, body = %s", w.Code, w.Body.String())
 	}
-
-	prevDelay := updateApplyDelay
-	updateApplyDelay = func() {}
-	t.Cleanup(func() { updateApplyDelay = prevDelay })
-
-	done := make(chan struct{}, 1)
-	prevAsync := updateApplyAsync
-	updateApplyAsync = func(fn func()) {
-		fn()
-		done <- struct{}{}
+	if w.Code == http.StatusAccepted {
+		<-done // drain before touching more globals
 	}
-	t.Cleanup(func() { updateApplyAsync = prevAsync })
 
 	prevBlocked := updateApplyBlocked
 	updateApplyBlocked = func(*updater.Status) (bool, string) { return false, "" }
@@ -2061,27 +2066,30 @@ func TestUpdateApply_DefaultHookBodies(t *testing.T) {
 
 	upd := updater.New("HopStat/HopStat", "v1.0.0", true)
 	upd.SetReleaseAPIURL(srv.URL)
+
+	// Replace hooks BEFORE the first call to prevent goroutine/global races on Linux.
+	prevDelay := updateApplyDelay
+	updateApplyDelay = func() {}
+	t.Cleanup(func() { updateApplyDelay = prevDelay })
+
+	done := make(chan struct{}, 2)
+	prevAsync := updateApplyAsync
+	updateApplyAsync = func(fn func()) { fn(); done <- struct{}{} }
+	t.Cleanup(func() { updateApplyAsync = prevAsync })
+
+	// First call with default blocked state.
 	c, w := setupAdminContext(nil, http.MethodPost, "/admin/update/apply", "", 1)
 	UpdateApply(upd)(c)
 	if w.Code != http.StatusAccepted && w.Code != http.StatusBadRequest {
 		t.Fatalf("default blocked status = %d", w.Code)
 	}
-
-	prevDelay := updateApplyDelay
-	updateApplyDelay = func() {}
-	t.Cleanup(func() { updateApplyDelay = prevDelay })
+	if w.Code == http.StatusAccepted {
+		<-done // drain before touching more globals
+	}
 
 	prevBlocked := updateApplyBlocked
 	updateApplyBlocked = func(*updater.Status) (bool, string) { return false, "" }
 	t.Cleanup(func() { updateApplyBlocked = prevBlocked })
-
-	done := make(chan struct{}, 1)
-	prevAsync := updateApplyAsync
-	updateApplyAsync = func(fn func()) {
-		fn()
-		done <- struct{}{}
-	}
-	t.Cleanup(func() { updateApplyAsync = prevAsync })
 
 	c, w = setupAdminContext(nil, http.MethodPost, "/admin/update/apply", "", 1)
 	UpdateApply(upd)(c)
