@@ -111,19 +111,3 @@ export function RouteCommunities({ communities, rules }: RouteCommunitiesProps) 
   )
 }
 
-interface Props {
-  rules: CommunityRule[]
-}
-
-/** @deprecated Use RouteCommunities when route community strings are available */
-export function CommunityBadges({ rules }: Props) {
-  if (!rules.length) return null
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {rules.map(rule => (
-        <CommunityTag key={rule.id} rule={rule} />
-      ))}
-    </div>
-  )
-}

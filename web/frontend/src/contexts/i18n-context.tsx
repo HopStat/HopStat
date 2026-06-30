@@ -4,7 +4,6 @@ import i18n, {
   type Locale,
   LOCALE_LABEL_KEYS,
   SUPPORTED_LOCALES,
-  detectSystemLocale,
   parseActiveLanguages,
   persistLocale,
   resolveInitialLocale,
@@ -12,7 +11,6 @@ import i18n, {
 import { useSettings } from '@/contexts/settings-context'
 
 export type { Locale }
-export { SUPPORTED_LOCALES as LOCALE_OPTIONS_CODES }
 
 interface I18nContextValue {
   locale: Locale
@@ -107,6 +105,3 @@ export function getLocaleLabelKey(code: Locale): string {
   return LOCALE_LABEL_KEYS[code]
 }
 
-export function detectLocaleForActive(active: Locale[]): Locale {
-  return detectSystemLocale(active)
-}

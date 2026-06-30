@@ -9,20 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/ui/page-header'
 import { CountryFlag } from '@/components/ui/country-flag'
 import { api } from '@/lib/api-client'
+import { formatAS, formatSourceStatus, geoipSourceLabel, sourceBadgeVariant } from '@/lib/geoip-display'
 import { useI18n } from '@/contexts/i18n-context'
-import type { ASInfo, GeoIPLookupReport, GeoIPResolveSource } from '@/types/domain'
-
-function formatAS(info: ASInfo | undefined): string {
-  if (!info?.asn) return '—'
-  const org = info.org_name || info.short_name
-  return org ? `AS${info.asn} — ${org}` : `AS${info.asn}`
-}
-
-function sourceBadgeVariant(source: GeoIPResolveSource): 'default' | 'secondary' | 'outline' {
-  if (source === 'blocks' || source === 'mmdb') return 'default'
-  if (source === 'dns') return 'secondary'
-  return 'outline'
-}
+import type { GeoIPLookupReport, GeoIPResolveSource } from '@/types/domain'
 
 function SourceRow({
   label,
@@ -35,16 +24,7 @@ function SourceRow({
   chosen: boolean
   t: (key: string) => string
 }) {
-  let status = t('admin.geoip_lookup_unavailable')
-  if (!candidate.available) {
-    status = t('admin.geoip_lookup_not_loaded')
-  } else if (candidate.error) {
-    status = candidate.error
-  } else if (candidate.matched) {
-    status = formatAS(candidate.info)
-  } else {
-    status = t('admin.geoip_lookup_no_match')
-  }
+  const status = formatSourceStatus(candidate, t)
 
   return (
     <TableRow className={chosen ? 'bg-brand/5' : undefined}>
@@ -90,15 +70,6 @@ export function GeoIPLookupPage() {
     }
   }
 
-  const sourceLabel = (source: GeoIPResolveSource) => {
-    switch (source) {
-      case 'blocks': return t('admin.geoip_source_blocks')
-      case 'mmdb': return t('admin.geoip_source_mmdb')
-      case 'dns': return t('admin.geoip_source_dns')
-      default: return t('admin.geoip_source_none')
-    }
-  }
-
   return (
     <div className="admin-page space-y-6">
       <PageHeader title={t('admin.geoip_lookup')} description={t('admin.geoip_lookup_desc')} eyebrow={t('admin.title')} />
@@ -137,7 +108,7 @@ export function GeoIPLookupPage() {
             <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
               <CardTitle>{t('admin.geoip_lookup_result')}</CardTitle>
               <Badge variant={sourceBadgeVariant(report.chosen_source)}>
-                {sourceLabel(report.chosen_source)}
+                {geoipSourceLabel(report.chosen_source, t)}
               </Badge>
             </CardHeader>
             <CardContent className="space-y-4">

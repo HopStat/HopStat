@@ -32,13 +32,17 @@ const BGP_STATUS_SHORT: Record<string, string> = {
   established: 'EST',
 }
 
+function normBGPState(state: string): string {
+  return (state || 'idle').toLowerCase()
+}
+
 function formatBGPStatusShort(state: string): string {
-  const key = (state || 'idle').toLowerCase()
-  return BGP_STATUS_SHORT[key] ?? key.slice(0, 3).toUpperCase()
+  const key = normBGPState(state)
+  return BGP_STATUS_SHORT[key] ?? key.slice(0, 3).toLocaleUpperCase('en-US')
 }
 
 function formatBGPStatusTitle(state: string, t: (key: string) => string): string {
-  const key = (state || 'idle').toLowerCase()
+  const key = normBGPState(state)
   const labelKey = `admin.bgp_status_${key}`
   const translated = t(labelKey)
   return translated !== labelKey ? translated : (state || 'idle')
@@ -303,8 +307,8 @@ export function BGPNeighborsPage() {
                   {nodeName(n.node_id)}
                 </Badge>
               </TableCell>
-              <TableCell className="admin-table--bgp__col-type admin-table--bgp__center font-data text-sm uppercase tracking-wide">
-                {isInternalPeer(n, localAS) ? t('admin.bgp_peer_internal') : t('admin.bgp_peer_external')}
+              <TableCell className="admin-table--bgp__col-type admin-table--bgp__center font-data text-sm tracking-wide">
+                {(isInternalPeer(n, localAS) ? t('admin.bgp_peer_internal') : t('admin.bgp_peer_external')).toLocaleUpperCase('en-US')}
               </TableCell>
               <TableCell className="admin-table--bgp__col-status admin-table--bgp__center">
                 <Badge
@@ -448,7 +452,7 @@ export function BGPNeighborsPage() {
                 {logs.map((entry, idx) => (
                   <div key={`${entry.timestamp}-${idx}`} className="flex gap-2">
                     <span className="text-muted-foreground shrink-0">{formatLogTime(entry.timestamp)}</span>
-                    <span className={`uppercase shrink-0 w-10 ${logLevelClass(entry.level)}`}>{entry.level}</span>
+                    <span className={`shrink-0 w-10 ${logLevelClass(entry.level)}`}>{entry.level.toLocaleUpperCase('en-US')}</span>
                     <span className="break-all">
                       {entry.message}
                       {entry.address ? <span className="text-muted-foreground"> ({entry.address})</span> : null}

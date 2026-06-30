@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -35,8 +35,6 @@ export function CommunitiesPanel({ onClose }: Props) {
       .finally(() => setLoading(false))
   }, [t])
 
-  const sortedRules = useMemo(() => sortCommunities(rules), [rules])
-
   return (
     <div className="communities-panel">
       <div className="communities-panel__toolbar">
@@ -59,13 +57,13 @@ export function CommunitiesPanel({ onClose }: Props) {
         </div>
       )}
 
-      {!loading && !error && sortedRules.length === 0 && (
+      {!loading && !error && rules.length === 0 && (
         <div className="communities-table-frame communities-table-frame--state">
           <p className="text-sm text-muted-foreground py-8 text-center">{t('communities.empty')}</p>
         </div>
       )}
 
-      {!loading && sortedRules.length > 0 && (
+      {!loading && rules.length > 0 && (
         <div className="communities-table-frame">
           <Table containerClassName="communities-table-wrap">
             <TableHeader>
@@ -76,7 +74,7 @@ export function CommunitiesPanel({ onClose }: Props) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedRules.map(rule => {
+              {rules.map(rule => {
                 const accent = communityRowAccent(rule.severity)
                 const message = rule.message_i18n?.trim()
                 return (

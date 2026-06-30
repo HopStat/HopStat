@@ -41,13 +41,9 @@ export function extractASPathFromLines(lines: string[]): number[] {
 }
 
 export function isTracerouteHopLine(line: string): boolean {
-  const trimmed = stringsTrim(line)
+  const trimmed = line.trim()
   if (!trimmed || trimmed.startsWith('traceroute to') || trimmed.startsWith('Start')) return false
   return /^\d+[\s.]/.test(trimmed)
-}
-
-function stringsTrim(s: string): string {
-  return s.trim()
 }
 
 /** Parse ping statistics from streamed or final output lines (mirrors backend generic parser). */

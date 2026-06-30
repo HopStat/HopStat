@@ -67,7 +67,7 @@ export function AsPathMap({ routes, enriched }: Props) {
                       <div className="flex items-center justify-center gap-1 w-full min-w-0">
                         {cc && <CountryFlag code={cc} />}
                         {name && (
-                          <span className="as-map-org-label min-w-0 max-w-full truncate text-center uppercase text-foreground/75">
+                          <span className="as-map-org-label min-w-0 max-w-full truncate text-center text-foreground/75">
                             {name}
                           </span>
                         )}

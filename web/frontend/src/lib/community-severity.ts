@@ -1,13 +1,12 @@
-import type { CommunityRule } from '@/types/domain'
 
-export const communitySeverityVariant = {
+const communitySeverityVariant = {
   alert: 'destructive' as const,
   warning: 'warning' as const,
   info: 'info' as const,
   success: 'success' as const,
 }
 
-export type CommunitySeverity = keyof typeof communitySeverityVariant
+type CommunitySeverity = keyof typeof communitySeverityVariant
 
 export function normalizeCommunitySeverity(severity: string): CommunitySeverity | string {
   if (severity === 'reject') return 'alert'
@@ -46,8 +45,4 @@ export function communitySeverityLabel(severity: string, t: (key: string) => str
 
 export function normCommunity(c: string): string {
   return c.trim().toLowerCase()
-}
-
-export function communityMessage(rule: Pick<CommunityRule, 'message_i18n'>): string {
-  return rule.message_i18n?.trim() ?? ''
 }

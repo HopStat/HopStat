@@ -58,10 +58,10 @@ export function compactAsMapName(raw: string): string {
     break
   }
 
-  if (result) return result.toUpperCase()
+  if (result) return result.toLocaleUpperCase('en-US')
 
   // Single word longer than the limit — show the start without an ellipsis suffix.
-  return words[0].slice(0, MAX_NAME_LEN).toUpperCase()
+  return words[0].slice(0, MAX_NAME_LEN).toLocaleUpperCase('en-US')
 }
 
 export function displayAsName(info: ASInfo | undefined): string {
@@ -74,11 +74,11 @@ export function displayAsName(info: ASInfo | undefined): string {
 
 function stripOrgCountrySuffix(org: string, cc: string): string {
   if (!org || !cc) return org
-  const code = cc.trim().toUpperCase()
+  const code = cc.trim().toLocaleUpperCase('en-US')
   let trimmed = org.trim()
   for (const sep of [', ', ' - ']) {
     const suffix = `${sep}${code}`
-    if (trimmed.toUpperCase().endsWith(suffix)) {
+    if (trimmed.toLocaleUpperCase('en-US').endsWith(suffix)) {
       trimmed = trimmed.slice(0, -suffix.length).trim()
       break
     }
@@ -90,14 +90,14 @@ function tooltipAsName(info: ASInfo | undefined): string {
   const cc = asCountryLabel(info)
   let org = stripOrgCountrySuffix(info?.org_name?.trim() ?? '', cc)
   org = normalizeOrgForDisplay(org)
-  if (org && org.toUpperCase() !== cc) return org
+  if (org && org.toLocaleUpperCase('en-US') !== cc) return org
   const short = info?.short_name?.trim()
   if (short) return short
   return ''
 }
 
 function asCountryDisplayName(code: string, locale?: string): string {
-  const cc = code.trim().toUpperCase()
+  const cc = code.trim().toLocaleUpperCase('en-US')
   if (!cc) return ''
   const locales = locale ? [locale, 'en'] : ['en']
   for (const loc of locales) {
@@ -112,7 +112,7 @@ function asCountryDisplayName(code: string, locale?: string): string {
 }
 
 function asCountryLabel(info: ASInfo | undefined): string {
-  return info?.country_code?.trim().toUpperCase() ?? ''
+  return info?.country_code?.trim().toLocaleUpperCase('en-US') ?? ''
 }
 
 export function asCountryCode(info: ASInfo | undefined): string {

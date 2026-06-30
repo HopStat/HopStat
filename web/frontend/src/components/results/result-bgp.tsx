@@ -53,8 +53,8 @@ function RouteMetaBlock({ route, compact = false }: { route: BGPRoute; compact?:
       {(communities.length > 0 || rules.length > 0) && (
         <div className="space-y-1.5">
           {!compact && (
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              {t('result.communities')}
+            <span className="text-[11px] font-medium tracking-wider text-muted-foreground">
+              {t('result.communities').toLocaleUpperCase('en-US')}
             </span>
           )}
           <RouteCommunities communities={communities} rules={rules} />
@@ -280,7 +280,6 @@ export function ResultBGP({ result, enriched }: Props) {
   const showNode = uniqueNodeNames.size > 1
   const showLocalPref = shouldShowRouteMetric(routes, 'local_pref')
   const showMed = shouldShowRouteMetric(routes, 'med')
-  const showCommunities = routes.some(routeHasMeta)
   const showMobileAsPath = routes.length > 1
 
   return (

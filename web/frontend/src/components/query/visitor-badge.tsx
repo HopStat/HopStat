@@ -27,7 +27,7 @@ export function VisitorBadge({ onTraceroute, className }: Props) {
 
   const isp = displayISP(info.asn_org ?? '')
   const city = info.city?.trim() ?? ''
-  const cc = info.country_code?.trim().toUpperCase() ?? ''
+  const cc = info.country_code?.trim().toLocaleUpperCase('en-US') ?? ''
   const titleParts = [info.ip, isp, city, info.country?.trim() || cc].filter(Boolean)
 
   return (
