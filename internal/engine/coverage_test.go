@@ -366,6 +366,29 @@ func TestApplyBGPASPathEnriched(t *testing.T) {
 	}
 }
 
+func TestApplyBGPASPathIgnoresGeoTargetWhenRouteExists(t *testing.T) {
+	g := testGeoDB(t)
+	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, g, nil, nil, 0)
+	br := &domain.BGPResult{
+		Routes: []domain.BGPRoute{{
+			Prefix: "77.47.145.0/24",
+			ASPath: []uint32{43260, 6823, 214941, 208185},
+			Best:   true,
+		}},
+		TargetAS: &domain.ASInfo{ASN: 6939, OrgName: "Hurricane Electric LLC"},
+	}
+	result := &domain.QueryResult{}
+	e.applyBGPASPath(context.Background(), br, "77.47.145.0/24", result, ExecuteOption{})
+	if len(result.ASPath) != 4 || result.ASPath[3] != 208185 {
+		t.Fatalf("ASPath = %v", result.ASPath)
+	}
+	for _, entry := range result.ASPathEnriched {
+		if entry.ASN == 6939 {
+			t.Fatalf("GeoIP target AS should not appear when route exists: %+v", result.ASPathEnriched)
+		}
+	}
+}
+
 func TestEnsureTargetASInResult(t *testing.T) {
 	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, nil, nil, nil, 0)
 	br := &domain.BGPResult{TargetAS: &domain.ASInfo{ASN: 15169, OrgName: "GOOGLE"}}
@@ -695,11 +718,14 @@ func TestApplyBGPASPathNoRoutesWithTargetAS(t *testing.T) {
 	e.applyBGPASPath(context.Background(), br, "185.203.171.1", result, ExecuteOption{
 		OnPartial: func(*domain.QueryResult) { partials++ },
 	})
-	if len(result.ASPathEnriched) != 0 {
+	if len(result.ASPath) != 1 || result.ASPath[0] != 9121 {
+		t.Fatalf("ASPath = %v", result.ASPath)
+	}
+	if len(result.ASPathEnriched) != 1 || result.ASPathEnriched[0].ASN != 9121 {
 		t.Fatalf("ASPathEnriched = %v", result.ASPathEnriched)
 	}
-	if partials != 0 {
-		t.Fatal("expected no partial AS path when BGP route is missing")
+	if partials == 0 {
+		t.Fatal("expected partial AS path from GeoIP fallback")
 	}
 }
 

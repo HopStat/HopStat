@@ -213,7 +213,9 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 				return err
 			}
 			e.attachRouteNodeNames(ctx, br, query.NodeID)
-			bgp.EnrichResultTargetAS(ctx, e.geoDB, br, query.Target)
+			if !bgp.HasRouteASPath(br) {
+				bgp.EnrichResultTargetAS(ctx, e.geoDB, br, query.Target)
+			}
 			result.Parsed = br
 			result.Raw = br.Raw
 			e.matchCommunities(ctx, query.NodeID, br, result)
@@ -388,23 +390,32 @@ func (e *QueryEngine) prefetchBGPASPath(ctx context.Context, drv driver.NodeDriv
 	if err != nil {
 		return
 	}
-	bgp.EnrichResultTargetAS(ctx, e.geoDB, br, target)
 	e.applyBGPASPath(ctx, br, target, partial, opt)
 }
 
 func (e *QueryEngine) applyBGPASPath(ctx context.Context, br *domain.BGPResult, target string, result *domain.QueryResult, opt ExecuteOption) {
-	if br != nil && br.TargetAS == nil {
-		bgp.EnrichResultTargetAS(ctx, e.geoDB, br, target)
-	}
-
-	route := bgp.BestRoute(br.Routes)
-	if br == nil || route == nil || len(route.ASPath) == 0 {
+	if br == nil {
 		return
 	}
-	result.ASPathPrefix = route.Prefix
-	result.ASPath = append([]uint32(nil), route.ASPath...)
+
+	if bgp.HasRouteASPath(br) {
+		route := bgp.BestRoute(br.Routes)
+		result.ASPathPrefix = route.Prefix
+		result.ASPath = append([]uint32(nil), route.ASPath...)
+		e.emitASPathPartial(result, opt)
+		e.enrichASPath(ctx, br, result, opt)
+		return
+	}
+
+	if br.TargetAS == nil {
+		bgp.EnrichResultTargetAS(ctx, e.geoDB, br, target)
+	}
+	if br.TargetAS == nil || br.TargetAS.ASN == 0 {
+		return
+	}
+	result.ASPath = []uint32{br.TargetAS.ASN}
+	result.ASPathPrefix = strings.TrimSpace(target)
 	e.emitASPathPartial(result, opt)
-	e.enrichASPath(ctx, br, result, opt)
 	e.ensureTargetASInResult(br, result, opt)
 }
 

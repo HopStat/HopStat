@@ -79,6 +79,19 @@ func TestBestRoute(t *testing.T) {
 	}
 }
 
+func TestHasRouteASPath(t *testing.T) {
+	if HasRouteASPath(nil) {
+		t.Fatal("expected false for nil result")
+	}
+	if HasRouteASPath(&domain.BGPResult{}) {
+		t.Fatal("expected false without routes")
+	}
+	br := &domain.BGPResult{Routes: []domain.BGPRoute{{ASPath: []uint32{43260, 208185}}}}
+	if !HasRouteASPath(br) {
+		t.Fatal("expected true when route has AS path")
+	}
+}
+
 func TestEnsureBestAmongEntriesSingle(t *testing.T) {
 	single := []*domain.BGPRouteEntry{{Prefix: "1.0.0.0/24", Best: false}}
 	ensureBestAmongEntries(single)

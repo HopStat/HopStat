@@ -186,7 +186,9 @@ func agentBGPRoute(cfg *config.Config, bgpMgr *bgp.SessionManager, geoDB *geo.Ge
 				return
 			}
 			bgp.ApplyOriginASPathToRoutes(result.Routes, bgpMgr.LocalAS())
-			bgp.EnrichResultTargetAS(c.Request.Context(), geoDB, result, req.Prefix)
+			if !bgp.HasRouteASPath(result) {
+				bgp.EnrichResultTargetAS(c.Request.Context(), geoDB, result, req.Prefix)
+			}
 			c.JSON(200, result)
 			return
 		}

@@ -228,6 +228,15 @@ func BestRoute(routes []domain.BGPRoute) *domain.BGPRoute {
 	return &routes[0]
 }
 
+// HasRouteASPath reports whether the BGP result includes a usable AS path from a route.
+func HasRouteASPath(br *domain.BGPResult) bool {
+	if br == nil {
+		return false
+	}
+	route := BestRoute(br.Routes)
+	return route != nil && len(route.ASPath) > 0
+}
+
 func formatRouteEntries(entries []*domain.BGPRouteEntry) string {
 	var buf strings.Builder
 	for _, e := range entries {

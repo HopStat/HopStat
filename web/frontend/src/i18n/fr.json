@@ -306,7 +306,7 @@
   "visitor.traceroute_hint": "Traceroute vers votre IP",
   "not_found.title": "Page introuvable",
   "not_found.go_home": "Retour à l'accueil",
-  "admin.update_available": "Mise à jour disponible",
+  "admin.update_available": "Màj dispo",
   "admin.up_to_date": "À jour",
   "admin.version": "Version",
   "admin.version_latest_installed": "Dernière version installée",

@@ -10,10 +10,13 @@ import (
 
 const indexBootstrapMarker = "<!-- hopstat:bootstrap -->"
 
-var indexHTMLMarshal = json.Marshal
+var (
+	indexHTMLMarshal      = json.Marshal
+	indexHTMLAllSettings  = sitecache.AllSettings
+)
 
 func injectIndexHTML(indexHTML []byte) []byte {
-	settings := sitecache.AllSettings()
+	settings := indexHTMLAllSettings()
 	if len(settings) == 0 {
 		return indexHTML
 	}

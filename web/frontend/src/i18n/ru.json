@@ -306,7 +306,7 @@
   "visitor.traceroute_hint": "Traceroute к вашему IP",
   "not_found.title": "Страница не найдена",
   "not_found.go_home": "На главную",
-  "admin.update_available": "Доступно обновление",
+  "admin.update_available": "Обновление",
   "admin.up_to_date": "Актуально",
   "admin.version": "Версия",
   "admin.version_latest_installed": "Установлена последняя версия",

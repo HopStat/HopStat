@@ -11,12 +11,12 @@ export function extractASPathFromBGP(parsed: BGPResult | null | undefined): numb
   return []
 }
 
-/** Build AS path for the BGP map; never synthesize a path from target ASN alone. */
+/** Build AS path for the BGP map. Route AS path wins; GeoIP target ASN is fallback only. */
 export function buildBgpMapAsPath(asPath: number[], targetAsn?: number | null): number[] {
   const validPath = asPath.filter(asn => asn > 0)
-  if (validPath.length === 0) return []
-  if (!targetAsn || targetAsn <= 0 || validPath.includes(targetAsn)) return validPath
-  return [...validPath, targetAsn]
+  if (validPath.length > 0) return validPath
+  if (!targetAsn || targetAsn <= 0) return []
+  return [targetAsn]
 }
 
 /** Show the AS path map only when BGP returned a real path to visualize. */

@@ -69,7 +69,8 @@ export function ResultContainer({ queryId, command, historyContext, onHistorySav
 
   const targetAS = bgpParsed?.target_as ?? null
   const enrichedBase = result?.as_path_enriched ?? []
-  const enrichedForDisplay = !targetAS?.asn || enrichedBase.some(entry => entry.asn === targetAS.asn)
+  const hasRouteAsPath = asPath.length > 0
+  const enrichedForDisplay = hasRouteAsPath || !targetAS?.asn || enrichedBase.some(entry => entry.asn === targetAS.asn)
     ? enrichedBase
     : [...enrichedBase, targetAS]
   const mapAsPath = buildBgpMapAsPath(asPath, targetAS?.asn)

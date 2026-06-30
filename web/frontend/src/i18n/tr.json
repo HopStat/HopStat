@@ -306,7 +306,7 @@
   "visitor.traceroute_hint": "IP'nize Traceroute çalıştır",
   "not_found.title": "Sayfa bulunamadı",
   "not_found.go_home": "Ana Sayfaya Dön",
-  "admin.update_available": "Güncelleme Mevcut",
+  "admin.update_available": "Yeni sürüm",
   "admin.up_to_date": "Güncel",
   "admin.version": "Sürüm",
   "admin.version_latest_installed": "En güncel sürüm yüklü",

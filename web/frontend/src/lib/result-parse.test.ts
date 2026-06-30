@@ -8,24 +8,24 @@ import {
 } from './result-parse'
 
 describe('buildBgpMapAsPath', () => {
-  it('returns empty when there is no BGP AS path', () => {
-    expect(buildBgpMapAsPath([], 9121)).toEqual([])
+  it('returns empty when there is no route or GeoIP target ASN', () => {
+    expect(buildBgpMapAsPath([], null)).toEqual([])
   })
 
-  it('does not synthesize a path from target ASN alone', () => {
-    expect(buildBgpMapAsPath([], 9121)).toEqual([])
+  it('uses GeoIP target ASN when there is no route AS path', () => {
+    expect(buildBgpMapAsPath([], 9121)).toEqual([9121])
   })
 
-  it('appends target ASN when missing from an existing path', () => {
-    expect(buildBgpMapAsPath([9121, 174], 15169)).toEqual([9121, 174, 15169])
+  it('keeps route AS path without appending GeoIP target ASN', () => {
+    expect(buildBgpMapAsPath([9121, 174], 15169)).toEqual([9121, 174])
   })
 
   it('keeps path unchanged when target ASN is already present', () => {
     expect(buildBgpMapAsPath([9121, 174], 174)).toEqual([9121, 174])
   })
 
-  it('drops invalid zero ASNs', () => {
-    expect(buildBgpMapAsPath([0, 0], 9121)).toEqual([])
+  it('drops invalid zero ASNs and falls back to GeoIP target', () => {
+    expect(buildBgpMapAsPath([0, 0], 9121)).toEqual([9121])
   })
 })
 
