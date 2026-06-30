@@ -417,7 +417,7 @@ func TestStatusFetchErrorFallsBackToEmbedded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected embedded fallback, got error: %v", err)
 	}
-	if !st.UpdateAvailable || st.Latest != "v2.1.68" {
+	if !st.UpdateAvailable || st.Latest != "v2.1.72" {
 		t.Fatalf("status = %+v", st)
 	}
 	if strings.TrimSpace(st.ReleaseNotes) == "" {
