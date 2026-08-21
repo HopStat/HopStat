@@ -76,15 +76,21 @@ func twoMapNodes() []MapNode {
 	}
 }
 
-func TestBuildNodeASPathsSkipsWhenNothingToCompare(t *testing.T) {
+func TestBuildNodeASPathsSkipsWhenThereIsNothingToRead(t *testing.T) {
 	var nilMgr *SessionManager
 	if got := nilMgr.BuildNodeASPaths(context.Background(), twoMapNodes(), "8.8.8.0/24", 0, nil); got != nil {
 		t.Fatalf("nil manager returned %+v", got)
 	}
 
 	mgr, ctx := mapTestManager(t, 9121)
+	if got := mgr.BuildNodeASPaths(ctx, nil, "8.8.8.0/24", 9121, nil); got != nil {
+		t.Fatalf("no nodes returned %+v", got)
+	}
+
+	// Whether one node is enough for a map is the engine's call, not this function's:
+	// it answers for whatever it is given.
 	one := []MapNode{{ID: 1, Name: "BURSA", Type: domain.NodeTypeStandalone}}
-	if got := mgr.BuildNodeASPaths(ctx, one, "8.8.8.0/24", 9121, nil); got != nil {
+	if got := mgr.BuildNodeASPaths(ctx, one, "8.8.8.0/24", 9121, nil); len(got) != 1 {
 		t.Fatalf("single node returned %+v", got)
 	}
 }
