@@ -55,6 +55,8 @@ export interface NetworkGraph {
   vertices: GraphVertex[]
   edges: GraphEdge[]
   layout: Layout
+  /** True when paths run top to bottom instead of left to right. */
+  vertical: boolean
   width: number
   height: number
 }
@@ -69,6 +71,26 @@ interface NodeGroup {
   nodeId: number
   name: string
   paths: NormalizedEntry[]
+}
+
+/** Left-to-right connector: out of the right edge, into the left edge. */
+function horizontalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout): string {
+  const x1 = from.x + layout.boxW
+  const x2 = to.x
+  if (from.y === to.y) return `M ${x1} ${from.y} L ${x2} ${to.y}`
+  const dx = Math.max((x2 - x1) * 0.4, 12)
+  return `M ${x1} ${from.y} C ${x1 + dx} ${from.y}, ${x2 - dx} ${to.y}, ${x2} ${to.y}`
+}
+
+/** Top-to-bottom connector: out of the bottom edge, into the top edge. */
+function verticalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout): string {
+  const cx1 = from.x + layout.boxW / 2
+  const cx2 = to.x + layout.boxW / 2
+  const y1 = from.y + layout.boxH / 2
+  const y2 = to.y - layout.boxH / 2
+  if (cx1 === cx2) return `M ${cx1} ${y1} L ${cx2} ${y2}`
+  const dy = Math.max((y2 - y1) * 0.4, 12)
+  return `M ${cx1} ${y1} C ${cx1} ${y1 + dy}, ${cx2} ${y2 - dy}, ${cx2} ${y2}`
 }
 
 const nodeKey = (nodeId: number) => `n:${nodeId}`
@@ -140,9 +162,10 @@ function layerVertices(keys: string[], edges: Map<string, Set<string>>): Map<str
 export function buildNetworkGraph(
   entries: NodeASPath[] | undefined,
   enriched: ASInfo[] | undefined,
-  opts: { queriedNodeId?: number; compact?: boolean } = {},
+  opts: { queriedNodeId?: number; compact?: boolean; vertical?: boolean } = {},
 ): NetworkGraph | null {
   const layout = opts.compact ? COMPACT_LAYOUT : WIDE_LAYOUT
+  const vertical = Boolean(opts.vertical)
   // Group by node: one box per node, one branch per path it holds.
   const groups: NodeGroup[] = []
   const groupByNode = new Map<number, NodeGroup>()
@@ -160,8 +183,7 @@ export function buildNetworkGraph(
     group.paths.push({ entry, hops })
   }
 
-  // With one routed node this only repeats the AS path map above it.
-  if (groups.length < 2) return null
+  if (groups.length === 0) return null
 
   // The queried node leads: it takes the first row and the first colour, and its route is
   // the one highlighted by default.
@@ -294,30 +316,36 @@ export function buildNetworkGraph(
   }
 
   const maxCol = Math.max(...[...vertices.values()].map(vertex => vertex.col))
+
+  // Vertical mode swaps the axes: paths run top to bottom and siblings spread sideways,
+  // which is the shape a phone screen actually has room for.
   for (const vertex of vertices.values()) {
-    vertex.x = layout.pad + vertex.col * layout.colW
-    vertex.y = layout.pad + vertex.row * layout.rowH + layout.boxH / 2
+    if (vertical) {
+      vertex.x = layout.pad + vertex.row * layout.colW
+      vertex.y = layout.pad + vertex.col * layout.rowH + layout.boxH / 2
+    } else {
+      vertex.x = layout.pad + vertex.col * layout.colW
+      vertex.y = layout.pad + vertex.row * layout.rowH + layout.boxH / 2
+    }
   }
 
   for (const edge of edges.values()) {
     const from = vertices.get(edge.from)
     const to = vertices.get(edge.to)
     if (!from || !to) continue
-    const x1 = from.x + layout.boxW
-    const x2 = to.x
-    if (from.y === to.y) {
-      edge.d = `M ${x1} ${from.y} L ${x2} ${to.y}`
-    } else {
-      const dx = Math.max((x2 - x1) * 0.4, 12)
-      edge.d = `M ${x1} ${from.y} C ${x1 + dx} ${from.y}, ${x2 - dx} ${to.y}, ${x2} ${to.y}`
-    }
+    edge.d = vertical ? verticalEdgePath(from, to, layout) : horizontalEdgePath(from, to, layout)
   }
 
   return {
     vertices: [...vertices.values()],
     edges: [...edges.values()],
     layout,
-    width: layout.pad * 2 + maxCol * layout.colW + layout.boxW,
-    height: layout.pad * 2 + (maxRow + 1) * layout.rowH,
+    vertical,
+    width: vertical
+      ? layout.pad * 2 + maxRow * layout.colW + layout.boxW
+      : layout.pad * 2 + maxCol * layout.colW + layout.boxW,
+    height: vertical
+      ? layout.pad * 2 + maxCol * layout.rowH + layout.boxH
+      : layout.pad * 2 + (maxRow + 1) * layout.rowH,
   }
 }

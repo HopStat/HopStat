@@ -24,9 +24,14 @@ function renderMap(props: Partial<React.ComponentProps<typeof NetworkMap>> = {})
 }
 
 describe('NetworkMap', () => {
-  it('renders nothing without at least two routed nodes', () => {
-    const { container } = renderMap({ entries: [entries[0]] })
+  it('renders nothing without a routed node', () => {
+    const { container } = renderMap({ entries: [] })
     expect(container.querySelector('svg')).toBeNull()
+  })
+
+  it('draws a single node on its own', () => {
+    renderMap({ entries: [entries[0]] })
+    expect(screen.getByText('BURSA')).toBeTruthy()
   })
 
   it('draws one box per node plus the merged AS hops', () => {
@@ -52,19 +57,23 @@ describe('NetworkMap', () => {
     expect(container.querySelectorAll('.network-map__edge.is-active')).toHaveLength(0)
   })
 
-  it('prints the country beside the AS name instead of hiding it in a tooltip', () => {
-    renderMap({
+  it('prints the flag and AS name on the label instead of in a tooltip', () => {
+    const { container } = renderMap({
       enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '🇺🇸' }],
     })
-    expect(screen.getByText('🇺🇸 GOOGLE')).toBeTruthy()
+    expect(screen.getByText('GOOGLE')).toBeTruthy()
+    // The same flag source the rest of the app uses — emoji do not render everywhere.
+    const flag = container.querySelector('image[href*="flagcdn.com"]')
+    expect(flag?.getAttribute('href')).toContain('/us.png')
     expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
-  it('falls back to the country code when there is no flag', () => {
-    renderMap({
-      enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '' }],
+  it('drops the flag when the lookup gave no country', () => {
+    const { container } = renderMap({
+      enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: '', flag_emoji: '' }],
     })
-    expect(screen.getByText('US GOOGLE')).toBeTruthy()
+    expect(screen.getByText('GOOGLE')).toBeTruthy()
+    expect(container.querySelector('image')).toBeNull()
   })
 
   it('shows no popup for a node box or an AS box', () => {

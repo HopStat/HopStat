@@ -10,11 +10,15 @@ const colOf = (g: ReturnType<typeof buildNetworkGraph>, key: string) =>
   g!.vertices.find(v => v.key === key)!.col
 
 describe('buildNetworkGraph', () => {
-  it('needs at least two routed nodes', () => {
+  it('needs at least one routed node', () => {
     expect(buildNetworkGraph(undefined, [])).toBeNull()
     expect(buildNetworkGraph([], [])).toBeNull()
-    expect(buildNetworkGraph([entry(1, 'A', [1, 2])], [])).toBeNull()
-    expect(buildNetworkGraph([entry(1, 'A', [1, 2]), entry(2, 'B', [], { no_route: true })], [])).toBeNull()
+    expect(buildNetworkGraph([entry(1, 'A', [], { no_route: true })], [])).toBeNull()
+
+    // The map replaced the single-path AS map, so one node is a valid diagram.
+    const single = buildNetworkGraph([entry(1, 'A', [9121, 15169])], [])!
+    expect(single.vertices.filter(v => v.kind === 'node')).toHaveLength(1)
+    expect(single.edges).toHaveLength(2)
   })
 
   it('merges a shared hop into one vertex and keeps both branches', () => {
@@ -233,5 +237,38 @@ describe('buildNetworkGraph layout', () => {
     expect(compact.vertices.map(v => v.key)).toEqual(wide.vertices.map(v => v.key))
     expect(compact.edges.map(e => e.key)).toEqual(wide.edges.map(e => e.key))
     expect(compact.vertices.map(v => [v.col, v.row])).toEqual(wide.vertices.map(v => [v.col, v.row]))
+  })
+})
+
+describe('buildNetworkGraph vertical layout', () => {
+  const entries = [
+    { node_id: 1, node_name: 'A', as_path: [9121, 3356, 15169], best: true },
+    { node_id: 2, node_name: 'B', as_path: [8866, 3356, 15169], best: true },
+  ]
+
+  it('runs paths downwards and spreads siblings sideways', () => {
+    const across = buildNetworkGraph(entries, [])!
+    const down = buildNetworkGraph(entries, [], { vertical: true })!
+
+    expect(across.vertical).toBe(false)
+    expect(down.vertical).toBe(true)
+    // Same graph, transposed: taller than it is wide, where the horizontal one is wider.
+    expect(down.height).toBeGreaterThan(across.height)
+    expect(down.width).toBeLessThan(across.width)
+
+    // Depth now increases downwards, and the shared hop sits below both node boxes.
+    const box = down.vertices.find(v => v.key === 'n:1')!
+    const shared = down.vertices.find(v => v.asn === 3356)!
+    const origin = down.vertices.find(v => v.asn === 15169)!
+    expect(shared.y).toBeGreaterThan(box.y)
+    expect(origin.y).toBeGreaterThan(shared.y)
+  })
+
+  it('connects boxes bottom to top', () => {
+    const down = buildNetworkGraph(entries, [], { vertical: true })!
+    const edge = down.edges.find(e => e.from === 'n:1')!
+    const from = down.vertices.find(v => v.key === edge.from)!
+    // The path starts at the horizontal centre of the box, not its right edge.
+    expect(edge.d.startsWith(`M ${from.x + down.layout.boxW / 2} `)).toBe(true)
   })
 })

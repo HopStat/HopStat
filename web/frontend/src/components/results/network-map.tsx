@@ -44,10 +44,18 @@ function useAvailableWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   return [ref, width]
 }
 
-/** AS name with its country beside it — the flag when the lookup gave us one. */
-function asCaption(vertex: GraphVertex): string {
-  const country = vertex.flag || vertex.cc
-  return [country, vertex.org].filter(Boolean).join(' ')
+const SUB_FONT = 9
+/** IBM Plex Mono advance width, so the caption can be centred without measuring text. */
+const SUB_ADVANCE = SUB_FONT * 0.6
+const FLAG_W = 12
+const FLAG_H = 9
+const FLAG_GAP = 3
+
+/** Flag image from the same source the rest of the app uses — emoji flags do not render on
+ *  every platform, and at this size they are unreadable where they do. */
+function flagSrc(cc: string): string | null {
+  const code = cc.trim().toLowerCase()
+  return /^[a-z]{2}$/.test(code) ? `https://flagcdn.com/16x12/${code}.png` : null
 }
 
 /** Colour token for a node, cycling through the eight theme-aware classes. */
@@ -61,8 +69,9 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
   const [hoveredNode, setHoveredNode] = useState<number | null>(null)
   const [wrapRef, availableWidth] = useAvailableWidth()
   const compact = availableWidth > 0 && availableWidth < COMPACT_BELOW
+  // A phone has height to spare and no width, so the diagram turns to run downwards.
   const graph = useMemo(
-    () => buildNetworkGraph(entries, enriched, { queriedNodeId, compact }),
+    () => buildNetworkGraph(entries, enriched, { queriedNodeId, compact, vertical: compact }),
     [entries, enriched, queriedNodeId, compact],
   )
 
@@ -162,15 +171,40 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                 <text
                   className="network-map__label"
                   x={vertex.x + graph.layout.boxW / 2}
-                  y={vertex.y - (asCaption(vertex) ? 6 : 0)}
+                  y={vertex.y - (vertex.org || vertex.cc ? 6 : 0)}
                 >
                   {vertex.label}
                 </text>
-                {asCaption(vertex) && (
-                  <text className="network-map__sub" x={vertex.x + graph.layout.boxW / 2} y={vertex.y + 8}>
-                    {asCaption(vertex)}
-                  </text>
-                )}
+                {(vertex.org || vertex.cc) && (() => {
+                  // Centre flag and name as one unit; the caption font is monospace, so its
+                  // width is known without measuring.
+                  const flag = flagSrc(vertex.cc)
+                  const textW = vertex.org.length * SUB_ADVANCE
+                  const total = textW + (flag ? FLAG_W + FLAG_GAP : 0)
+                  const startX = vertex.x + graph.layout.boxW / 2 - total / 2
+                  return (
+                    <>
+                      {flag && (
+                        <image
+                          href={flag}
+                          x={startX}
+                          y={vertex.y + 8 - FLAG_H / 2}
+                          width={FLAG_W}
+                          height={FLAG_H}
+                          preserveAspectRatio="xMidYMid slice"
+                        />
+                      )}
+                      <text
+                        className="network-map__sub"
+                        x={startX + (flag ? FLAG_W + FLAG_GAP : 0)}
+                        y={vertex.y + 8}
+                        textAnchor="start"
+                      >
+                        {vertex.org || vertex.cc}
+                      </text>
+                    </>
+                  )
+                })()}
               </g>
               )
             })}

@@ -3,7 +3,6 @@ import { useQueryStream } from '@/hooks/use-sse'
 import { useI18n } from '@/contexts/i18n-context'
 import { saveSuccessfulQuery } from '@/lib/query-history-db'
 import { OutputTerminal } from './output-terminal'
-import { AsPathMap } from './as-path-map'
 import { ResultBGP } from './result-bgp'
 import { ResultPing } from './result-ping'
 import { QueryErrorAlert } from './query-error-alert'
@@ -12,7 +11,7 @@ import { NetworkMap } from './network-map'
 import { buildBgpMapAsPath, extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, hasPingData, isPingOutputComplete, bestBGPRoute, shouldShowBgpAsPathMap } from '@/lib/result-parse'
 import { translateQueryError, translateBgpRawMessage } from '@/lib/query-errors'
 import { buildResultText } from '@/lib/result-export'
-import type { BGPResult, PingResult } from '@/types/domain'
+import type { BGPResult, NodeASPath, PingResult } from '@/types/domain'
 
 interface Props {
   queryId: string | null
@@ -94,25 +93,12 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
   const isError = result?.status === 'error'
 
   const hasBgpRoutes = Boolean(bgpParsed?.routes?.length)
-  const showAsPathMap = shouldShowBgpAsPathMap(command, mapAsPath, {
+  const showNetworkMap = shouldShowBgpAsPathMap(command, mapAsPath, {
     hasBgpRoutes,
     hasServerAsPath: asPathFromResult.length > 0,
   })
 
   const selectedRoute = bestBGPRoute(bgpParsed?.routes)
-
-  const routesForMap: BGPResult['routes'] = [{
-    prefix: result?.as_path_prefix?.trim() || selectedRoute?.prefix?.trim() || bgpParsed?.routes?.[0]?.prefix?.trim() || '',
-    next_hop: selectedRoute?.next_hop ?? bgpParsed?.routes?.[0]?.next_hop ?? '',
-    as_path: mapAsPath,
-    local_pref: selectedRoute?.local_pref ?? bgpParsed?.routes?.[0]?.local_pref ?? 0,
-    med: selectedRoute?.med ?? bgpParsed?.routes?.[0]?.med ?? 0,
-    origin: selectedRoute?.origin ?? bgpParsed?.routes?.[0]?.origin ?? '',
-    communities: selectedRoute?.communities ?? bgpParsed?.routes?.[0]?.communities ?? [],
-    status: selectedRoute?.status ?? bgpParsed?.routes?.[0]?.status ?? '',
-    protocol: selectedRoute?.protocol ?? bgpParsed?.routes?.[0]?.protocol ?? '',
-    age: selectedRoute?.age ?? bgpParsed?.routes?.[0]?.age ?? '',
-  }]
 
   const showBgpRoutes = Boolean(command === 'bgp_route' && hasBgpRoutes)
   const showBgpRawMessage = Boolean(
@@ -134,6 +120,22 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
   const errorMessage = isError && result
     ? translateQueryError(t, result.error_code, result.error_msg)
     : null
+
+  // Without a per-node map — a node answering from its own router, or a target only GeoIP
+  // could place — fall back to the single path the result already carries.
+  const mapPrefix = result?.as_path_prefix?.trim() || selectedRoute?.prefix?.trim() || ''
+  const mapEntries: NodeASPath[] | undefined = result?.as_path_nodes?.length
+    ? result.as_path_nodes
+    : historyContext && mapAsPath.length > 0
+      ? [{
+          node_id: historyContext.nodeId,
+          node_name: historyContext.nodeName,
+          prefix: mapPrefix,
+          as_path: mapAsPath,
+          best: true,
+          via_default_route: selectedRoute?.via_default_route,
+        }]
+      : undefined
 
   const shareContext = command && historyContext && shareUrl ? { command, shareUrl, ...historyContext } : null
   const shareSummary = shareContext
@@ -158,8 +160,13 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
         />
       )}
 
-      {showAsPathMap && (
-        <AsPathMap routes={routesForMap} enriched={enrichedForDisplay} />
+      {showNetworkMap && (
+        <NetworkMap
+          entries={mapEntries}
+          enriched={enrichedForDisplay}
+          prefix={mapPrefix}
+          queriedNodeId={historyContext?.nodeId}
+        />
       )}
 
       {showPingStats && (
@@ -168,15 +175,6 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
 
       {showBgpRoutes && bgpParsed && (
         <ResultBGP result={bgpParsed} enriched={enrichedForDisplay} />
-      )}
-
-      {command === 'bgp_route' && (
-        <NetworkMap
-          entries={result?.as_path_nodes}
-          enriched={enrichedForDisplay}
-          prefix={result?.as_path_prefix}
-          queriedNodeId={historyContext?.nodeId}
-        />
       )}
 
       {showBgpRawMessage && bgpRawMessage && (
