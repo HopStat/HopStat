@@ -1494,6 +1494,13 @@
     --nm-active: var(--brand);
   }
 
+  /* Auto margins centre the diagram when it fits and do nothing when it overflows, so
+     the left edge stays reachable on a narrow screen. */
+  .network-map__canvas > svg {
+    display: block;
+    margin-inline: auto;
+  }
+
   .network-map__edge {
     fill: none;
     stroke: var(--nm-line);

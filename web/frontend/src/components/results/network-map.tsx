@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/i18n-context'
-import { buildNetworkGraph, BOX_H, BOX_W, type GraphVertex } from '@/lib/network-graph'
+import { buildNetworkGraph, type GraphVertex } from '@/lib/network-graph'
 import type { ASInfo, NodeASPath } from '@/types/domain'
 
 interface Props {
@@ -9,6 +9,39 @@ interface Props {
   prefix?: string
   /** Node the query ran on — its route stays highlighted when nothing is hovered. */
   queriedNodeId?: number
+}
+
+/**
+ * Below this the labels stop being readable, so a very wide graph scrolls instead of
+ * shrinking further.
+ */
+const MIN_SCALE = 0.4
+
+/** Below this the wide geometry no longer earns its extra width. */
+const COMPACT_BELOW = 520
+
+/** Tracks the usable width so the diagram can be scaled down to fit narrow screens. */
+function useAvailableWidth(): [React.RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    setWidth(el.clientWidth)
+  }, [])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(entries => {
+      setWidth(entries[0].contentRect.width)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return [ref, width]
 }
 
 /** AS name with its country beside it — the flag when the lookup gave us one. */
@@ -25,11 +58,13 @@ function colorClass(nodeId: number | null | undefined, order: Map<number, number
 
 export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) {
   const { t } = useI18n()
-  const graph = useMemo(
-    () => buildNetworkGraph(entries, enriched, { queriedNodeId }),
-    [entries, enriched, queriedNodeId],
-  )
   const [hoveredNode, setHoveredNode] = useState<number | null>(null)
+  const [wrapRef, availableWidth] = useAvailableWidth()
+  const compact = availableWidth > 0 && availableWidth < COMPACT_BELOW
+  const graph = useMemo(
+    () => buildNetworkGraph(entries, enriched, { queriedNodeId, compact }),
+    [entries, enriched, queriedNodeId, compact],
+  )
 
   const nodeOrder = useMemo(() => {
     const order = new Map<number, number>()
@@ -40,6 +75,11 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
   if (!graph) return null
 
   const title = t('result.network_map')
+  // Fit the diagram to the panel rather than making the reader scroll, but never scale it
+  // up past 1:1 and never past the point where the labels stop being legible.
+  const scale = availableWidth > 0
+    ? Math.max(MIN_SCALE, Math.min(1, availableWidth / graph.width))
+    : 1
   // Falls back to the queried node so its route reads as the active one at rest.
   const activeNode = hoveredNode ?? queriedNodeId ?? null
   const isActive = (nodeIds: number[]) => activeNode !== null && nodeIds.includes(activeNode)
@@ -56,12 +96,12 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
         {prefix && <span className="font-data text-[11px] text-muted-foreground">{prefix}</span>}
       </div>
 
-      <div className="result-surface--path__scroll">
+      <div className="result-surface--path__scroll network-map__canvas" ref={wrapRef}>
         <svg
           role="img"
           aria-label={title}
-          width={graph.width}
-          height={graph.height}
+          width={graph.width * scale}
+          height={graph.height * scale}
           viewBox={`0 0 ${graph.width} ${graph.height}`}
         >
           <desc>
@@ -114,20 +154,20 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                 <rect
                   className="network-map__box"
                   x={vertex.x}
-                  y={vertex.y - BOX_H / 2}
-                  width={BOX_W}
-                  height={BOX_H}
+                  y={vertex.y - graph.layout.boxH / 2}
+                  width={graph.layout.boxW}
+                  height={graph.layout.boxH}
                   rx={8}
                 />
                 <text
                   className="network-map__label"
-                  x={vertex.x + BOX_W / 2}
+                  x={vertex.x + graph.layout.boxW / 2}
                   y={vertex.y - (asCaption(vertex) ? 6 : 0)}
                 >
                   {vertex.label}
                 </text>
                 {asCaption(vertex) && (
-                  <text className="network-map__sub" x={vertex.x + BOX_W / 2} y={vertex.y + 8}>
+                  <text className="network-map__sub" x={vertex.x + graph.layout.boxW / 2} y={vertex.y + 8}>
                     {asCaption(vertex)}
                   </text>
                 )}

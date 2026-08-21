@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildNetworkGraph, BOX_W } from './network-graph'
+import { buildNetworkGraph, COMPACT_LAYOUT, WIDE_LAYOUT } from './network-graph'
 import type { NodeASPath } from '@/types/domain'
 
 function entry(id: number, name: string, path: number[], extra: Partial<NodeASPath> = {}): NodeASPath {
@@ -136,7 +136,7 @@ describe('buildNetworkGraph', () => {
     expect(second.vertices.map(v => [v.key, v.col, v.row])).toEqual(first.vertices.map(v => [v.key, v.col, v.row]))
     expect(second.width).toBe(first.width)
     expect(second.height).toBe(first.height)
-    expect(first.width).toBeGreaterThan(BOX_W)
+    expect(first.width).toBeGreaterThan(WIDE_LAYOUT.boxW)
   })
 
   it('caps the node count so the diagram stays a diagram', () => {
@@ -207,5 +207,31 @@ describe('buildNetworkGraph backup paths', () => {
     ])).flat()
     const graph = buildNetworkGraph(many, [])!
     expect(graph.vertices.filter(v => v.kind === 'node')).toHaveLength(24)
+  })
+})
+
+describe('buildNetworkGraph layout', () => {
+  const entries = [
+    { node_id: 1, node_name: 'A', as_path: [9121, 3356, 15169], best: true },
+    { node_id: 2, node_name: 'B', as_path: [8866, 6939, 15169], best: true },
+  ]
+
+  it('narrows the geometry in compact mode so less shrinking is needed', () => {
+    const wide = buildNetworkGraph(entries, [])!
+    const compact = buildNetworkGraph(entries, [], { compact: true })!
+
+    expect(wide.layout).toEqual(WIDE_LAYOUT)
+    expect(compact.layout).toEqual(COMPACT_LAYOUT)
+    expect(compact.width).toBeLessThan(wide.width)
+    expect(compact.height).toBeLessThan(wide.height)
+  })
+
+  it('keeps the same graph, only smaller', () => {
+    const wide = buildNetworkGraph(entries, [])!
+    const compact = buildNetworkGraph(entries, [], { compact: true })!
+
+    expect(compact.vertices.map(v => v.key)).toEqual(wide.vertices.map(v => v.key))
+    expect(compact.edges.map(e => e.key)).toEqual(wide.edges.map(e => e.key))
+    expect(compact.vertices.map(v => [v.col, v.row])).toEqual(wide.vertices.map(v => [v.col, v.row]))
   })
 })

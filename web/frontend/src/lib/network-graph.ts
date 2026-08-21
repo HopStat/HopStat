@@ -2,11 +2,18 @@ import { buildAsInfoMap, compressConsecutiveASPath, displayAsName, asCountryCode
 import type { ASInfo, NodeASPath } from '@/types/domain'
 
 /** Layout geometry. Kept next to the algorithm so the component stays presentational. */
-export const COL_W = 140
-export const ROW_H = 60
-export const BOX_W = 116
-export const BOX_H = 36
-export const PAD = 18
+export interface Layout {
+  colW: number
+  rowH: number
+  boxW: number
+  boxH: number
+  pad: number
+}
+
+export const WIDE_LAYOUT: Layout = { colW: 140, rowH: 60, boxW: 116, boxH: 36, pad: 18 }
+
+/** Narrow screens get tighter geometry so the diagram needs less shrinking to fit. */
+export const COMPACT_LAYOUT: Layout = { colW: 96, rowH: 48, boxW: 82, boxH: 30, pad: 10 }
 
 /** Beyond these the diagram stops being readable, so the tail is dropped rather than drawn. */
 export const MAX_COLS = 14
@@ -47,6 +54,7 @@ export interface GraphEdge {
 export interface NetworkGraph {
   vertices: GraphVertex[]
   edges: GraphEdge[]
+  layout: Layout
   width: number
   height: number
 }
@@ -132,8 +140,9 @@ function layerVertices(keys: string[], edges: Map<string, Set<string>>): Map<str
 export function buildNetworkGraph(
   entries: NodeASPath[] | undefined,
   enriched: ASInfo[] | undefined,
-  opts: { queriedNodeId?: number } = {},
+  opts: { queriedNodeId?: number; compact?: boolean } = {},
 ): NetworkGraph | null {
+  const layout = opts.compact ? COMPACT_LAYOUT : WIDE_LAYOUT
   // Group by node: one box per node, one branch per path it holds.
   const groups: NodeGroup[] = []
   const groupByNode = new Map<number, NodeGroup>()
@@ -286,15 +295,15 @@ export function buildNetworkGraph(
 
   const maxCol = Math.max(...[...vertices.values()].map(vertex => vertex.col))
   for (const vertex of vertices.values()) {
-    vertex.x = PAD + vertex.col * COL_W
-    vertex.y = PAD + vertex.row * ROW_H + BOX_H / 2
+    vertex.x = layout.pad + vertex.col * layout.colW
+    vertex.y = layout.pad + vertex.row * layout.rowH + layout.boxH / 2
   }
 
   for (const edge of edges.values()) {
     const from = vertices.get(edge.from)
     const to = vertices.get(edge.to)
     if (!from || !to) continue
-    const x1 = from.x + BOX_W
+    const x1 = from.x + layout.boxW
     const x2 = to.x
     if (from.y === to.y) {
       edge.d = `M ${x1} ${from.y} L ${x2} ${to.y}`
@@ -307,7 +316,8 @@ export function buildNetworkGraph(
   return {
     vertices: [...vertices.values()],
     edges: [...edges.values()],
-    width: PAD * 2 + maxCol * COL_W + BOX_W,
-    height: PAD * 2 + (maxRow + 1) * ROW_H,
+    layout,
+    width: layout.pad * 2 + maxCol * layout.colW + layout.boxW,
+    height: layout.pad * 2 + (maxRow + 1) * layout.rowH,
   }
 }
