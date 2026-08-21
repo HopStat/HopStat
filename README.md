@@ -10,6 +10,7 @@ Network looking glass platform with BGP route lookup, ping, traceroute and AS pa
 - **AS path map** — visual hop-by-hop ASN breakdown with GeoIP enrichment on every BGP result (MaxMind first, Team Cymru DNS fallback)
 - **BGP Communities** — define community string rules in admin; matched badges on BGP results; public `/communities` catalogue linked from the footer
 - **Quick queries** — preset command/target shortcuts on the public home page, managed in **Admin → Quick Queries**
+- **Shareable results** — every query writes a clean path to the address bar (`/ping/8.8.8.8`, `/bgp/1.1.1.0/24`); opening that link re-runs the query. A non-default node is kept as `?node=<id>`. The result panel has **Copy link** and **Copy result** buttons for pasting into a ticket or chat
 - **Multi-node** — direct router connections (SSH/Telnet) or remote agent deployment
 - **Vendor support** — Cisco IOS/XR, Juniper JunOS, MikroTik RouterOS, Bird, Generic
 - **Responsive public UI** — mobile-friendly query page with five locales (EN, TR, DE, FR, RU) and SEO metadata
@@ -122,7 +123,10 @@ All config keys can be overridden with `LG_` + the key path (dots → underscore
 | `update.enabled` | `LG_UPDATE_ENABLED` |
 | `query.max_concurrent` | `LG_QUERY_MAX_CONCURRENT` |
 
-> **Note:** `LG_ADMIN_PASSWORD` is a special variable read directly at startup to set the admin password. It does not follow the viper key-path convention.
+> **Note:** `LG_ADMIN_PASSWORD` and `LG_FORCE_ADMIN_PASSWORD` are special variables read directly at startup
+> to set the admin password. They do not follow the viper key-path convention.
+> On its own `LG_ADMIN_PASSWORD` only seeds an account that has never had a password set; adding
+> `LG_FORCE_ADMIN_PASSWORD=1` replaces an existing one — see [Password recovery](#password-recovery).
 
 ### Config reference
 
@@ -227,6 +231,56 @@ From the panel you can:
 - Manage **Quick Queries** — preset shortcuts shown on the public query page
 - Run **GeoIP lookup** — inspect MaxMind/Cymru enrichment for any IP (**Admin → GeoIP**)
 - View audit logs
+
+### Password recovery
+
+There is no self-service reset — no e-mail flow, no reset link. While you can still log in, change the
+password in **Admin → Settings → Account**. If you are locked out, re-run `--bootstrap` with
+`LG_FORCE_ADMIN_PASSWORD=1` to overwrite the password directly in the database.
+
+**Systemd install:**
+
+```bash
+sudo systemctl stop hopstat
+sudo env LG_ADMIN_PASSWORD='new-password' \
+         LG_FORCE_ADMIN_PASSWORD=1 \
+         /usr/local/bin/hopstat --bootstrap --config=/etc/hopstat/config.yaml
+sudo systemctl start hopstat
+```
+
+`sudo` strips the environment, so `sudo env VAR=…` is required — plain `sudo LG_…=… hopstat` silently
+drops both variables.
+
+**Docker:**
+
+```bash
+docker compose stop hopstat
+docker compose run --rm \
+  -e LG_ADMIN_PASSWORD='new-password' \
+  -e LG_FORCE_ADMIN_PASSWORD=1 \
+  hopstat --bootstrap --config=/data/config.yaml
+docker compose start hopstat
+```
+
+Pass both variables with `-e`. Putting them in `.env` is not enough — Compose only forwards variables
+that are listed in the service's `environment:` block, and `LG_FORCE_ADMIN_PASSWORD` is not.
+
+The output must contain `admin password set from LG_ADMIN_PASSWORD`. If it says
+`admin password already configured — leaving unchanged`, the force flag never reached the process.
+
+Notes:
+
+- The new password is written to the database, so it survives restarts — no environment variable needs
+  to stay set. Remove `LG_FORCE_ADMIN_PASSWORD` from any file you added it to, or every restart will
+  overwrite the password you later set in the panel.
+- Recovery targets the `admin@hopstat.local` account. If you changed the admin e-mail in
+  **Settings → Account**, the reset fails with `no admin user found`; set it back first:
+
+  ```bash
+  sqlite3 /var/lib/hopstat/lg.db "UPDATE users SET email='admin@hopstat.local' WHERE id=1;"
+  ```
+- The same variables work on a normal server start (not just `--bootstrap`), which is how the Docker
+  image is usually seeded.
 
 ### Communities
 

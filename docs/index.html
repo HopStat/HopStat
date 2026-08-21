@@ -549,7 +549,8 @@ footer {
     <p class="fi" style="font-size:12px;color:var(--text3);margin:1.25rem 0 2rem;">
       After a <strong>fresh</strong> install, admin credentials are shown once in the installer output.<br>
       <code style="color:var(--cyan)">journalctl -u hopstat | grep -A 10 HOPSTAT</code> &nbsp;·&nbsp;
-      Change the password in <strong>Admin → Settings</strong> after login.
+      Change the password in <strong>Admin → Settings</strong> after login. &nbsp;·&nbsp;
+      <a href="#password-recovery" style="color:var(--cyan);text-decoration:none;">Lost the password? ↓</a>
     </p>
 
     <!-- systemd -->
@@ -677,6 +678,50 @@ footer {
     <p class="fi" style="font-size:12px;color:var(--text3);margin-top:1rem;">
       ▸ All config fields can be overridden with <code style="color:var(--cyan)">LG_</code> prefixed environment variables (e.g. <code style="color:var(--cyan)">LG_SERVER_BEHIND_CLOUDFLARE=true</code>).<br>
       ▸ See <a href="https://github.com/HopStat/HopStat/blob/main/config.example.yaml" target="_blank" style="color:var(--cyan);text-decoration:none;">config.example.yaml</a> for the full reference with all options documented.
+    </p>
+
+    <h3 class="fi" id="password-recovery" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Lost the admin password?</h3>
+    <p class="fi" style="font-size:12.5px;color:var(--text2);margin-bottom:1rem;line-height:1.75;">
+      There is no self-service reset — no e-mail flow, no reset link. While you can still log in, change the
+      password in <strong>Admin → Settings → Account</strong>. If you are locked out, re-run
+      <code style="color:var(--cyan)">--bootstrap</code> with <code style="color:var(--cyan)">LG_FORCE_ADMIN_PASSWORD=1</code>
+      to overwrite the password directly in the database.
+    </p>
+    <div class="code-box fi">
+      <div class="code-bar">
+        <div class="code-bar-left">
+          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
+          <span class="code-filename">bash</span>
+        </div>
+        <button class="copy-btn" id="cbPwReset" onclick="doCopy('cbPwReset',`sudo systemctl stop hopstat\n\nsudo env LG_ADMIN_PASSWORD='new-password' \\\n         LG_FORCE_ADMIN_PASSWORD=1 \\\n         /usr/local/bin/hopstat --bootstrap --config=/etc/hopstat/config.yaml\n\nsudo systemctl start hopstat\n\n# Docker — pass both with -e, .env is not enough:\n#   docker compose run --rm \\\n#     -e LG_ADMIN_PASSWORD='new-password' \\\n#     -e LG_FORCE_ADMIN_PASSWORD=1 \\\n#     hopstat --bootstrap --config=/data/config.yaml`)">📋 copy</button>
+      </div>
+<pre class="code-body"><span class="cm">sudo systemctl stop hopstat</span>
+
+<span class="cm">sudo env </span><span class="ca">LG_ADMIN_PASSWORD</span><span class="cm">='new-password' \</span>
+<span class="cm">         </span><span class="ca">LG_FORCE_ADMIN_PASSWORD</span><span class="cm">=1 \</span>
+<span class="chl">         /usr/local/bin/hopstat --bootstrap --config=/etc/hopstat/config.yaml</span>
+
+<span class="cm">sudo systemctl start hopstat</span>
+
+<span class="cc"># Docker — pass both with -e, .env alone is not enough:</span>
+<span class="cc">#   docker compose run --rm \</span>
+<span class="cc">#     -e LG_ADMIN_PASSWORD='new-password' \</span>
+<span class="cc">#     -e LG_FORCE_ADMIN_PASSWORD=1 \</span>
+<span class="cc">#     hopstat --bootstrap --config=/data/config.yaml</span></pre>
+    </div>
+
+    <p class="fi" style="font-size:12px;color:var(--text3);margin-top:1rem;line-height:1.9;">
+      ▸ The output must contain <code style="color:var(--cyan)">admin password set from LG_ADMIN_PASSWORD</code>.
+      <code style="color:var(--cyan)">admin password already configured</code> means the force flag never reached the process.<br>
+      ▸ <code style="color:var(--cyan)">sudo</code> strips the environment — <code style="color:var(--cyan)">sudo env VAR=…</code> is required.
+      With Compose, use <code style="color:var(--cyan)">-e</code>: only variables listed in the service&#39;s
+      <code style="color:var(--cyan)">environment:</code> block are forwarded from <code style="color:var(--cyan)">.env</code>.<br>
+      ▸ Without the force flag, <code style="color:var(--cyan)">LG_ADMIN_PASSWORD</code> only seeds an account that never had a
+      password set — an existing one is left untouched.<br>
+      ▸ The password is stored in the database and survives restarts. Remove
+      <code style="color:var(--cyan)">LG_FORCE_ADMIN_PASSWORD</code> afterwards, or every restart overwrites the password you set in the panel.<br>
+      ▸ Recovery targets the <code style="color:var(--cyan)">admin@hopstat.local</code> account. If you changed the admin e-mail,
+      the reset fails with <code style="color:var(--cyan)">no admin user found</code> — set it back in the database first.
     </p>
   </div>
 </div>

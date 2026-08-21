@@ -7,8 +7,10 @@ import { AsPathMap } from './as-path-map'
 import { ResultBGP } from './result-bgp'
 import { ResultPing } from './result-ping'
 import { QueryErrorAlert } from './query-error-alert'
+import { ResultShareBar } from './result-share-bar'
 import { buildBgpMapAsPath, extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, hasPingData, isPingOutputComplete, bestBGPRoute, shouldShowBgpAsPathMap } from '@/lib/result-parse'
 import { translateQueryError, translateBgpRawMessage } from '@/lib/query-errors'
+import { buildResultText } from '@/lib/result-export'
 import type { BGPResult, PingResult } from '@/types/domain'
 
 interface Props {
@@ -19,10 +21,11 @@ interface Props {
     nodeId: number
     nodeName: string
   }
+  shareUrl?: string
   onHistorySaved?: () => void
 }
 
-export function ResultContainer({ queryId, command, historyContext, onHistorySaved }: Props) {
+export function ResultContainer({ queryId, command, historyContext, shareUrl, onHistorySaved }: Props) {
   const { t } = useI18n()
   const { result, lines, error, outputComplete } = useQueryStream(queryId)
   const savedHistoryRef = useRef<string | null>(null)
@@ -131,8 +134,28 @@ export function ResultContainer({ queryId, command, historyContext, onHistorySav
     ? translateQueryError(t, result.error_code, result.error_msg)
     : null
 
+  const shareContext = command && historyContext && shareUrl ? { command, shareUrl, ...historyContext } : null
+  const shareSummary = shareContext
+    ? [shareContext.command, shareContext.target, shareContext.nodeName].filter(Boolean).join(' · ')
+    : ''
+
   return (
     <div className="space-y-3 pb-1">
+      {shareContext && (
+        <ResultShareBar
+          summary={shareSummary}
+          shareUrl={shareContext.shareUrl}
+          buildText={() => buildResultText({
+            command: shareContext.command,
+            target: shareContext.target,
+            nodeName: shareContext.nodeName,
+            shareUrl: shareContext.shareUrl,
+            lines: displayLines,
+            bgp: command === 'bgp_route' ? bgpParsed : null,
+          })}
+        />
+      )}
+
       {showAsPathMap && (
         <AsPathMap routes={routesForMap} enriched={enrichedForDisplay} />
       )}

@@ -13,6 +13,7 @@ import { SettingsPage } from '@/pages/admin/settings-page'
 import { GeoIPLookupPage } from '@/pages/admin/geoip-lookup-page'
 import { NotFoundPage } from '@/pages/not-found-page'
 import { useAuth } from '@/contexts/auth-context'
+import { QUERY_PATH_SLUGS } from '@/lib/query-share'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, ready } = useAuth()
@@ -27,6 +28,8 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <QueryPage /> },
       { path: '/communities', element: <QueryPage /> },
+      // Shareable query links: /ping/8.8.8.8, /bgp/1.1.1.0/24 — the splat keeps prefix slashes.
+      ...QUERY_PATH_SLUGS.map(slug => ({ path: `/${slug}/*`, element: <QueryPage /> })),
     ],
   },
   {

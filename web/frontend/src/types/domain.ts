@@ -5,6 +5,7 @@ export interface QuerySubmitMeta {
   target: string
   nodeId: number
   nodeName: string
+  isDefaultNode: boolean
 }
 
 export interface Node {

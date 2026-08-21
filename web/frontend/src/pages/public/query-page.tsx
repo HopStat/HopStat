@@ -7,10 +7,15 @@ import { CommunitiesPanel } from '@/components/communities/communities-panel'
 import { ResultContainer } from '@/components/results/result-container'
 import { useSettings } from '@/contexts/settings-context'
 import { scrollResultsBelowSticky } from '@/lib/mobile-viewport'
+import { buildQueryPath, buildShareUrl, parseQueryLocation } from '@/lib/query-share'
 import type { QuerySubmitMeta } from '@/types/domain'
 
 export function QueryPage() {
   const [queryMeta, setQueryMeta] = useState<QuerySubmitMeta | null>(null)
+  // Captured once: a query link opened directly should run, later URL updates must not re-run it.
+  const [initialQuery] = useState(() =>
+    parseQueryLocation(window.location.pathname, window.location.search),
+  )
   const formRef = useRef<QueryFormHandle>(null)
   const stickyRef = useRef<HTMLDivElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -25,10 +30,15 @@ export function QueryPage() {
     if (showCommunities) setQueryMeta(null)
   }, [showCommunities])
 
+  // A query path with no usable target (/ping, /bgp/) is not a real link — fall back to home.
+  useEffect(() => {
+    if (queryMeta || showCommunities || location.pathname === '/') return
+    if (parseQueryLocation(location.pathname, location.search)) return
+    navigate('/', { replace: true })
+  }, [queryMeta, showCommunities, location.pathname, location.search, navigate])
+
   function goHome() {
-    if (showCommunities) {
-      navigate('/', { replace: true })
-    }
+    navigate('/', { replace: true })
     setQueryMeta(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -48,9 +58,8 @@ export function QueryPage() {
   }
 
   function handleQuerySubmit(meta: QuerySubmitMeta) {
-    if (showCommunities) {
-      navigate('/', { replace: true })
-    }
+    // Reflect the query in the address bar so the result can be linked to someone else.
+    navigate(buildQueryPath(meta), { replace: true })
     setQueryMeta(meta)
   }
 
@@ -86,6 +95,7 @@ export function QueryPage() {
               <QueryForm
                 ref={formRef}
                 onQuerySubmit={handleQuerySubmit}
+                initialQuery={initialQuery}
                 showNodeSelect
                 showFormHint={!showResultsPanel}
               />
@@ -114,6 +124,7 @@ export function QueryPage() {
                       nodeId: queryMeta.nodeId,
                       nodeName: queryMeta.nodeName,
                     }}
+                    shareUrl={buildShareUrl(queryMeta)}
                     onHistorySaved={() => { void formRef.current?.refreshHistory() }}
                   />
                 </div>

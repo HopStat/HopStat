@@ -8,6 +8,7 @@ import { translateQueryError } from '@/lib/query-errors'
 import { useI18n } from '@/contexts/i18n-context'
 import { useSettings } from '@/contexts/settings-context'
 import type { Node, QuerySubmitMeta } from '@/types/domain'
+import type { SharedQuery } from '@/lib/query-share'
 import { QueryTargetSuggestions } from '@/components/query/query-target-suggestions'
 import { listQueryHistory, deleteQueryHistory, type QueryHistoryRecord } from '@/lib/query-history-db'
 import { rankQueryHistory, type RankedQueryHistoryRecord } from '@/lib/query-history-search'
@@ -28,6 +29,8 @@ interface Props {
   onQuerySubmit: (meta: QuerySubmitMeta) => void
   showNodeSelect?: boolean
   showFormHint?: boolean
+  /** Query decoded from a shared link — run once as soon as the node list is available. */
+  initialQuery?: SharedQuery | null
 }
 
 function isTypingBlocked(el: Element | null): boolean {
@@ -47,7 +50,7 @@ function pickDefaultNodeId(nodes: Node[]): string {
 }
 
 export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
-  { onQuerySubmit, showNodeSelect = false, showFormHint = true },
+  { onQuerySubmit, showNodeSelect = false, showFormHint = true, initialQuery = null },
   ref,
 ) {
   const { t } = useI18n()
@@ -78,6 +81,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   const targetInputRef = useRef<HTMLInputElement>(null)
   const targetAnchorRef = useRef<HTMLDivElement>(null)
   const showNodeRef = useRef(false)
+  const initialQueryRanRef = useRef(false)
 
   const pingCount = parseInt(settings.ping_count as string) || 5
   const maxHops = parseInt(settings.max_hops as string) || 30
@@ -337,6 +341,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
         target: trimmed,
         nodeId: parseInt(effectiveNodeId),
         nodeName: node?.name ?? '',
+        isDefaultNode: pickDefaultNodeId(nodes) === effectiveNodeId,
       })
     } catch (err: unknown) {
       const code = err instanceof ApiError ? err.code : undefined
@@ -346,6 +351,22 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       setLoading(false)
     }
   }, [selectedNodeId, loading, pingCount, maxHops, nodes, onQuerySubmit, t])
+
+  useEffect(() => {
+    if (!initialQuery || initialQueryRanRef.current || !nodesLoaded) return
+    initialQueryRanRef.current = true
+
+    const linkedNodeId =
+      initialQuery.nodeId && nodes.some(n => n.id === initialQuery.nodeId)
+        ? String(initialQuery.nodeId)
+        : pickDefaultNodeId(nodes)
+    if (!linkedNodeId) return
+
+    setCommand(initialQuery.command)
+    setTarget(initialQuery.target)
+    setNodeId(linkedNodeId)
+    void submitQuery(initialQuery.command, initialQuery.target, linkedNodeId)
+  }, [initialQuery, nodesLoaded, nodes, submitQuery])
 
   useImperativeHandle(ref, () => ({
     runQuery: async (cmd: string, tgt: string, nodeIdOverride?: string) => {
