@@ -28,8 +28,13 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <QueryPage /> },
       { path: '/communities', element: <QueryPage /> },
-      // Shareable query links: /ping/8.8.8.8, /bgp/1.1.1.0/24 — the splat keeps prefix slashes.
-      ...QUERY_PATH_SLUGS.map(slug => ({ path: `/${slug}/*`, element: <QueryPage /> })),
+      // Shareable query links: /bgp/1.1.1.0/24 on the default node, /sofia/ping/8.8.8.8
+      // on a named one. The splat keeps prefix slashes; the literal command segment keeps
+      // unrelated two-segment paths (e.g. /foo/bar) on the 404 page.
+      ...QUERY_PATH_SLUGS.flatMap(slug => [
+        { path: `/${slug}/*`, element: <QueryPage /> },
+        { path: `/:node/${slug}/*`, element: <QueryPage /> },
+      ]),
     ],
   },
   {

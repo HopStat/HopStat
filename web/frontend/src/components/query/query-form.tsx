@@ -8,7 +8,7 @@ import { translateQueryError } from '@/lib/query-errors'
 import { useI18n } from '@/contexts/i18n-context'
 import { useSettings } from '@/contexts/settings-context'
 import type { Node, QuerySubmitMeta } from '@/types/domain'
-import type { SharedQuery } from '@/lib/query-share'
+import { isCommandSlug, slugifyNodeName, type SharedQuery } from '@/lib/query-share'
 import { QueryTargetSuggestions } from '@/components/query/query-target-suggestions'
 import { listQueryHistory, deleteQueryHistory, type QueryHistoryRecord } from '@/lib/query-history-db'
 import { rankQueryHistory, type RankedQueryHistoryRecord } from '@/lib/query-history-search'
@@ -47,6 +47,31 @@ function pickDefaultNodeId(nodes: Node[]): string {
   const marked = nodes.find(n => n.is_default === true)
   if (marked) return String(marked.id)
   return String(nodes[0].id)
+}
+
+/** Resolves the node token from a shared link — its slug, or its id as a fallback. */
+function resolveLinkedNodeId(nodes: Node[], token: string | null): string {
+  if (!token) return pickDefaultNodeId(nodes)
+  if (nodes.some(n => String(n.id) === token)) return token
+
+  const slug = slugifyNodeName(token)
+  const match = nodes.find(n => slugifyNodeName(n.name) === slug)
+  return match ? String(match.id) : pickDefaultNodeId(nodes)
+}
+
+/**
+ * Slug used in the shareable link. Null for the default node (keeps the link short) and
+ * for anything whose name would be ambiguous — those fall back to the numeric id.
+ */
+function shareSlugForNode(nodes: Node[], nodeId: string): string | null {
+  if (nodeId === pickDefaultNodeId(nodes)) return null
+  const node = nodes.find(n => String(n.id) === nodeId)
+  if (!node) return null
+
+  const slug = slugifyNodeName(node.name)
+  if (!slug || isCommandSlug(slug)) return nodeId
+  const sameSlug = nodes.filter(n => slugifyNodeName(n.name) === slug)
+  return sameSlug.length === 1 ? slug : nodeId
 }
 
 export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
@@ -341,7 +366,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
         target: trimmed,
         nodeId: parseInt(effectiveNodeId),
         nodeName: node?.name ?? '',
-        isDefaultNode: pickDefaultNodeId(nodes) === effectiveNodeId,
+        nodeSlug: shareSlugForNode(nodes, effectiveNodeId),
       })
     } catch (err: unknown) {
       const code = err instanceof ApiError ? err.code : undefined
@@ -356,10 +381,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     if (!initialQuery || initialQueryRanRef.current || !nodesLoaded) return
     initialQueryRanRef.current = true
 
-    const linkedNodeId =
-      initialQuery.nodeId && nodes.some(n => n.id === initialQuery.nodeId)
-        ? String(initialQuery.nodeId)
-        : pickDefaultNodeId(nodes)
+    const linkedNodeId = resolveLinkedNodeId(nodes, initialQuery.node)
     if (!linkedNodeId) return
 
     setCommand(initialQuery.command)
@@ -380,6 +402,13 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     },
     refreshHistory: () => refreshHistory().then(() => undefined),
   }), [submitQuery, refreshHistory])
+
+  // Radix Select echoes onValueChange('') while its item list is still empty; letting that
+  // through would wipe a node picked from a shared link right after we set it.
+  function handleNodeChange(value: string) {
+    if (!value) return
+    setNodeId(value)
+  }
 
   function blurFocusedField() {
     blurActiveFieldPreservingScroll()
@@ -485,7 +514,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
           <div className="flex items-center gap-2 min-w-0">
             {showNode && (
               <div className="min-w-0 flex-1">
-                <Select value={selectedNodeId} onValueChange={setNodeId} disabled={!nodesLoaded}>
+                <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
                   <SelectTrigger
                     ref={nodeSelectRef}
                     className={`query-form-select query-form-select__node w-full bg-transparent ${selectFieldClass} text-sm [&>span]:truncate`}
@@ -527,7 +556,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
 
         <div className="hidden sm:flex sm:flex-row sm:items-center sm:gap-2 min-w-0">
           {showNode && (
-            <Select value={selectedNodeId} onValueChange={setNodeId} disabled={!nodesLoaded}>
+            <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
               <SelectTrigger
                 ref={nodeSelectRef}
                 className={`query-form-select query-form-select__node w-36 shrink-0 bg-transparent ${selectFieldClass} text-sm`}

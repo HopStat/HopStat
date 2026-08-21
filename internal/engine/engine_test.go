@@ -2,7 +2,11 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/HopStat/HopStat/internal/domain"
 )
@@ -197,5 +201,35 @@ func BenchmarkExecuteValidationPath(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_, _ = e.Execute(ctx, q)
+	}
+}
+
+// Regression: the ShouldStop watcher used to be awaited before the command context was
+// cancelled, so Execute stayed blocked until the command timeout (60s for traceroute)
+// even though the query had already finished — leaving the UI on "Working...".
+func TestExecuteDoesNotWaitForCommandTimeout(t *testing.T) {
+	agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(domain.PingResult{PacketsSent: 1, PacketsRecv: 1})
+	}))
+	defer agent.Close()
+
+	repo := &idNodeRepo{nodes: map[int64]*domain.Node{1: lgNode(1, agent.URL)}}
+	e := New(&QueryConfig{MaxConcurrent: 4, DefaultTimeoutSec: 5}, repo, nil, nil, nil, nil, 0)
+
+	start := time.Now()
+	result, err := e.Execute(context.Background(), &domain.Query{
+		ID: "q", NodeID: 1, Command: domain.CmdPing, Target: "8.8.8.8",
+		Options: domain.QueryOptions{PingCount: 1},
+	}, ExecuteOption{ShouldStop: func() bool { return false }})
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Status != domain.StatusDone {
+		t.Fatalf("status = %s (%s)", result.Status, result.ErrorMsg)
+	}
+	if elapsed > 2*time.Second {
+		t.Fatalf("Execute blocked for %s; it must return as soon as the command finishes", elapsed)
 	}
 }

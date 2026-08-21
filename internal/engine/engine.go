@@ -178,7 +178,13 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 				}
 			}
 		}()
-		defer func() { <-stopDone }()
+		// Stop the watcher explicitly: it only observes ctx, and ctx's cancel is deferred
+		// *before* this one, so waiting on stopDone first would block until the command
+		// timeout elapses (60s for traceroute) even though the query already finished.
+		defer func() {
+			stopCancel(context.Canceled)
+			<-stopDone
+		}()
 	}
 
 	result := &domain.QueryResult{ID: query.ID, Status: domain.StatusRunning}

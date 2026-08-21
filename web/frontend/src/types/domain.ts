@@ -5,7 +5,8 @@ export interface QuerySubmitMeta {
   target: string
   nodeId: number
   nodeName: string
-  isDefaultNode: boolean
+  /** Slug for the shareable link; null when the query ran on the default node. */
+  nodeSlug: string | null
 }
 
 export interface Node {

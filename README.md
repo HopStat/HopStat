@@ -10,7 +10,7 @@ Network looking glass platform with BGP route lookup, ping, traceroute and AS pa
 - **AS path map** — visual hop-by-hop ASN breakdown with GeoIP enrichment on every BGP result (MaxMind first, Team Cymru DNS fallback)
 - **BGP Communities** — define community string rules in admin; matched badges on BGP results; public `/communities` catalogue linked from the footer
 - **Quick queries** — preset command/target shortcuts on the public home page, managed in **Admin → Quick Queries**
-- **Shareable results** — every query writes a clean path to the address bar (`/ping/8.8.8.8`, `/bgp/1.1.1.0/24`); opening that link re-runs the query. A non-default node is kept as `?node=<id>`. The result panel has **Copy link** and **Copy result** buttons for pasting into a ticket or chat
+- **Shareable results** — every query writes a clean path to the address bar (`/ping/8.8.8.8`, `/bgp/1.1.1.0/24`) and puts a non-default node in front of it (`/sofia/ping/8.8.8.8`); opening that link re-runs the query on that node. The result panel has **Copy link** and **Copy result** buttons for pasting into a ticket or chat
 - **Multi-node** — direct router connections (SSH/Telnet) or remote agent deployment
 - **Vendor support** — Cisco IOS/XR, Juniper JunOS, MikroTik RouterOS, Bird, Generic
 - **Responsive public UI** — mobile-friendly query page with five locales (EN, TR, DE, FR, RU) and SEO metadata
