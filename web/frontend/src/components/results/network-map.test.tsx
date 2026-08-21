@@ -9,7 +9,6 @@ vi.mock('@/contexts/i18n-context', () => ({
     t: (key: string) =>
       ({
         'result.network_map': 'Network map',
-        'result.no_route_from': 'No route from {{nodes}}',
         'result.via_default_route': 'Via default route',
       })[key] ?? key,
   }),
@@ -61,11 +60,25 @@ describe('NetworkMap', () => {
     expect(screen.getByRole('tooltip').textContent).toContain('Google')
   })
 
-  it('names the nodes that have no route', () => {
+  it('leaves a node with no route off the diagram', () => {
     renderMap({
       entries: [...entries, { node_id: 3, node_name: 'DARK', no_route: true }],
     })
-    expect(screen.getByText(/DARK/)).toBeTruthy()
+    expect(screen.queryByText('DARK')).toBeNull()
+  })
+
+  it('dashes backup paths and keeps the selected one solid', () => {
+    const { container } = renderMap({
+      entries: [
+        { node_id: 1, node_name: 'BURSA', as_path: [9121, 3356, 15169], best: true },
+        { node_id: 1, node_name: 'BURSA', as_path: [9121, 6939, 15169] },
+        { node_id: 2, node_name: 'SOFIA', as_path: [8866, 15169], best: true },
+      ],
+    })
+    const alt = container.querySelectorAll('.network-map__edge.is-alt')
+    expect(alt.length).toBeGreaterThan(0)
+    // The hop shared by the selected and the backup path is not itself a backup.
+    expect(container.querySelectorAll('.network-map__edge').length).toBeGreaterThan(alt.length)
   })
 
   it('describes every node path for screen readers', () => {

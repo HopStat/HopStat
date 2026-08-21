@@ -18,6 +18,19 @@ import (
 	"github.com/HopStat/HopStat/internal/geo"
 )
 
+const (
+	// agentNodeMapTimeout bounds the whole remote-agent leg of the network map. Unlike the
+	// RIB reads these are HTTP round trips, and the map must not stretch the query.
+	agentNodeMapTimeout = 6 * time.Second
+	agentNodeMapFanout  = 6
+)
+
+// hasActiveBGPSession is a seam: an established session cannot be faked from outside the
+// bgp package, so tests swap this to exercise the RIB branch of the network map.
+var hasActiveBGPSession = func(m *bgp.SessionManager, nodeID int64) bool {
+	return m.HasActiveSession(nodeID)
+}
+
 var lookupASForPath = func(g *geo.GeoIPDB, ctx context.Context, asn uint32) (*domain.ASInfo, error) {
 	if g == nil {
 		return nil, nil
@@ -340,32 +353,103 @@ func (e *QueryEngine) lookupBGPRoutes(ctx context.Context, drv driver.NodeDriver
 	return br, nil
 }
 
-// buildNodeASPathMap collects how every node with an established BGP session reaches the
-// target, so the frontend can draw one converging map instead of a single node's path.
-// Reads come from the shared in-process RIB, so this costs no network I/O.
+// buildNodeASPathMap collects how every BGP-capable node reaches the target, so the
+// frontend can draw one converging map instead of a single node's path. Nodes peering
+// with the embedded speaker are read from the shared in-process RIB at no network cost;
+// remote agents that serve BGP lookups are asked over their API.
 func (e *QueryEngine) buildNodeASPathMap(ctx context.Context, prefix string) []domain.NodeASPath {
-	if e.bgpMgr == nil || !e.bgpMgr.IsReady() || e.nodeRepo == nil {
+	if e.nodeRepo == nil {
 		return nil
 	}
 	nodes, err := e.nodeRepo.GetActive(ctx)
 	if err != nil {
 		return nil
 	}
-	mapNodes := bgpMapNodes(nodes, e.bgpMgr.HasActiveSession)
-	return e.bgpMgr.BuildNodeASPaths(ctx, mapNodes, prefix, e.localAS(), e.nodeNameForNeighborIP(ctx))
+
+	ribNodes, agentNodes := e.splitMapNodes(nodes)
+	// With fewer than two nodes the map only repeats the AS path map above it.
+	if len(ribNodes)+len(agentNodes) < 2 {
+		return nil
+	}
+
+	var paths []domain.NodeASPath
+	if len(ribNodes) > 0 {
+		paths = append(paths, e.bgpMgr.BuildNodeASPaths(
+			ctx, ribNodes, prefix, e.localAS(), e.nodeNameForNeighborIP(ctx),
+		)...)
+	}
+	return append(paths, e.agentNodeASPaths(ctx, agentNodes, prefix)...)
 }
 
-// bgpMapNodes keeps the nodes that currently hold a BGP session — the same set the UI
-// already labels bgp_active.
-func bgpMapNodes(nodes []*domain.Node, hasSession func(int64) bool) []bgp.MapNode {
-	mapNodes := make([]bgp.MapNode, 0, len(nodes))
+// splitMapNodes sorts the nodes into the two ways their routes can be read: the local RIB
+// for nodes holding a session with the embedded speaker, and the agent API for remote
+// nodes that answer BGP lookups themselves.
+func (e *QueryEngine) splitMapNodes(nodes []*domain.Node) ([]bgp.MapNode, []*domain.Node) {
+	ribReady := e.bgpMgr != nil && e.bgpMgr.IsReady()
+	var ribNodes []bgp.MapNode
+	var agentNodes []*domain.Node
+
 	for _, n := range nodes {
-		if n == nil || !hasSession(n.ID) {
+		if n == nil {
 			continue
 		}
-		mapNodes = append(mapNodes, bgp.MapNode{ID: n.ID, Name: n.Name, Type: n.Type})
+		if ribReady && hasActiveBGPSession(e.bgpMgr, n.ID) {
+			ribNodes = append(ribNodes, bgp.MapNode{ID: n.ID, Name: n.Name, Type: n.Type})
+			continue
+		}
+		if n.Type == domain.NodeTypeLGNode && n.CanExecute(domain.CmdBGPRoute) {
+			agentNodes = append(agentNodes, n)
+		}
 	}
-	return mapNodes
+	return ribNodes, agentNodes
+}
+
+// agentNodeASPaths asks remote agents for their own view of the target. Unlike the RIB
+// reads these are HTTP round trips, so they share one bounded budget and a slow or broken
+// agent degrades to a no-route entry instead of holding up the map.
+func (e *QueryEngine) agentNodeASPaths(ctx context.Context, nodes []*domain.Node, prefix string) []domain.NodeASPath {
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, agentNodeMapTimeout)
+	defer cancel()
+
+	perNode := make([][]domain.NodeASPath, len(nodes))
+	sem := make(chan struct{}, agentNodeMapFanout)
+	var wg sync.WaitGroup
+
+	for i, node := range nodes {
+		wg.Add(1)
+		go func(idx int, n *domain.Node) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			perNode[idx] = e.agentNodeASPath(ctx, n, prefix)
+		}(i, node)
+	}
+	wg.Wait()
+
+	var paths []domain.NodeASPath
+	for _, entries := range perNode {
+		paths = append(paths, entries...)
+	}
+	return paths
+}
+
+func (e *QueryEngine) agentNodeASPath(ctx context.Context, node *domain.Node, prefix string) []domain.NodeASPath {
+	drv, err := driver.NewDriver(node, e.driverConfig())
+	if err != nil {
+		return bgp.NoRouteNodeASPaths(node.ID, node.Name)
+	}
+	br, err := drv.BGPRoute(ctx, prefix)
+	if err != nil || br == nil {
+		return bgp.NoRouteNodeASPaths(node.ID, node.Name)
+	}
+	// Agent results carry a full path already, so no local AS is prepended — the same rule
+	// lookupBGPRoutes applies to lg_node results.
+	bgp.EnsureBestAmongRoutes(br.Routes)
+	return bgp.RoutesToNodeASPaths(node.ID, node.Name, br.Routes)
 }
 
 func (e *QueryEngine) nodeName(ctx context.Context, nodeID int64) string {

@@ -8,7 +8,7 @@ Network looking glass platform with BGP route lookup, ping, traceroute and AS pa
 - **Ping / Traceroute** — run from any node; RTT stats and hops stream live via SSE (including remote lg-node agents)
 - **Hostname resolution** — query targets that are hostnames are resolved to IP on the HopStat server (Go `net.DefaultResolver`) before dispatch; private and link-local addresses are blocked
 - **AS path map** — visual hop-by-hop ASN breakdown with GeoIP enrichment on every BGP result (MaxMind first, Team Cymru DNS fallback)
-- **Network map** — on BGP lookups, a converging diagram of how every BGP-session node reaches the target; shared AS hops merge, the queried node's path is highlighted, and nodes with no route are named
+- **Network map** — on BGP lookups, a converging diagram of how every BGP-capable node reaches the target (local peers and remote agents alike); shared AS hops merge, the queried node's path is highlighted, and backup routes are drawn dashed
 - **BGP Communities** — define community string rules in admin; matched badges on BGP results; public `/communities` catalogue linked from the footer
 - **Quick queries** — preset command/target shortcuts on the public home page, managed in **Admin → Quick Queries**
 - **Shareable results** — every query writes a clean path to the address bar (`/ping/8.8.8.8`, `/bgp/1.1.1.0/24`) and puts a non-default node in front of it (`/sofia/ping/8.8.8.8`); opening that link re-runs the query on that node. The result panel has **Copy link** and **Copy result** buttons for pasting into a ticket or chat

@@ -24,14 +24,17 @@ type BGPRoute struct {
 	Rejected     bool             `json:"rejected"`
 }
 
-// NodeASPath is one node's view of how it reaches a target, used to draw the
-// multi-node network map. NoRoute keeps the node on the map even when it sees
-// nothing — "this node has no path" is part of the comparison.
+// NodeASPath is one path a node holds for a target, used to draw the multi-node
+// network map. A node contributes its selected route plus any backup paths it also
+// carries, so the map can show what traffic would fall back to. NoRoute keeps the
+// node on the map even when it sees nothing — "this node has no path" is part of
+// the comparison.
 type NodeASPath struct {
 	NodeID          int64    `json:"node_id"`
 	NodeName        string   `json:"node_name"`
 	Prefix          string   `json:"prefix,omitempty"`
 	ASPath          []uint32 `json:"as_path,omitempty"`
+	Best            bool     `json:"best,omitempty"`
 	ViaDefaultRoute bool     `json:"via_default_route,omitempty"`
 	NoRoute         bool     `json:"no_route,omitempty"`
 }

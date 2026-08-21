@@ -2,7 +2,10 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/HopStat/HopStat/internal/bgp"
@@ -21,25 +24,22 @@ func (r *activeNodeRepo) GetActive(context.Context) ([]*domain.Node, error) {
 	return r.active, r.activeErr
 }
 
-func TestBGPMapNodesKeepsOnlySessionNodes(t *testing.T) {
+func TestSplitMapNodesSortsBySource(t *testing.T) {
+	e := New(&QueryConfig{MaxConcurrent: 4}, nil, nil, nil, nil, nil, 0)
 	nodes := []*domain.Node{
-		{ID: 1, Name: "BURSA", Type: domain.NodeTypeStandalone},
+		{ID: 1, Name: "BURSA", Type: domain.NodeTypeStandalone, EnabledCmds: []domain.CommandType{domain.CmdBGPRoute}},
 		nil,
-		{ID: 2, Name: "SOFIA", Type: domain.NodeTypeLGNode},
-		{ID: 3, Name: "IDLE", Type: domain.NodeTypeStandalone},
+		{ID: 2, Name: "AGENT", Type: domain.NodeTypeLGNode, EnabledCmds: []domain.CommandType{domain.CmdBGPRoute}},
+		{ID: 3, Name: "PING-ONLY", Type: domain.NodeTypeLGNode, EnabledCmds: []domain.CommandType{domain.CmdPing}},
 	}
-	established := map[int64]bool{1: true, 2: true}
 
-	got := bgpMapNodes(nodes, func(id int64) bool { return established[id] })
-
-	if len(got) != 2 {
-		t.Fatalf("nodes = %+v", got)
+	// Without a BGP manager nothing can come from the RIB, so only BGP-capable agents remain.
+	ribNodes, agentNodes := e.splitMapNodes(nodes)
+	if len(ribNodes) != 0 {
+		t.Fatalf("rib nodes = %+v", ribNodes)
 	}
-	if got[0] != (bgp.MapNode{ID: 1, Name: "BURSA", Type: domain.NodeTypeStandalone}) {
-		t.Fatalf("first = %+v", got[0])
-	}
-	if got[1].Type != domain.NodeTypeLGNode {
-		t.Fatalf("node type lost: %+v", got[1])
+	if len(agentNodes) != 1 || agentNodes[0].Name != "AGENT" {
+		t.Fatalf("agent nodes = %+v", agentNodes)
 	}
 }
 
@@ -146,5 +146,110 @@ func TestEnrichASPathEmitsNodeMapWithoutRoutes(t *testing.T) {
 	})
 	if partial != nil {
 		t.Fatalf("unexpected partial: %+v", partial)
+	}
+}
+
+func TestAgentNodeASPathsAsksRemoteAgents(t *testing.T) {
+	agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(domain.BGPResult{Routes: []domain.BGPRoute{
+			{Prefix: "8.8.8.0/24", ASPath: []uint32{64500, 15169}, Best: true},
+			{Prefix: "8.8.8.0/24", ASPath: []uint32{64501, 6939, 15169}},
+		}})
+	}))
+	defer agent.Close()
+
+	e := New(&QueryConfig{MaxConcurrent: 4}, nil, nil, nil, nil, nil, 0)
+	paths := e.agentNodeASPaths(context.Background(), []*domain.Node{lgNode(7, agent.URL)}, "8.8.8.8")
+
+	if len(paths) != 2 {
+		t.Fatalf("paths = %+v", paths)
+	}
+	if !paths[0].Best || paths[1].Best {
+		t.Fatalf("expected one selected route and one backup: %+v", paths)
+	}
+	if paths[0].NodeID != 7 || paths[0].NodeName != "agent-node" {
+		t.Fatalf("node identity lost: %+v", paths[0])
+	}
+	// The agent's path is used as-is; the local AS belongs to the embedded speaker only.
+	if paths[0].ASPath[0] != 64500 {
+		t.Fatalf("agent path was rewritten: %v", paths[0].ASPath)
+	}
+}
+
+func TestAgentNodeASPathsDegradeToNoRoute(t *testing.T) {
+	e := New(&QueryConfig{MaxConcurrent: 4}, nil, nil, nil, nil, nil, 0)
+
+	if got := e.agentNodeASPaths(context.Background(), nil, "8.8.8.8"); got != nil {
+		t.Fatalf("no nodes should mean no work: %+v", got)
+	}
+
+	// Unreachable agent: the map keeps the node instead of failing.
+	dead := lgNode(8, "http://127.0.0.1:1")
+	paths := e.agentNodeASPaths(context.Background(), []*domain.Node{dead}, "8.8.8.8")
+	if len(paths) != 1 || !paths[0].NoRoute || paths[0].NodeID != 8 {
+		t.Fatalf("paths = %+v", paths)
+	}
+
+	// A node the driver factory rejects behaves the same way.
+	broken := lgNode(9, "")
+	broken.Type = domain.NodeType("nonsense")
+	paths = e.agentNodeASPaths(context.Background(), []*domain.Node{broken}, "8.8.8.8")
+	if len(paths) != 1 || !paths[0].NoRoute {
+		t.Fatalf("paths = %+v", paths)
+	}
+}
+
+func TestBuildNodeASPathMapCombinesRIBAndAgents(t *testing.T) {
+	agent := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(domain.BGPResult{Routes: []domain.BGPRoute{
+			{Prefix: "8.8.8.0/24", ASPath: []uint32{64500, 15169}, Best: true},
+		}})
+	}))
+	defer agent.Close()
+
+	repo := &activeNodeRepo{
+		idNodeRepo: &idNodeRepo{},
+		active:     []*domain.Node{lgNode(1, agent.URL), lgNode(2, agent.URL)},
+	}
+	e := New(&QueryConfig{MaxConcurrent: 4}, repo, nil, nil, nil, nil, 0)
+
+	// No BGP manager at all: the map still works from agents alone.
+	paths := e.buildNodeASPathMap(context.Background(), "8.8.8.8")
+	if len(paths) != 2 {
+		t.Fatalf("paths = %+v", paths)
+	}
+	if paths[0].NodeID != 1 || paths[1].NodeID != 2 {
+		t.Fatalf("node order = %d, %d", paths[0].NodeID, paths[1].NodeID)
+	}
+}
+
+func TestBuildNodeASPathMapReadsSessionNodesFromRIB(t *testing.T) {
+	repo := &activeNodeRepo{
+		idNodeRepo: &idNodeRepo{},
+		active: []*domain.Node{
+			{ID: 1, Name: "BURSA", Type: domain.NodeTypeStandalone},
+			{ID: 2, Name: "SOFIA", Type: domain.NodeTypeStandalone},
+		},
+	}
+	e := New(&QueryConfig{MaxConcurrent: 4}, repo, nil, nil, startedManager(t), nil, 0)
+
+	old := hasActiveBGPSession
+	hasActiveBGPSession = func(*bgp.SessionManager, int64) bool { return true }
+	defer func() { hasActiveBGPSession = old }()
+
+	ribNodes, agentNodes := e.splitMapNodes(repo.active)
+	if len(ribNodes) != 2 || len(agentNodes) != 0 {
+		t.Fatalf("rib = %+v, agents = %+v", ribNodes, agentNodes)
+	}
+
+	// The RIB is empty, so both nodes report no route — but they stay on the map.
+	paths := e.buildNodeASPathMap(context.Background(), "8.8.8.8")
+	if len(paths) != 2 {
+		t.Fatalf("paths = %+v", paths)
+	}
+	for _, p := range paths {
+		if !p.NoRoute {
+			t.Fatalf("unexpected route from an empty RIB: %+v", p)
+		}
 	}
 }

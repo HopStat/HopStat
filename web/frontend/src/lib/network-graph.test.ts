@@ -95,7 +95,7 @@ describe('buildNetworkGraph', () => {
     expect(graph.vertices.length).toBeGreaterThan(0)
   })
 
-  it('sets unrouted nodes aside instead of dropping them', () => {
+  it('leaves nodes with no route off the diagram', () => {
     const graph = buildNetworkGraph([
       entry(1, 'A', [9121, 15169]),
       entry(2, 'B', [8866, 15169]),
@@ -103,8 +103,7 @@ describe('buildNetworkGraph', () => {
       entry(4, 'EMPTY', []),
     ], [])!
 
-    expect(graph.unrouted.map(e => e.node_name)).toEqual(['DARK', 'EMPTY'])
-    expect(graph.vertices.filter(v => v.kind === 'node')).toHaveLength(2)
+    expect(graph.vertices.filter(v => v.kind === 'node').map(v => v.label)).toEqual(['A', 'B'])
   })
 
   it('carries enrichment and default-route context onto the vertices', () => {
@@ -167,5 +166,46 @@ describe('buildNetworkGraph queried node', () => {
 
     const boxes = graph.vertices.filter(v => v.kind === 'node').sort((a, b) => a.row - b.row)
     expect(boxes.map(v => v.label)).toEqual(['A', 'B'])
+  })
+})
+
+describe('buildNetworkGraph backup paths', () => {
+  it('draws a node’s backup path and marks only its own edges as alternate', () => {
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'A', as_path: [9121, 3356, 15169], best: true },
+      { node_id: 1, node_name: 'A', as_path: [9121, 6939, 15169] },
+      { node_id: 2, node_name: 'B', as_path: [8866, 15169], best: true },
+    ], [])!
+
+    // One box per node, not per path.
+    expect(graph.vertices.filter(v => v.kind === 'node')).toHaveLength(2)
+    // The backup's own hop is present.
+    expect(graph.vertices.some(v => v.asn === 6939)).toBe(true)
+
+    const shared = graph.edges.find(e => e.from === 'n:1' && e.to === 'as:9121')!
+    expect(shared.alternate).toBe(false)
+    const backup = graph.edges.find(e => e.from === 'as:9121' && e.to === 'as:6939')!
+    expect(backup.alternate).toBe(true)
+    const selected = graph.edges.find(e => e.from === 'as:9121' && e.to === 'as:3356')!
+    expect(selected.alternate).toBe(false)
+  })
+
+  it('keeps a node whose only path is a backup on the map', () => {
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'A', as_path: [9121, 15169], best: true },
+      { node_id: 2, node_name: 'B', as_path: [8866, 15169] },
+    ], [])!
+
+    expect(graph.vertices.filter(v => v.kind === 'node')).toHaveLength(2)
+    expect(graph.edges.find(e => e.from === 'n:2')!.alternate).toBe(true)
+  })
+
+  it('counts nodes, not paths, against the node cap', () => {
+    const many = Array.from({ length: 30 }, (_, i) => ([
+      { node_id: i + 1, node_name: `N${i}`, as_path: [1000 + i, 15169], best: true },
+      { node_id: i + 1, node_name: `N${i}`, as_path: [2000 + i, 15169] },
+    ])).flat()
+    const graph = buildNetworkGraph(many, [])!
+    expect(graph.vertices.filter(v => v.kind === 'node')).toHaveLength(24)
   })
 })

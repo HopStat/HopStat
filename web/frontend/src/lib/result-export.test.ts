@@ -43,6 +43,22 @@ describe('buildResultText', () => {
     expect(text).not.toContain('raw line')
   })
 
+  it('marks the selected route and its backups in the node list', () => {
+    const text = buildResultText({
+      command: 'bgp_route',
+      target: '8.8.8.8',
+      lines: [],
+      nodePaths: [
+        { node_id: 1, node_name: 'BURSA', prefix: '8.8.8.0/24', as_path: [9121, 15169], best: true },
+        { node_id: 1, node_name: 'BURSA', prefix: '8.8.8.0/24', as_path: [9121, 6939, 15169] },
+        { node_id: 2, node_name: 'DARK', no_route: true },
+      ],
+    })
+    expect(text).toContain('*BURSA  8.8.8.0/24  9121 15169')
+    expect(text).toContain('~BURSA  8.8.8.0/24  9121 6939 15169')
+    expect(text).toContain('DARK  -  no route')
+  })
+
   it('falls back to a placeholder when there is nothing to copy', () => {
     expect(buildResultText({ command: 'ping', target: '8.8.8.8', lines: [] })).toContain('(no output)')
   })

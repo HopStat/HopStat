@@ -98,6 +98,7 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                 className={[
                   'network-map__edge',
                   chainClass(undefined, edge.nodeIds),
+                  edge.alternate ? 'is-alt' : '',
                   edge.viaDefaultRoute ? 'is-default' : '',
                   isActive(edge.nodeIds) ? 'is-active' : '',
                 ].filter(Boolean).join(' ')}
@@ -144,12 +145,6 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
           </g>
         </svg>
       </div>
-
-      {graph.unrouted.length > 0 && (
-        <p className="mt-2 font-data text-[11px] text-muted-foreground">
-          {t('result.no_route_from').replace('{{nodes}}', graph.unrouted.map(e => e.node_name).join(', '))}
-        </p>
-      )}
 
       {tip && createPortal(
         <div

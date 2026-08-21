@@ -36,6 +36,8 @@ export interface GraphEdge {
   from: string
   to: string
   nodeIds: number[]
+  /** True while every path using this edge is a backup — drawn dashed. */
+  alternate: boolean
   viaDefaultRoute: boolean
   d: string
 }
@@ -43,8 +45,6 @@ export interface GraphEdge {
 export interface NetworkGraph {
   vertices: GraphVertex[]
   edges: GraphEdge[]
-  /** Nodes that see no route at all — shown beside the graph, not in it. */
-  unrouted: NodeASPath[]
   width: number
   height: number
 }
@@ -52,6 +52,13 @@ export interface NetworkGraph {
 interface NormalizedEntry {
   entry: NodeASPath
   hops: { asn: number; count: number }[]
+}
+
+/** One node with the paths it holds: its selected route first, then any backups. */
+interface NodeGroup {
+  nodeId: number
+  name: string
+  paths: NormalizedEntry[]
 }
 
 const nodeKey = (nodeId: number) => `n:${nodeId}`
@@ -125,29 +132,34 @@ export function buildNetworkGraph(
   enriched: ASInfo[] | undefined,
   opts: { queriedNodeId?: number } = {},
 ): NetworkGraph | null {
-  const routed: NormalizedEntry[] = []
-  const unrouted: NodeASPath[] = []
+  // Group by node: one box per node, one branch per path it holds.
+  const groups: NodeGroup[] = []
+  const groupByNode = new Map<number, NodeGroup>()
 
   for (const entry of entries ?? []) {
     const hops = entry.no_route ? [] : normalizePath(entry.as_path ?? [])
-    if (hops.length === 0) {
-      unrouted.push(entry)
-      continue
+    if (hops.length === 0) continue
+
+    let group = groupByNode.get(entry.node_id)
+    if (!group) {
+      group = { nodeId: entry.node_id, name: entry.node_name, paths: [] }
+      groupByNode.set(entry.node_id, group)
+      groups.push(group)
     }
-    routed.push({ entry, hops })
+    group.paths.push({ entry, hops })
   }
 
   // With one routed node this only repeats the AS path map above it.
-  if (routed.length < 2) return null
+  if (groups.length < 2) return null
 
   // The queried node leads: it takes the first row and the first colour, and its route is
   // the one highlighted by default.
   if (opts.queriedNodeId !== undefined) {
-    const queried = routed.findIndex(r => r.entry.node_id === opts.queriedNodeId)
-    if (queried > 0) routed.unshift(...routed.splice(queried, 1))
+    const queried = groups.findIndex(g => g.nodeId === opts.queriedNodeId)
+    if (queried > 0) groups.unshift(...groups.splice(queried, 1))
   }
 
-  const capped = routed.slice(0, MAX_NODES)
+  const capped = groups.slice(0, MAX_NODES)
   const byAsn = buildAsInfoMap(enriched ?? [])
 
   const vertices = new Map<string, GraphVertex>()
@@ -166,26 +178,32 @@ export function buildNetworkGraph(
     return created
   }
 
-  const linkVertices = (from: string, to: string, nodeId: number, viaDefaultRoute: boolean) => {
+  const linkVertices = (from: string, to: string, nodeId: number, path: NodeASPath) => {
+    const alternate = !path.best
+    const viaDefaultRoute = Boolean(path.via_default_route)
     const key = `${from}|${to}`
     const existing = edges.get(key)
     if (existing) {
       if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId)
+      // An edge is only a backup while every path crossing it is one.
+      existing.alternate = existing.alternate && alternate
       existing.viaDefaultRoute = existing.viaDefaultRoute && viaDefaultRoute
       return
     }
     // Never accept an edge that would close a cycle — the reverse pair already exists.
     if (edgeTargets.get(to)?.has(from)) return
     edgeTargets.get(from)?.add(to)
-    edges.set(key, { key, from, to, nodeIds: [nodeId], viaDefaultRoute, d: '' })
+    edges.set(key, { key, from, to, nodeIds: [nodeId], alternate, viaDefaultRoute, d: '' })
   }
 
-  capped.forEach(({ entry, hops }) => {
-    const id = entry.node_id
+  capped.forEach(group => {
+    const id = group.nodeId
+    const selected = group.paths.find(p => p.entry.best) ?? group.paths[0]
+
     touchVertex(nodeKey(id), () => ({
       key: nodeKey(id),
       kind: 'node',
-      label: entry.node_name,
+      label: group.name,
       org: '',
       cc: '',
       nodeId: id,
@@ -195,32 +213,34 @@ export function buildNetworkGraph(
       x: 0,
       y: 0,
       nodeIds: [id],
-      viaDefaultRoute: entry.via_default_route,
-      prefix: entry.prefix,
+      viaDefaultRoute: selected.entry.via_default_route,
+      prefix: selected.entry.prefix,
     }), id)
 
-    hops.forEach(hop => {
-      const info = byAsn.get(hop.asn)
-      touchVertex(asKey(hop.asn), () => ({
-        key: asKey(hop.asn),
-        kind: 'as',
-        label: formatASLabel(hop.asn, hop.count),
-        org: displayAsName(info),
-        cc: asCountryCode(info),
-        asn: hop.asn,
-        count: hop.count,
-        col: 0,
-        row: 0,
-        x: 0,
-        y: 0,
-        nodeIds: [id],
-      }), id)
-    })
+    group.paths.forEach(({ entry, hops }) => {
+      hops.forEach(hop => {
+        const info = byAsn.get(hop.asn)
+        touchVertex(asKey(hop.asn), () => ({
+          key: asKey(hop.asn),
+          kind: 'as',
+          label: formatASLabel(hop.asn, hop.count),
+          org: displayAsName(info),
+          cc: asCountryCode(info),
+          asn: hop.asn,
+          count: hop.count,
+          col: 0,
+          row: 0,
+          x: 0,
+          y: 0,
+          nodeIds: [id],
+        }), id)
+      })
 
-    linkVertices(nodeKey(id), asKey(hops[0].asn), id, Boolean(entry.via_default_route))
-    for (let i = 0; i < hops.length - 1; i++) {
-      linkVertices(asKey(hops[i].asn), asKey(hops[i + 1].asn), id, false)
-    }
+      linkVertices(nodeKey(id), asKey(hops[0].asn), id, entry)
+      for (let i = 0; i < hops.length - 1; i++) {
+        linkVertices(asKey(hops[i].asn), asKey(hops[i + 1].asn), id, entry)
+      }
+    })
   })
 
   const keys = [...vertices.keys()]
@@ -236,7 +256,7 @@ export function buildNetworkGraph(
   // Rows: node boxes keep input order, AS vertices sit at the mean row of the nodes that
   // traverse them, which keeps shared hops centred between their branches.
   const nodeRow = new Map<number, number>()
-  capped.forEach(({ entry }, index) => nodeRow.set(entry.node_id, index))
+  capped.forEach((group, index) => nodeRow.set(group.nodeId, index))
 
   const byColumn = new Map<number, GraphVertex[]>()
   for (const vertex of vertices.values()) {
@@ -283,7 +303,6 @@ export function buildNetworkGraph(
   return {
     vertices: [...vertices.values()],
     edges: [...edges.values()],
-    unrouted,
     width: PAD * 2 + maxCol * COL_W + BOX_W,
     height: PAD * 2 + (maxRow + 1) * ROW_H,
   }
