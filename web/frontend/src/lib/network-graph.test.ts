@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildNetworkGraph, COMPACT_LAYOUT, WIDE_LAYOUT } from './network-graph'
+import { buildNetworkGraph, fitCaption, isBackupFor, COMPACT_LAYOUT, SUB_ADVANCE, WIDE_LAYOUT } from './network-graph'
 import type { NodeASPath } from '@/types/domain'
 
 function entry(id: number, name: string, path: number[], extra: Partial<NodeASPath> = {}): NodeASPath {
@@ -186,12 +186,13 @@ describe('buildNetworkGraph backup paths', () => {
     // The backup's own hop is present.
     expect(graph.vertices.some(v => v.asn === 6939)).toBe(true)
 
+    // Both of node 1's paths leave through this edge, so it is not a fallback for it.
     const shared = graph.edges.find(e => e.from === 'n:1' && e.to === 'as:9121')!
-    expect(shared.alternate).toBe(false)
+    expect(isBackupFor(shared, 1)).toBe(false)
     const backup = graph.edges.find(e => e.from === 'as:9121' && e.to === 'as:6939')!
-    expect(backup.alternate).toBe(true)
+    expect(isBackupFor(backup, 1)).toBe(true)
     const selected = graph.edges.find(e => e.from === 'as:9121' && e.to === 'as:3356')!
-    expect(selected.alternate).toBe(false)
+    expect(isBackupFor(selected, 1)).toBe(false)
   })
 
   it('keeps a node whose only path is a backup on the map', () => {
@@ -201,7 +202,7 @@ describe('buildNetworkGraph backup paths', () => {
     ], [])!
 
     expect(graph.vertices.filter(v => v.kind === 'node')).toHaveLength(2)
-    expect(graph.edges.find(e => e.from === 'n:2')!.alternate).toBe(true)
+    expect(isBackupFor(graph.edges.find(e => e.from === 'n:2')!, 2)).toBe(true)
   })
 
   it('counts nodes, not paths, against the node cap', () => {
@@ -270,5 +271,84 @@ describe('buildNetworkGraph vertical layout', () => {
     const from = down.vertices.find(v => v.key === edge.from)!
     // The path starts at the horizontal centre of the box, not its right edge.
     expect(edge.d.startsWith(`M ${from.x + down.layout.boxW / 2} `)).toBe(true)
+  })
+})
+
+describe('fitCaption', () => {
+  it('keeps a name that already fits', () => {
+    expect(fitCaption('GOOGLE', 100)).toBe('GOOGLE')
+  })
+
+  it('trims at a word boundary when the box is too narrow', () => {
+    // COMPACT_LAYOUT box minus the flag leaves room for about twelve characters.
+    expect(fitCaption('DGN TEKNOLOJI', 12 * SUB_ADVANCE)).toBe('DGN')
+  })
+
+  it('cuts mid-word only when there is no earlier boundary', () => {
+    expect(fitCaption('TEKNOLOJIHIZMET', 6 * SUB_ADVANCE)).toBe('TEKNOL')
+    expect(fitCaption('A LONGNAME', 6 * SUB_ADVANCE)).toBe('A LONG')
+  })
+
+  it('gives up when there is no room at all', () => {
+    expect(fitCaption('GOOGLE', 2)).toBe('')
+  })
+})
+
+describe('buildNetworkGraph backup hops', () => {
+  it('marks a hop only the backup route passes through', () => {
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'A', as_path: [9121, 3356, 15169], best: true },
+      { node_id: 1, node_name: 'A', as_path: [9121, 6939, 15169] },
+    ], [])!
+
+    const onlyBackup = graph.vertices.find(v => v.asn === 6939)!
+    const onSelected = graph.vertices.find(v => v.asn === 3356)!
+    const shared = graph.vertices.find(v => v.asn === 15169)!
+    const box = graph.vertices.find(v => v.kind === 'node')!
+
+    expect(isBackupFor(onlyBackup, 1)).toBe(true)
+    expect(isBackupFor(onSelected, 1)).toBe(false)
+    // The origin is reached by both, so it is not a backup hop.
+    expect(isBackupFor(shared, 1)).toBe(false)
+    expect(isBackupFor(box, 1)).toBe(false)
+  })
+
+  it('clears the backup mark when another node selects that hop', () => {
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'A', as_path: [9121, 6939, 15169] },
+      { node_id: 2, node_name: 'B', as_path: [8866, 6939, 15169], best: true },
+    ], [])!
+
+    // For B it is the live path; for A it is only a fallback.
+    const hop = graph.vertices.find(v => v.asn === 6939)!
+    expect(isBackupFor(hop, 2)).toBe(false)
+    expect(isBackupFor(hop, 1)).toBe(true)
+  })
+})
+
+describe('isBackupFor with a shared edge', () => {
+  // The live shape that made this necessary: ESENYURT falls back over the very hop BURSA
+  // uses as its live path.
+  const entries = [
+    { node_id: 1, node_name: 'BURSA', as_path: [43260, 204457, 15169], best: true },
+    { node_id: 2, node_name: 'ESENYURT', as_path: [43260, 44901, 15169], best: true },
+    { node_id: 2, node_name: 'ESENYURT', as_path: [43260, 204457, 15169] },
+  ]
+
+  it('calls the same edge live for one node and a fallback for the other', () => {
+    const graph = buildNetworkGraph(entries, [])!
+    const contested = graph.edges.find(e => e.from === 'as:43260' && e.to === 'as:204457')!
+
+    expect(isBackupFor(contested, 1)).toBe(false)
+    expect(isBackupFor(contested, 2)).toBe(true)
+
+    const esenyurtLive = graph.edges.find(e => e.from === 'as:43260' && e.to === 'as:44901')!
+    expect(isBackupFor(esenyurtLive, 2)).toBe(false)
+  })
+
+  it('treats a hop as live when nothing is in focus and any node routes over it', () => {
+    const graph = buildNetworkGraph(entries, [])!
+    const contested = graph.edges.find(e => e.from === 'as:43260' && e.to === 'as:204457')!
+    expect(isBackupFor(contested, null)).toBe(false)
   })
 })

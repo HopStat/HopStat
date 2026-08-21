@@ -1,14 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/i18n-context'
-import { buildNetworkGraph, type GraphVertex } from '@/lib/network-graph'
+import { buildNetworkGraph, fitCaption, isBackupFor, SUB_ADVANCE, type GraphVertex } from '@/lib/network-graph'
 import type { ASInfo, NodeASPath } from '@/types/domain'
 
 interface Props {
   entries: NodeASPath[] | undefined
   enriched: ASInfo[] | undefined
-  prefix?: string
   /** Node the query ran on — its route stays highlighted when nothing is hovered. */
   queriedNodeId?: number
+  /** Re-runs the query from the clicked node. */
+  onNodeSelect?: (nodeId: number) => void
 }
 
 /**
@@ -44,12 +45,11 @@ function useAvailableWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   return [ref, width]
 }
 
-const SUB_FONT = 9
-/** IBM Plex Mono advance width, so the caption can be centred without measuring text. */
-const SUB_ADVANCE = SUB_FONT * 0.6
 const FLAG_W = 12
 const FLAG_H = 9
 const FLAG_GAP = 3
+/** Keeps the caption off the rounded corners. */
+const CAPTION_INSET = 4
 
 /** Flag image from the same source the rest of the app uses — emoji flags do not render on
  *  every platform, and at this size they are unreadable where they do. */
@@ -64,7 +64,7 @@ function colorClass(nodeId: number | null | undefined, order: Map<number, number
   return index === undefined ? '' : `nm-c${index % 8}`
 }
 
-export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) {
+export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: Props) {
   const { t } = useI18n()
   const [hoveredNode, setHoveredNode] = useState<number | null>(null)
   const [wrapRef, availableWidth] = useAvailableWidth()
@@ -83,6 +83,8 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
 
   if (!graph) return null
 
+  // No visible heading: the result panel already names the query above the map. The label
+  // stays for assistive tech, which has no such context.
   const title = t('result.network_map')
   // Fit the diagram to the panel rather than making the reader scroll, but never scale it
   // up past 1:1 and never past the point where the labels stop being legible.
@@ -100,11 +102,6 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
 
   return (
     <div className="result-surface result-surface--path network-map animate-fade-up px-3 py-3 sm:px-5 sm:py-4">
-      <div className="mb-2 flex items-baseline gap-2">
-        <span className="font-data text-sm font-bold sm:text-base">{title}</span>
-        {prefix && <span className="font-data text-[11px] text-muted-foreground">{prefix}</span>}
-      </div>
-
       <div className="result-surface--path__scroll network-map__canvas" ref={wrapRef}>
         <svg
           role="img"
@@ -128,7 +125,7 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                 className={[
                   'network-map__edge',
                   chainClass(undefined, edge.nodeIds),
-                  edge.alternate ? 'is-alt' : '',
+                  isBackupFor(edge, activeNode) ? 'is-alt' : '',
                   edge.viaDefaultRoute ? 'is-default' : '',
                   isActive(edge.nodeIds) ? 'is-active' : '',
                 ].filter(Boolean).join(' ')}
@@ -139,13 +136,23 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
           <g>
             {graph.vertices.map(vertex => {
               const isNodeBox = vertex.kind === 'node'
+              const selectable = isNodeBox && onNodeSelect && vertex.nodeId !== undefined
+              const run = () => { if (selectable) onNodeSelect(vertex.nodeId as number) }
               const trace = isNodeBox
                 ? {
                     tabIndex: 0,
+                    role: selectable ? 'button' : undefined,
                     onMouseEnter: () => setHoveredNode(vertex.nodeId ?? null),
                     onMouseLeave: () => setHoveredNode(null),
                     onFocus: () => setHoveredNode(vertex.nodeId ?? null),
                     onBlur: () => setHoveredNode(null),
+                    onClick: run,
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        run()
+                      }
+                    },
                   }
                 : {}
               return (
@@ -155,6 +162,7 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                 className={[
                   'network-map__vertex',
                   isNodeBox ? 'network-map__vertex--node' : '',
+                  isNodeBox ? '' : isBackupFor(vertex, activeNode) ? 'is-alt' : '',
                   chainClass(vertex.nodeId, vertex.nodeIds),
                   isActive(vertex.nodeIds) ? 'is-active' : '',
                 ].filter(Boolean).join(' ')}
@@ -179,8 +187,13 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                   // Centre flag and name as one unit; the caption font is monospace, so its
                   // width is known without measuring.
                   const flag = flagSrc(vertex.cc)
-                  const textW = vertex.org.length * SUB_ADVANCE
-                  const total = textW + (flag ? FLAG_W + FLAG_GAP : 0)
+                  const flagW = flag ? FLAG_W + FLAG_GAP : 0
+                  const label = fitCaption(
+                    vertex.org || vertex.cc,
+                    graph.layout.boxW - CAPTION_INSET * 2 - flagW,
+                  )
+                  const textW = label.length * SUB_ADVANCE
+                  const total = textW + flagW
                   const startX = vertex.x + graph.layout.boxW / 2 - total / 2
                   return (
                     <>
@@ -196,11 +209,11 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                       )}
                       <text
                         className="network-map__sub"
-                        x={startX + (flag ? FLAG_W + FLAG_GAP : 0)}
+                        x={startX + flagW}
                         y={vertex.y + 8}
                         textAnchor="start"
                       >
-                        {vertex.org || vertex.cc}
+                        {label}
                       </text>
                     </>
                   )

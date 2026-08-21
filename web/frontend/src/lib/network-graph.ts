@@ -13,7 +13,26 @@ export interface Layout {
 export const WIDE_LAYOUT: Layout = { colW: 140, rowH: 60, boxW: 116, boxH: 36, pad: 18 }
 
 /** Narrow screens get tighter geometry so the diagram needs less shrinking to fit. */
-export const COMPACT_LAYOUT: Layout = { colW: 96, rowH: 48, boxW: 82, boxH: 30, pad: 10 }
+export const COMPACT_LAYOUT: Layout = { colW: 108, rowH: 48, boxW: 96, boxH: 30, pad: 10 }
+
+/** Caption font size, and the advance width of IBM Plex Mono at that size. Knowing the
+ *  advance lets captions be placed and trimmed without measuring rendered text. */
+export const SUB_FONT = 9
+export const SUB_ADVANCE = SUB_FONT * 0.6
+
+/**
+ * Trims an operator name to what a box can hold, at a word boundary where possible, so a
+ * long name never spills past the box that labels it.
+ */
+export function fitCaption(org: string, available: number): string {
+  const maxChars = Math.floor(available / SUB_ADVANCE)
+  if (maxChars <= 0) return ''
+  if (org.length <= maxChars) return org
+
+  const cut = org.slice(0, maxChars)
+  const lastSpace = cut.lastIndexOf(' ')
+  return lastSpace > 2 ? cut.slice(0, lastSpace) : cut
+}
 
 /** Beyond these the diagram stops being readable, so the tail is dropped rather than drawn. */
 export const MAX_COLS = 14
@@ -36,6 +55,10 @@ export interface GraphVertex {
   y: number
   /** Which looking-glass nodes traverse this vertex. */
   nodeIds: number[]
+  /** Nodes whose selected route passes through this hop, and nodes for which it is only
+   *  a backup. */
+  selectedFor: number[]
+  backupFor: number[]
   viaDefaultRoute?: boolean
   prefix?: string
 }
@@ -45,8 +68,10 @@ export interface GraphEdge {
   from: string
   to: string
   nodeIds: number[]
-  /** True while every path using this edge is a backup — drawn dashed. */
-  alternate: boolean
+  /** Nodes whose selected route runs over this edge, and nodes for which it is a backup.
+   *  Kept per node because one node's fallback is often another's live path. */
+  selectedFor: number[]
+  backupFor: number[]
   viaDefaultRoute: boolean
   d: string
 }
@@ -159,6 +184,18 @@ function layerVertices(keys: string[], edges: Map<string, Set<string>>): Map<str
   return layer
 }
 
+/** True when the element carries only a fallback route for the node currently in focus. */
+export function isBackupFor(
+  element: { selectedFor: number[]; backupFor: number[] },
+  nodeId: number | null,
+): boolean {
+  if (nodeId === null) {
+    // Nothing in focus: only call it a backup when no node routes over it live.
+    return element.selectedFor.length === 0 && element.backupFor.length > 0
+  }
+  return element.backupFor.includes(nodeId) && !element.selectedFor.includes(nodeId)
+}
+
 export function buildNetworkGraph(
   entries: NodeASPath[] | undefined,
   enriched: ASInfo[] | undefined,
@@ -199,13 +236,20 @@ export function buildNetworkGraph(
   const edgeTargets = new Map<string, Set<string>>()
   const edges = new Map<string, GraphEdge>()
 
-  const touchVertex = (key: string, seed: () => GraphVertex, nodeId: number) => {
+  const addRole = (target: { selectedFor: number[]; backupFor: number[] }, nodeId: number, alternate: boolean) => {
+    const list = alternate ? target.backupFor : target.selectedFor
+    if (!list.includes(nodeId)) list.push(nodeId)
+  }
+
+  const touchVertex = (key: string, seed: () => GraphVertex, nodeId: number, alternate = false) => {
     const existing = vertices.get(key)
     if (existing) {
       if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId)
+      addRole(existing, nodeId, alternate)
       return existing
     }
     const created = seed()
+    addRole(created, nodeId, alternate)
     vertices.set(key, created)
     edgeTargets.set(key, new Set())
     return created
@@ -218,15 +262,18 @@ export function buildNetworkGraph(
     const existing = edges.get(key)
     if (existing) {
       if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId)
-      // An edge is only a backup while every path crossing it is one.
-      existing.alternate = existing.alternate && alternate
+      addRole(existing, nodeId, alternate)
       existing.viaDefaultRoute = existing.viaDefaultRoute && viaDefaultRoute
       return
     }
     // Never accept an edge that would close a cycle — the reverse pair already exists.
     if (edgeTargets.get(to)?.has(from)) return
     edgeTargets.get(from)?.add(to)
-    edges.set(key, { key, from, to, nodeIds: [nodeId], alternate, viaDefaultRoute, d: '' })
+    const edge: GraphEdge = {
+      key, from, to, nodeIds: [nodeId], selectedFor: [], backupFor: [], viaDefaultRoute, d: '',
+    }
+    addRole(edge, nodeId, alternate)
+    edges.set(key, edge)
   }
 
   capped.forEach(group => {
@@ -247,11 +294,14 @@ export function buildNetworkGraph(
       x: 0,
       y: 0,
       nodeIds: [id],
+      selectedFor: [],
+      backupFor: [],
       viaDefaultRoute: selected.entry.via_default_route,
       prefix: selected.entry.prefix,
     }), id)
 
     group.paths.forEach(({ entry, hops }) => {
+      const alternate = !entry.best
       hops.forEach(hop => {
         const info = byAsn.get(hop.asn)
         touchVertex(asKey(hop.asn), () => ({
@@ -268,7 +318,9 @@ export function buildNetworkGraph(
           x: 0,
           y: 0,
           nodeIds: [id],
-        }), id)
+          selectedFor: [],
+          backupFor: [],
+        }), id, alternate)
       })
 
       linkVertices(nodeKey(id), asKey(hops[0].asn), id, entry)

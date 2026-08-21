@@ -57,6 +57,12 @@ export function QueryPage() {
     void formRef.current?.runQuery(command, target, nodeId ? String(nodeId) : undefined)
   }
 
+  // Clicking a node on the network map asks the same question from that node.
+  function handleNodeSelect(nodeId: number) {
+    if (!queryMeta || nodeId === queryMeta.nodeId) return
+    void formRef.current?.runQuery(queryMeta.command, queryMeta.target, String(nodeId))
+  }
+
   function handleQuerySubmit(meta: QuerySubmitMeta) {
     // Reflect the query in the address bar so the result can be linked to someone else.
     navigate(buildQueryPath(meta), { replace: true })
@@ -125,6 +131,7 @@ export function QueryPage() {
                       nodeName: queryMeta.nodeName,
                     }}
                     shareUrl={buildShareUrl(queryMeta)}
+                    onNodeSelect={handleNodeSelect}
                     onHistorySaved={() => { void formRef.current?.refreshHistory() }}
                   />
                 </div>

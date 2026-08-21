@@ -113,3 +113,71 @@ describe('NetworkMap', () => {
     expect(desc).toContain('SOFIA: AS8866 → AS6939 → AS15169')
   })
 })
+
+describe('NetworkMap caption fitting', () => {
+  const twoNodes = [
+    { node_id: 1, node_name: 'A', as_path: [43260, 15169], best: true },
+    { node_id: 2, node_name: 'B', as_path: [8866, 15169], best: true },
+  ]
+  const longOrg = [
+    { asn: 43260, org_name: 'DGN Teknoloji Hizmetleri', short_name: '', country_code: 'TR', flag_emoji: '' },
+  ]
+
+  it('trims a long operator name so the caption stays inside its box', () => {
+    const { container } = render(<NetworkMap entries={twoNodes} enriched={longOrg} />)
+
+    const flag = container.querySelector('image')!
+    const text = container.querySelector('.network-map__sub')!
+    const captionLeft = Number(flag.getAttribute('x'))
+    const captionRight =
+      Number(text.getAttribute('x')) + (text.textContent?.length ?? 0) * 9 * 0.6
+
+    const boxes = [...container.querySelectorAll('.network-map__box')].map(b => ({
+      x: Number(b.getAttribute('x')),
+      w: Number(b.getAttribute('width')),
+    }))
+    const owner = boxes.find(b => captionLeft >= b.x && captionLeft <= b.x + b.w)
+
+    expect(owner).toBeTruthy()
+    expect(captionRight).toBeLessThanOrEqual(owner!.x + owner!.w)
+  })
+})
+
+describe('NetworkMap node selection', () => {
+  const entries = [
+    { node_id: 1, node_name: 'BURSA', as_path: [9121, 15169], best: true },
+    { node_id: 2, node_name: 'SOFIA', as_path: [8866, 15169], best: true },
+  ]
+
+  it('re-runs the query from a clicked node', () => {
+    const onNodeSelect = vi.fn()
+    render(<NetworkMap entries={entries} enriched={[]} onNodeSelect={onNodeSelect} />)
+
+    fireEvent.click(screen.getByText('SOFIA').closest('g') as SVGGElement)
+    expect(onNodeSelect).toHaveBeenCalledWith(2)
+  })
+
+  it('answers the keyboard too', () => {
+    const onNodeSelect = vi.fn()
+    render(<NetworkMap entries={entries} enriched={[]} onNodeSelect={onNodeSelect} />)
+
+    const box = screen.getByText('BURSA').closest('g') as SVGGElement
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(onNodeSelect).toHaveBeenCalledWith(1)
+
+    fireEvent.keyDown(box, { key: 'a' })
+    expect(onNodeSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves AS hops inert', () => {
+    const onNodeSelect = vi.fn()
+    const { container } = render(
+      <NetworkMap entries={entries} enriched={[]} onNodeSelect={onNodeSelect} />,
+    )
+
+    fireEvent.click(screen.getByText('AS15169').closest('g') as SVGGElement)
+    expect(onNodeSelect).not.toHaveBeenCalled()
+    // Only the node boxes advertise themselves as actionable.
+    expect(container.querySelectorAll('g[role="button"]')).toHaveLength(2)
+  })
+})

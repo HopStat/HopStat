@@ -23,9 +23,19 @@ interface Props {
   }
   shareUrl?: string
   onHistorySaved?: () => void
+  /** Re-runs the query on another node, from the network map. */
+  onNodeSelect?: (nodeId: number) => void
 }
 
-export function ResultContainer({ queryId, command, historyContext, shareUrl, onHistorySaved }: Props) {
+/** The label the query form shows for a command, so the result names it the same way the
+ *  user picked it rather than echoing the API's identifier. */
+function commandLabel(t: (key: string) => string, command: string): string {
+  const key = `cmd.${command}`
+  const label = t(key)
+  return label === key ? command : label
+}
+
+export function ResultContainer({ queryId, command, historyContext, shareUrl, onHistorySaved, onNodeSelect }: Props) {
   const { t } = useI18n()
   const { result, lines, error, outputComplete } = useQueryStream(queryId)
   const savedHistoryRef = useRef<string | null>(null)
@@ -139,7 +149,9 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
 
   const shareContext = command && historyContext && shareUrl ? { command, shareUrl, ...historyContext } : null
   const shareSummary = shareContext
-    ? [shareContext.command, shareContext.target, shareContext.nodeName].filter(Boolean).join(' · ')
+    ? [commandLabel(t, shareContext.command), shareContext.target, shareContext.nodeName]
+        .filter(Boolean)
+        .join(' · ')
     : ''
 
   return (
@@ -164,8 +176,8 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
         <NetworkMap
           entries={mapEntries}
           enriched={enrichedForDisplay}
-          prefix={mapPrefix}
           queriedNodeId={historyContext?.nodeId}
+          onNodeSelect={onNodeSelect}
         />
       )}
 

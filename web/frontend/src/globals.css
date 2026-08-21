@@ -1489,7 +1489,9 @@
   /* Multi-node network map. Colours are per-node tokens so the same class works in both
      themes; only --nm-active is rebound under .dark. */
   .network-map {
-    --nm-line: color-mix(in srgb, var(--brand-accent-line) 26%, var(--color-border));
+    /* Derived from the foreground, not the border: a border-tinted line disappears on
+       strongly branded backgrounds. */
+    --nm-line: color-mix(in srgb, var(--color-foreground) 32%, transparent);
     --nm-box: color-mix(in srgb, var(--brand-accent-line) 10%, var(--color-card));
     --nm-active: var(--brand);
   }
@@ -1504,7 +1506,7 @@
   .network-map__edge {
     fill: none;
     stroke: var(--nm-line);
-    stroke-width: 1.5;
+    stroke-width: 1.75;
     stroke-linecap: round;
     transition: stroke 0.12s ease, stroke-width 0.12s ease;
   }
@@ -1548,9 +1550,15 @@
     stroke: color-mix(in srgb, var(--nm-active) 45%, var(--nm-line));
   }
 
-  .network-map__vertex--unrouted .network-map__box {
+  /* A hop only a backup route passes through is outlined the same way its edges are
+     drawn, so the live route stands out from the fallback at a glance. */
+  .network-map__vertex.is-alt .network-map__box {
+    stroke-dasharray: 5 4;
     fill: transparent;
-    stroke-dasharray: 4 3;
+  }
+
+  .network-map__vertex.is-alt .network-map__label {
+    fill: color-mix(in srgb, var(--color-foreground) 72%, transparent);
   }
 
   .network-map__label {
@@ -1570,11 +1578,6 @@
     letter-spacing: -0.03em;
     fill: color-mix(in srgb, var(--color-foreground) 62%, transparent);
     dominant-baseline: middle;
-  }
-
-  .network-map__vertex--unrouted .network-map__label,
-  .network-map__vertex--unrouted .network-map__sub {
-    fill: var(--color-muted-foreground);
   }
 
   .nm-c0 { --nm-active: hsl(213 74% 46%); }
