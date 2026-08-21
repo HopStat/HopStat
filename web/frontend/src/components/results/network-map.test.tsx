@@ -52,12 +52,28 @@ describe('NetworkMap', () => {
     expect(container.querySelectorAll('.network-map__edge.is-active')).toHaveLength(0)
   })
 
-  it('shows the AS org and country on hover', () => {
+  it('prints the country beside the AS name instead of hiding it in a tooltip', () => {
     renderMap({
       enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '🇺🇸' }],
     })
-    fireEvent.mouseEnter(screen.getByText('AS15169').closest('g') as SVGGElement)
-    expect(screen.getByRole('tooltip').textContent).toContain('Google')
+    expect(screen.getByText('🇺🇸 GOOGLE')).toBeTruthy()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('falls back to the country code when there is no flag', () => {
+    renderMap({
+      enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '' }],
+    })
+    expect(screen.getByText('US GOOGLE')).toBeTruthy()
+  })
+
+  it('shows no popup for a node box or an AS box', () => {
+    const { container } = renderMap()
+    fireEvent.mouseEnter(screen.getByText('BURSA').closest('g') as SVGGElement)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+
+    // Only node boxes are reachable by keyboard; an AS box activates nothing.
+    expect(container.querySelectorAll('g[tabindex]')).toHaveLength(2)
   })
 
   it('leaves a node with no route off the diagram', () => {

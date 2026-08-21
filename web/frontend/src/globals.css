@@ -1524,13 +1524,14 @@
     transition: stroke 0.12s ease;
   }
 
-  .network-map__vertex {
+  /* Only the node boxes are interactive; AS boxes just render. */
+  .network-map__vertex--node {
     cursor: pointer;
     outline: none;
   }
 
   .network-map__vertex.is-active .network-map__box,
-  .network-map__vertex:focus-visible .network-map__box {
+  .network-map__vertex--node:focus-visible .network-map__box {
     stroke: var(--nm-active);
     stroke-width: 2;
   }

@@ -18,6 +18,8 @@ export interface GraphVertex {
   label: string
   org: string
   cc: string
+  /** Country shown next to the AS name: flag when we have one, otherwise the code. */
+  flag: string
   asn?: number
   nodeId?: number
   count: number
@@ -206,6 +208,7 @@ export function buildNetworkGraph(
       label: group.name,
       org: '',
       cc: '',
+      flag: '',
       nodeId: id,
       count: 1,
       col: 0,
@@ -226,6 +229,7 @@ export function buildNetworkGraph(
           label: formatASLabel(hop.asn, hop.count),
           org: displayAsName(info),
           cc: asCountryCode(info),
+          flag: info?.flag_emoji ?? '',
           asn: hop.asn,
           count: hop.count,
           col: 0,

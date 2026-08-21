@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useI18n } from '@/contexts/i18n-context'
-import { buildAsInfoMap, asTooltipLines } from '@/lib/as-info'
 import { buildNetworkGraph, BOX_H, BOX_W, type GraphVertex } from '@/lib/network-graph'
 import type { ASInfo, NodeASPath } from '@/types/domain'
 
@@ -13,10 +11,10 @@ interface Props {
   queriedNodeId?: number
 }
 
-interface Tip {
-  text: string
-  x: number
-  y: number
+/** AS name with its country beside it — the flag when the lookup gave us one. */
+function asCaption(vertex: GraphVertex): string {
+  const country = vertex.flag || vertex.cc
+  return [country, vertex.org].filter(Boolean).join(' ')
 }
 
 /** Colour token for a node, cycling through the eight theme-aware classes. */
@@ -26,14 +24,12 @@ function colorClass(nodeId: number | null | undefined, order: Map<number, number
 }
 
 export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const graph = useMemo(
     () => buildNetworkGraph(entries, enriched, { queriedNodeId }),
     [entries, enriched, queriedNodeId],
   )
-  const byAsn = useMemo(() => buildAsInfoMap(enriched ?? []), [enriched])
   const [hoveredNode, setHoveredNode] = useState<number | null>(null)
-  const [tip, setTip] = useState<Tip | null>(null)
 
   const nodeOrder = useMemo(() => {
     const order = new Map<number, number>()
@@ -52,21 +48,6 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
   // shares with other nodes — otherwise the traced line changes colour halfway.
   const chainClass = (vertexNodeId: number | undefined, nodeIds: number[]) =>
     isActive(nodeIds) ? colorClass(activeNode, nodeOrder) : colorClass(vertexNodeId, nodeOrder)
-
-  function showTip(event: React.MouseEvent | React.FocusEvent, text: string) {
-    if (!text) return
-    const rect = (event.currentTarget as SVGGElement).getBoundingClientRect()
-    setTip({ text, x: rect.left + rect.width / 2, y: rect.top - 6 })
-  }
-
-  function vertexTip(vertex: GraphVertex): string {
-    if (vertex.kind === 'node') {
-      return [vertex.prefix, vertex.viaDefaultRoute ? t('result.via_default_route') : '']
-        .filter(Boolean)
-        .join(' · ')
-    }
-    return asTooltipLines(byAsn.get(vertex.asn ?? 0), vertex.asn ?? 0, vertex.count, locale)[0] ?? ''
-  }
 
   return (
     <div className="result-surface result-surface--path network-map animate-fade-up px-3 py-3 sm:px-5 sm:py-4">
@@ -107,22 +88,28 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
           </g>
 
           <g>
-            {graph.vertices.map(vertex => (
+            {graph.vertices.map(vertex => {
+              const isNodeBox = vertex.kind === 'node'
+              const trace = isNodeBox
+                ? {
+                    tabIndex: 0,
+                    onMouseEnter: () => setHoveredNode(vertex.nodeId ?? null),
+                    onMouseLeave: () => setHoveredNode(null),
+                    onFocus: () => setHoveredNode(vertex.nodeId ?? null),
+                    onBlur: () => setHoveredNode(null),
+                  }
+                : {}
+              return (
               <g
                 key={vertex.key}
-                tabIndex={0}
-                role="button"
-                aria-label={`${vertex.label}${vertex.org ? ` ${vertex.org}` : ''}`}
+                aria-label={[vertex.label, vertex.org, vertex.cc].filter(Boolean).join(' ')}
                 className={[
                   'network-map__vertex',
-                  vertex.kind === 'node' ? 'network-map__vertex--node' : '',
+                  isNodeBox ? 'network-map__vertex--node' : '',
                   chainClass(vertex.nodeId, vertex.nodeIds),
                   isActive(vertex.nodeIds) ? 'is-active' : '',
                 ].filter(Boolean).join(' ')}
-                onMouseEnter={e => { setHoveredNode(vertex.nodeIds[0] ?? null); showTip(e, vertexTip(vertex)) }}
-                onMouseLeave={() => { setHoveredNode(null); setTip(null) }}
-                onFocus={e => { setHoveredNode(vertex.nodeIds[0] ?? null); showTip(e, vertexTip(vertex)) }}
-                onBlur={() => { setHoveredNode(null); setTip(null) }}
+                {...trace}
               >
                 <rect
                   className="network-map__box"
@@ -132,30 +119,24 @@ export function NetworkMap({ entries, enriched, prefix, queriedNodeId }: Props) 
                   height={BOX_H}
                   rx={8}
                 />
-                <text className="network-map__label" x={vertex.x + BOX_W / 2} y={vertex.y - (vertex.org ? 6 : 0)}>
+                <text
+                  className="network-map__label"
+                  x={vertex.x + BOX_W / 2}
+                  y={vertex.y - (asCaption(vertex) ? 6 : 0)}
+                >
                   {vertex.label}
                 </text>
-                {vertex.org && (
+                {asCaption(vertex) && (
                   <text className="network-map__sub" x={vertex.x + BOX_W / 2} y={vertex.y + 8}>
-                    {vertex.org}
+                    {asCaption(vertex)}
                   </text>
                 )}
               </g>
-            ))}
+              )
+            })}
           </g>
         </svg>
       </div>
-
-      {tip && createPortal(
-        <div
-          role="tooltip"
-          className="as-path-tooltip pointer-events-none fixed z-[200] w-max max-w-[24rem] -translate-x-1/2 -translate-y-full truncate whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-normal normal-case leading-none"
-          style={{ left: tip.x, top: tip.y }}
-        >
-          {tip.text}
-        </div>,
-        document.body,
-      )}
     </div>
   )
 }
