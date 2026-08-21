@@ -397,6 +397,7 @@ func StreamResult(db *sql.DB) gin.HandlerFunc {
 					"as_path":          result.ASPath,
 					"as_path_prefix":   result.ASPathPrefix,
 					"as_path_enriched": result.ASPathEnriched,
+					"as_path_nodes":    result.ASPathNodes,
 				})
 				sig := string(payload)
 				if sig != lastPartialSig {
@@ -1587,6 +1588,9 @@ func mergeASPathFields(dest, stored *domain.QueryResult) {
 	}
 	if dest.ASPathPrefix == "" && stored.ASPathPrefix != "" {
 		dest.ASPathPrefix = stored.ASPathPrefix
+	}
+	if len(dest.ASPathNodes) == 0 && len(stored.ASPathNodes) > 0 {
+		dest.ASPathNodes = stored.ASPathNodes
 	}
 	if len(stored.ASPathEnriched) == 0 {
 		return

@@ -8,6 +8,7 @@ import { ResultBGP } from './result-bgp'
 import { ResultPing } from './result-ping'
 import { QueryErrorAlert } from './query-error-alert'
 import { ResultShareBar } from './result-share-bar'
+import { NetworkMap } from './network-map'
 import { buildBgpMapAsPath, extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, hasPingData, isPingOutputComplete, bestBGPRoute, shouldShowBgpAsPathMap } from '@/lib/result-parse'
 import { translateQueryError, translateBgpRawMessage } from '@/lib/query-errors'
 import { buildResultText } from '@/lib/result-export'
@@ -152,6 +153,7 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
             shareUrl: shareContext.shareUrl,
             lines: displayLines,
             bgp: command === 'bgp_route' ? bgpParsed : null,
+            nodePaths: command === 'bgp_route' ? result?.as_path_nodes : null,
           })}
         />
       )}
@@ -166,6 +168,15 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
 
       {showBgpRoutes && bgpParsed && (
         <ResultBGP result={bgpParsed} enriched={enrichedForDisplay} />
+      )}
+
+      {command === 'bgp_route' && (
+        <NetworkMap
+          entries={result?.as_path_nodes}
+          enriched={enrichedForDisplay}
+          prefix={result?.as_path_prefix}
+          queriedNodeId={historyContext?.nodeId}
+        />
       )}
 
       {showBgpRawMessage && bgpRawMessage && (

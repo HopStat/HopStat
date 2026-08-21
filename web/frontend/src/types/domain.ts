@@ -85,6 +85,17 @@ export interface QueryResult {
   as_path: number[]
   as_path_prefix?: string
   as_path_enriched: ASInfo[]
+  as_path_nodes?: NodeASPath[]
+}
+
+/** One node's view of how it reaches the target, used to draw the multi-node network map. */
+export interface NodeASPath {
+  node_id: number
+  node_name: string
+  prefix?: string
+  as_path?: number[]
+  via_default_route?: boolean
+  no_route?: boolean
 }
 
 export interface PingResult {

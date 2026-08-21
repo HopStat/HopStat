@@ -62,6 +62,8 @@
   "result.med": "MED",
   "result.origin": "Origin",
   "result.as_path": "AS Path",
+  "result.network_map": "Карта сети",
+  "result.no_route_from": "Нет маршрута от {{nodes}}",
   "result.communities": "Communities",
   "result.age": "Время",
   "result.via_default_route": "Через default route",

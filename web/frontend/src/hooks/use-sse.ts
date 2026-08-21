@@ -32,6 +32,7 @@ function mergeQueryStreamResult(
     as_path: data.as_path?.length ? data.as_path : (base?.as_path ?? []),
     as_path_prefix: data.as_path_prefix ?? base?.as_path_prefix,
     as_path_enriched: mergeAsPathEnriched(data, base),
+    as_path_nodes: data.as_path_nodes?.length ? data.as_path_nodes : base?.as_path_nodes,
   }
 }
 
@@ -79,6 +80,7 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
           as_path?: QueryResult['as_path']
           as_path_prefix?: QueryResult['as_path_prefix']
           as_path_enriched?: QueryResult['as_path_enriched']
+          as_path_nodes?: QueryResult['as_path_nodes']
         }
         setResult(prev => {
           const base = prev?.id === queryId ? prev : null
@@ -94,6 +96,7 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
             as_path: data.as_path?.length ? data.as_path : (base?.as_path ?? []),
             as_path_prefix: data.as_path_prefix ?? base?.as_path_prefix,
             as_path_enriched: mergeAsPathEnriched(data, base),
+            as_path_nodes: data.as_path_nodes?.length ? data.as_path_nodes : base?.as_path_nodes,
           }
         })
       } catch { /* ignore parse errors */ }

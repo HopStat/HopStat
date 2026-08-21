@@ -220,3 +220,19 @@ func TestCleanupRemovesExpired(t *testing.T) {
 	}
 	s.Stop()
 }
+
+func TestMergeASPathPartialFieldsCarriesNodeMap(t *testing.T) {
+	dest := &domain.QueryResult{}
+	mergeASPathPartialFields(dest, &domain.QueryResult{
+		ASPathNodes: []domain.NodeASPath{{NodeID: 1, NodeName: "BURSA"}},
+	})
+	if len(dest.ASPathNodes) != 1 {
+		t.Fatalf("dest = %+v", dest.ASPathNodes)
+	}
+
+	// An empty partial must not wipe what is already there.
+	mergeASPathPartialFields(dest, &domain.QueryResult{})
+	if len(dest.ASPathNodes) != 1 {
+		t.Fatalf("node map cleared by empty partial: %+v", dest.ASPathNodes)
+	}
+}

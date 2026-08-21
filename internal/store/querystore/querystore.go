@@ -140,6 +140,9 @@ func mergeASPathPartialFields(dest, partial *domain.QueryResult) {
 	if len(partial.ASPathEnriched) > 0 {
 		dest.ASPathEnriched = partial.ASPathEnriched
 	}
+	if len(partial.ASPathNodes) > 0 {
+		dest.ASPathNodes = partial.ASPathNodes
+	}
 }
 
 func (s *Store) MarkOutputComplete(id string) {

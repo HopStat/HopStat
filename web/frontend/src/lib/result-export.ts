@@ -1,4 +1,4 @@
-import type { BGPResult, BGPRoute } from '@/types/domain'
+import type { BGPResult, BGPRoute, NodeASPath } from '@/types/domain'
 
 interface ResultTextInput {
   command: string
@@ -7,6 +7,7 @@ interface ResultTextInput {
   shareUrl?: string
   lines: string[]
   bgp?: BGPResult | null
+  nodePaths?: NodeASPath[] | null
 }
 
 function formatBgpRoute(route: BGPRoute): string {
@@ -24,7 +25,12 @@ function formatBgpRoute(route: BGPRoute): string {
 }
 
 /** Plain-text rendering of a finished query, suitable for pasting into a chat or ticket. */
-export function buildResultText({ command, target, nodeName, shareUrl, lines, bgp }: ResultTextInput): string {
+function formatNodePath(entry: NodeASPath): string {
+  const path = entry.no_route || !entry.as_path?.length ? 'no route' : entry.as_path.join(' ')
+  return [entry.node_name, entry.prefix || '-', path].join('  ')
+}
+
+export function buildResultText({ command, target, nodeName, shareUrl, lines, bgp, nodePaths }: ResultTextInput): string {
   let header = `$ ${command} ${target}`.trim()
   if (nodeName) header += `  @ ${nodeName}`
 
@@ -32,6 +38,9 @@ export function buildResultText({ command, target, nodeName, shareUrl, lines, bg
   const body = routes.length > 0 ? routes.map(formatBgpRoute) : lines
 
   const parts = [header, '', ...(body.length > 0 ? body : ['(no output)'])]
+  if (nodePaths?.length) {
+    parts.push('', 'nodes:', ...nodePaths.map(formatNodePath))
+  }
   if (shareUrl) parts.push('', shareUrl)
   return parts.join('\n')
 }

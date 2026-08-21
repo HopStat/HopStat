@@ -231,6 +231,7 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 			if opt.OnLine != nil && result.Raw != "" {
 				emitRawLines(result.Raw, opt.OnLine)
 			}
+			result.ASPathNodes = e.buildNodeASPathMap(ctx, query.Target)
 			e.applyBGPASPath(ctx, br, query.Target, result, opt)
 		}
 		return nil
@@ -339,6 +340,34 @@ func (e *QueryEngine) lookupBGPRoutes(ctx context.Context, drv driver.NodeDriver
 	return br, nil
 }
 
+// buildNodeASPathMap collects how every node with an established BGP session reaches the
+// target, so the frontend can draw one converging map instead of a single node's path.
+// Reads come from the shared in-process RIB, so this costs no network I/O.
+func (e *QueryEngine) buildNodeASPathMap(ctx context.Context, prefix string) []domain.NodeASPath {
+	if e.bgpMgr == nil || !e.bgpMgr.IsReady() || e.nodeRepo == nil {
+		return nil
+	}
+	nodes, err := e.nodeRepo.GetActive(ctx)
+	if err != nil {
+		return nil
+	}
+	mapNodes := bgpMapNodes(nodes, e.bgpMgr.HasActiveSession)
+	return e.bgpMgr.BuildNodeASPaths(ctx, mapNodes, prefix, e.localAS(), e.nodeNameForNeighborIP(ctx))
+}
+
+// bgpMapNodes keeps the nodes that currently hold a BGP session — the same set the UI
+// already labels bgp_active.
+func bgpMapNodes(nodes []*domain.Node, hasSession func(int64) bool) []bgp.MapNode {
+	mapNodes := make([]bgp.MapNode, 0, len(nodes))
+	for _, n := range nodes {
+		if n == nil || !hasSession(n.ID) {
+			continue
+		}
+		mapNodes = append(mapNodes, bgp.MapNode{ID: n.ID, Name: n.Name, Type: n.Type})
+	}
+	return mapNodes
+}
+
 func (e *QueryEngine) nodeName(ctx context.Context, nodeID int64) string {
 	if e.nodeRepo == nil || nodeID == 0 {
 		return ""
@@ -440,18 +469,22 @@ func (e *QueryEngine) ensureTargetASInResult(br *domain.BGPResult, result *domai
 }
 
 func (e *QueryEngine) emitASPathPartial(result *domain.QueryResult, opt ExecuteOption) {
-	if opt.OnPartial == nil || len(result.ASPath) == 0 {
+	if opt.OnPartial == nil || (len(result.ASPath) == 0 && len(result.ASPathNodes) == 0) {
 		return
 	}
 	opt.OnPartial(&domain.QueryResult{
 		ASPath:         append([]uint32(nil), result.ASPath...),
 		ASPathPrefix:   result.ASPathPrefix,
 		ASPathEnriched: append([]domain.ASInfo(nil), result.ASPathEnriched...),
+		ASPathNodes:    append([]domain.NodeASPath(nil), result.ASPathNodes...),
 	})
 }
 
 func (e *QueryEngine) enrichASPath(ctx context.Context, br *domain.BGPResult, result *domain.QueryResult, opt ExecuteOption) {
 	if br == nil || len(br.Routes) == 0 {
+		if len(result.ASPathNodes) > 0 {
+			e.emitASPathPartial(result, opt)
+		}
 		return
 	}
 	if len(result.ASPath) == 0 {
@@ -502,6 +535,11 @@ func collectBGPASPathASNs(result *domain.QueryResult, br *domain.BGPResult) []ui
 	if br != nil {
 		for i := range br.Routes {
 			add(br.Routes[i].ASPath)
+		}
+	}
+	if result != nil {
+		for i := range result.ASPathNodes {
+			add(result.ASPathNodes[i].ASPath)
 		}
 	}
 	return asns

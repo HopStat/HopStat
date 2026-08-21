@@ -61,4 +61,5 @@ type QueryResult struct {
 	ASPath         []uint32          `json:"as_path,omitempty"`
 	ASPathPrefix   string            `json:"as_path_prefix,omitempty"`
 	ASPathEnriched []ASInfo          `json:"as_path_enriched,omitempty"`
+	ASPathNodes    []NodeASPath      `json:"as_path_nodes,omitempty"`
 }

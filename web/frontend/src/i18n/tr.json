@@ -62,6 +62,8 @@
   "result.med": "MED",
   "result.origin": "Origin",
   "result.as_path": "AS Path",
+  "result.network_map": "Ağ haritası",
+  "result.no_route_from": "{{nodes}} üzerinden rota yok",
   "result.communities": "Topluluklar",
   "result.age": "Süre",
   "result.via_default_route": "Default route üzerinden",

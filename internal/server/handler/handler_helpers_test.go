@@ -146,6 +146,27 @@ func TestMergeASPathFields_AllBranches(t *testing.T) {
 	}
 }
 
+func TestMergeASPathFieldsKeepsNodeMap(t *testing.T) {
+	stored := &domain.QueryResult{
+		ASPathNodes: []domain.NodeASPath{{NodeID: 1, NodeName: "BURSA", ASPath: []uint32{9121}}},
+	}
+
+	dest := &domain.QueryResult{}
+	mergeASPathFields(dest, stored)
+	if len(dest.ASPathNodes) != 1 || dest.ASPathNodes[0].NodeName != "BURSA" {
+		t.Fatalf("dest = %+v", dest.ASPathNodes)
+	}
+
+	// A map already on dest wins — it is the fresher one.
+	dest = &domain.QueryResult{
+		ASPathNodes: []domain.NodeASPath{{NodeID: 2, NodeName: "SOFIA"}},
+	}
+	mergeASPathFields(dest, stored)
+	if dest.ASPathNodes[0].NodeName != "SOFIA" {
+		t.Fatalf("dest map overwritten: %+v", dest.ASPathNodes)
+	}
+}
+
 func TestSkipASPathWaitForBGP_NonBGPResult(t *testing.T) {
 	if skipASPathWaitForBGP("bgp_route", &domain.QueryResult{Parsed: &domain.PingResult{}}) {
 		t.Fatal("expected false for non-bgp parsed type")
