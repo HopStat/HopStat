@@ -22,8 +22,46 @@ func bestOf(entries []*domain.BGPRouteEntry) *domain.BGPRouteEntry {
 	return nil
 }
 
-// The case that exposed this: two equally preferred paths for 8.8.8.0/24 where the router
-// picks the older one, but the RIB returned the newer one first.
+// The live case: both paths were learned when our session came up, so they are the same
+// age and arrive over the same neighbour. Only the next hop separates them, and the router
+// picks the lower one.
+func TestEnsureBestAmongEntriesBreaksTiesOnNextHop(t *testing.T) {
+	entries := entriesFor("8.8.8.0/24",
+		&domain.BGPRouteEntry{
+			ASPath: "44901 15169", Origin: "IGP", LocalPref: "100", MED: "0",
+			NextHop: "172.16.16.65", NeighborIP: "10.0.0.1", AgeSeconds: 209,
+		},
+		&domain.BGPRouteEntry{
+			ASPath: "204457 15169", Origin: "IGP", LocalPref: "100", MED: "0",
+			NextHop: "10.183.1.25", NeighborIP: "10.0.0.1", AgeSeconds: 209,
+		},
+	)
+
+	ensureBestAmongEntries(entries)
+
+	best := bestOf(entries)
+	if best == nil || best.ASPath != "204457 15169" {
+		t.Fatalf("best = %+v, want the lower next hop", best)
+	}
+}
+
+func TestAddressKeyOrdersNumerically(t *testing.T) {
+	if addressKey("9.0.0.1") >= addressKey("10.0.0.1") {
+		t.Fatal("9.0.0.1 must sort below 10.0.0.1")
+	}
+	if addressKey("10.183.1.25") >= addressKey("172.16.16.65") {
+		t.Fatal("unexpected ordering for the reported addresses")
+	}
+	// Anything unparseable still compares consistently rather than panicking.
+	if addressKey("not-an-ip") != "not-an-ip" {
+		t.Fatal("unparseable addresses should pass through")
+	}
+	if addressKey("2001:db8::1") == addressKey("2001:db8::2") {
+		t.Fatal("IPv6 addresses must stay distinguishable")
+	}
+}
+
+// A genuinely older path still wins before addresses are consulted.
 func TestEnsureBestAmongEntriesPrefersTheEstablishedPath(t *testing.T) {
 	entries := entriesFor("8.8.8.0/24",
 		&domain.BGPRouteEntry{
@@ -100,6 +138,14 @@ func TestEnsureBestAmongEntriesFollowsTheDecisionProcess(t *testing.T) {
 				&domain.BGPRouteEntry{ASPath: "1 2", LocalPref: "100", Origin: "IGP", NeighborIP: "10.0.0.2"},
 			),
 			want: "1 2",
+		},
+		{
+			name: "the next hop is consulted before the neighbour",
+			entries: entriesFor("1.0.0.0/24",
+				&domain.BGPRouteEntry{ASPath: "1 2", LocalPref: "100", Origin: "IGP", NextHop: "10.0.0.9", NeighborIP: "10.0.0.1"},
+				&domain.BGPRouteEntry{ASPath: "3 4", LocalPref: "100", Origin: "IGP", NextHop: "10.0.0.2", NeighborIP: "10.0.0.8"},
+			),
+			want: "3 4",
 		},
 	}
 

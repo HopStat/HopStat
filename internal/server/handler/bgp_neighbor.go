@@ -14,6 +14,7 @@ import (
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/store/repo"
 )
 
@@ -373,5 +374,60 @@ func bgpNeighborAction(bgpMgr *bgp.SessionManager, action string, fn bgpNeighbor
 			"action": action,
 			"status": bgpMgr.GetStatus(id),
 		}})
+	}
+}
+
+// LookupBGPPaths exposes the raw paths behind a prefix, for diagnosing a disagreement
+// between what HopStat shows and what the router reports.
+func LookupBGPPaths(bgpMgr *bgp.SessionManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if bgpMgr == nil || !bgpMgr.IsReady() {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "bgp is not configured"})
+			return
+		}
+
+		prefix := strings.TrimSpace(c.Query("prefix"))
+		if prefix == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "prefix is required"})
+			return
+		}
+
+		var nodeID int64
+		if raw := strings.TrimSpace(c.Query("node_id")); raw != "" {
+			parsed, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil || parsed < 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node_id"})
+				return
+			}
+			nodeID = parsed
+		}
+
+		details, err := bgpMgr.LookupPathDetails(c.Request.Context(), nodeID, prefix, bgpPathNodeNamer(bgpMgr))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": details})
+	}
+}
+
+// bgpPathNodeNamer labels each path with the node whose session carried it, from the
+// in-memory node snapshot — names only, so no credential key is involved.
+func bgpPathNodeNamer(bgpMgr *bgp.SessionManager) func(string) string {
+	cache := map[int64]string{}
+	return func(neighborIP string) string {
+		nodeID, ok := bgpMgr.NodeIDForNeighborIP(neighborIP)
+		if !ok {
+			return ""
+		}
+		if name, ok := cache[nodeID]; ok {
+			return name
+		}
+		name := ""
+		if node, ok := sitecache.NodeByID(nodeID); ok {
+			name = node.Name
+		}
+		cache[nodeID] = name
+		return name
 	}
 }

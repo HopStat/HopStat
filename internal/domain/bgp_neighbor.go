@@ -59,6 +59,26 @@ type BGPSessionStatus struct {
 	Uptime           string          `json:"uptime"`
 }
 
+// BGPPathDetail is one path exactly as it reached us, for the admin lookup tool. It keeps
+// the fields the normal result drops — the ADD-PATH identifier and the full attribute set —
+// so a disagreement with the router can be diagnosed from what was actually advertised.
+type BGPPathDetail struct {
+	Prefix      string   `json:"prefix"`
+	NeighborIP  string   `json:"neighbor_ip"`
+	NodeName    string   `json:"node_name,omitempty"`
+	Identifier  uint32   `json:"identifier"`
+	SourceASN   uint32   `json:"source_asn"`
+	Best        bool     `json:"best"`
+	Age         string   `json:"age"`
+	NextHop     string   `json:"next_hop"`
+	ASPath      string   `json:"as_path"`
+	Origin      string   `json:"origin"`
+	LocalPref   string   `json:"local_pref"`
+	MED         string   `json:"med"`
+	Communities []string `json:"communities,omitempty"`
+	Attributes  []string `json:"attributes"`
+}
+
 type BGPRouteEntry struct {
 	Prefix     string `json:"prefix"`
 	NextHop    string `json:"next_hop"`

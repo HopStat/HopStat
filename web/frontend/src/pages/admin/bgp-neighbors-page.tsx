@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { QueryErrorAlert } from '@/components/results/query-error-alert'
 import { SystemAddressField } from '@/components/admin/system-address-field'
+import { BGPPathLookup } from '@/components/admin/bgp-path-lookup'
 import { api } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/contexts/i18n-context'
@@ -281,6 +282,8 @@ export function BGPNeighborsPage() {
       {bgpConfig?.add_path_receive !== false && (
         <p className="text-xs text-muted-foreground">{t('admin.bgp_add_path_hint')}</p>
       )}
+
+      <BGPPathLookup nodes={nodes} />
 
       <AdminPanel padded={false}>
         <div className="admin-table-wrap admin-table-wrap--wide">

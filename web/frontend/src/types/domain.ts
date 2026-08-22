@@ -177,6 +177,24 @@ export interface MyIPResult {
   asn_org?: string
 }
 
+/** One path exactly as it reached the speaker, for the admin lookup tool. */
+export interface BGPPathDetail {
+  prefix: string
+  neighbor_ip: string
+  node_name?: string
+  identifier: number
+  source_asn: number
+  best: boolean
+  age: string
+  next_hop: string
+  as_path: string
+  origin: string
+  local_pref: string
+  med: string
+  communities?: string[]
+  attributes: string[]
+}
+
 export interface BGPNeighbor {
   id: number
   node_id: number

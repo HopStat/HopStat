@@ -151,6 +151,7 @@ func (s *Server) setupRoutes() {
 		admin.POST("/bgp-neighbors/:id/stop", handler.StopBGPNeighbor(s.bgpMgr))
 		admin.POST("/bgp-neighbors/:id/restart", handler.RestartBGPNeighbor(s.bgpMgr))
 		admin.GET("/bgp-neighbors/:id/logs", handler.GetBGPNeighborLogs(s.bgpMgr))
+		admin.GET("/bgp/paths", handler.LookupBGPPaths(s.bgpMgr))
 
 		admin.GET("/settings", handler.GetAdminSettings(s.db))
 		admin.PUT("/settings", handler.UpdateSettings(s.db))

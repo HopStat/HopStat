@@ -1,6 +1,8 @@
 package bgp
 
 import (
+	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -15,7 +17,8 @@ type pathPreference struct {
 	origin    int
 	med       uint32
 	ageSec    int64
-	tieBreak  string
+	nextHop   string
+	neighbor  string
 }
 
 // defaultLocalPref is what a path without an explicit LOCAL_PREF is worth, matching the
@@ -43,10 +46,32 @@ func morePreferred(a, b pathPreference) bool {
 		return a.med < b.med
 	}
 	// An established path is preferred over a fresher one, so the choice does not flap.
+	// Note this is the age in our own table, which resets whenever the session does — it
+	// only separates paths learned at genuinely different times.
 	if a.ageSec != b.ageSec {
 		return a.ageSec > b.ageSec
 	}
-	return a.tieBreak < b.tieBreak
+	// Everything the protocol lets us compare is equal at this point. BGP carries no
+	// "this is my active path" signal — an ADD-PATH identifier is opaque per RFC 7911 —
+	// so the remaining order is chosen for determinism, not because the router follows it:
+	// the same query must not flip its answer between refreshes.
+	if a.nextHop != b.nextHop {
+		return a.nextHop < b.nextHop
+	}
+	return a.neighbor < b.neighbor
+}
+
+// addressKey makes IP addresses comparable in numeric order — "9.0.0.1" must sort below
+// "10.0.0.1", which a plain string comparison gets backwards.
+func addressKey(addr string) string {
+	ip := net.ParseIP(strings.TrimSpace(addr))
+	if ip == nil {
+		return strings.ToLower(strings.TrimSpace(addr))
+	}
+	if v4 := ip.To4(); v4 != nil {
+		return fmt.Sprintf("4:%03d.%03d.%03d.%03d", v4[0], v4[1], v4[2], v4[3])
+	}
+	return "6:" + ip.String()
 }
 
 func originRank(origin string) int {
@@ -77,7 +102,8 @@ func entryPreference(e *domain.BGPRouteEntry) pathPreference {
 		origin:    originRank(e.Origin),
 		med:       parseUintOr(e.MED, 0),
 		ageSec:    e.AgeSeconds,
-		tieBreak:  e.NeighborIP,
+		nextHop:   addressKey(e.NextHop),
+		neighbor:  addressKey(e.NeighborIP),
 	}
 }
 
@@ -92,6 +118,6 @@ func routePreference(r *domain.BGPRoute) pathPreference {
 		asPathLen: len(r.ASPath),
 		origin:    originRank(r.Origin),
 		med:       r.MED,
-		tieBreak:  r.NextHop,
+		nextHop:   addressKey(r.NextHop),
 	}
 }
