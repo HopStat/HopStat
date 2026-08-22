@@ -12,13 +12,15 @@ import (
 // pathPreference is the subset of a path the BGP decision process compares. Everything is
 // pre-extracted so the comparison itself is pure ordering, not parsing.
 type pathPreference struct {
-	localPref uint32
-	asPathLen int
-	origin    int
-	med       uint32
-	ageSec    int64
-	nextHop   string
-	neighbor  string
+	localPref  uint32
+	asPathLen  int
+	origin     int
+	med        uint32
+	reflected  bool
+	clusterLen int
+	ageSec     int64
+	nextHop    string
+	neighbor   string
 }
 
 // defaultLocalPref is what a path without an explicit LOCAL_PREF is worth, matching the
@@ -27,11 +29,11 @@ const defaultLocalPref = 100
 
 // morePreferred reports whether a wins the BGP decision process against b.
 //
-// The steps we can actually evaluate from a received path: local preference, AS path
-// length, origin, and MED. IGP metric and eBGP-over-iBGP need routing state we do not
-// have. The remaining steps — oldest path first, then a stable address comparison — are
-// what routers fall back on, and are what makes the choice deterministic instead of
-// dependent on the order the RIB happened to return.
+// Evaluated from what a received path actually carries: local preference, AS path length,
+// origin, MED, whether the advertiser learned it externally or by reflection, and cluster
+// list length. The IGP metric to the next hop is the one real step we can never see. What
+// follows that is chosen for determinism rather than fidelity — the same query must not
+// flip its answer between refreshes.
 func morePreferred(a, b pathPreference) bool {
 	if a.localPref != b.localPref {
 		return a.localPref > b.localPref
@@ -44,6 +46,17 @@ func morePreferred(a, b pathPreference) bool {
 	}
 	if a.med != b.med {
 		return a.med < b.med
+	}
+	// "Prefer eBGP over iBGP" as far as a receiver can see it: a path carrying an
+	// originator or a cluster list reached the advertiser through reflection, while one
+	// without either was learned directly from an external peer.
+	if a.reflected != b.reflected {
+		return !a.reflected
+	}
+	// RFC 4456: the shorter cluster list wins. Placed ahead of age because the age we hold
+	// is our own, and resets with the session.
+	if a.clusterLen != b.clusterLen {
+		return a.clusterLen < b.clusterLen
 	}
 	// An established path is preferred over a fresher one, so the choice does not flap.
 	// Note this is the age in our own table, which resets whenever the session does — it
@@ -97,13 +110,15 @@ func parseUintOr(raw string, fallback uint32) uint32 {
 
 func entryPreference(e *domain.BGPRouteEntry) pathPreference {
 	return pathPreference{
-		localPref: parseUintOr(e.LocalPref, defaultLocalPref),
-		asPathLen: len(parseASPath(e.ASPath)),
-		origin:    originRank(e.Origin),
-		med:       parseUintOr(e.MED, 0),
-		ageSec:    e.AgeSeconds,
-		nextHop:   addressKey(e.NextHop),
-		neighbor:  addressKey(e.NeighborIP),
+		localPref:  parseUintOr(e.LocalPref, defaultLocalPref),
+		asPathLen:  len(parseASPath(e.ASPath)),
+		origin:     originRank(e.Origin),
+		med:        parseUintOr(e.MED, 0),
+		reflected:  e.OriginatorID != "" || len(e.ClusterList) > 0,
+		clusterLen: len(e.ClusterList),
+		ageSec:     e.AgeSeconds,
+		nextHop:    addressKey(e.NextHop),
+		neighbor:   addressKey(e.NeighborIP),
 	}
 }
 

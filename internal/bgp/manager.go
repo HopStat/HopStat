@@ -741,6 +741,14 @@ func (m *SessionManager) pathToRouteEntry(path *api.Path, prefix string) *domain
 				entry.LocalPref = strconv.FormatUint(uint64(a.Value), 10)
 			case *bgp.PathAttributeMultiExitDisc:
 				entry.MED = strconv.FormatUint(uint64(a.Value), 10)
+			case *bgp.PathAttributeOriginatorId:
+				if a.Value != nil {
+					entry.OriginatorID = a.Value.String()
+				}
+			case *bgp.PathAttributeClusterList:
+				for _, id := range a.Value {
+					entry.ClusterList = append(entry.ClusterList, id.String())
+				}
 			case *bgp.PathAttributeCommunities:
 				for _, com := range a.Value {
 					entry.Communities = append(entry.Communities, communityToString(com))

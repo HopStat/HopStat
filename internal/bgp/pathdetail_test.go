@@ -141,3 +141,36 @@ func TestFamilyForPrefix(t *testing.T) {
 }
 
 var _ = domain.BGPPathDetail{}
+
+func TestPathToRouteEntryReadsReflectionAttributes(t *testing.T) {
+	mgr, ctx := mapTestManager(t, 9121)
+	old := lookupListPathHook
+	lookupListPathHook = func(_ context.Context, _ *api.ListPathRequest, fn func(*api.Destination)) error {
+		attrs := []bgp.PathAttributeInterface{
+			bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP),
+			bgp.NewPathAttributeNextHop("172.16.16.65"),
+			bgp.NewPathAttributeAsPath([]bgp.AsPathParamInterface{bgp.NewAs4PathParam(2, []uint32{44901, 15169})}),
+			bgp.NewPathAttributeOriginatorId("91.132.62.65"),
+			bgp.NewPathAttributeClusterList([]string{"172.16.16.66"}),
+		}
+		p, err := apiutil.NewPath(bgp.NewIPAddrPrefix(24, "8.8.8.0"), false, attrs, time.Now())
+		if err != nil {
+			t.Fatalf("NewPath: %v", err)
+		}
+		p.NeighborIp = "10.0.0.1"
+		fn(&api.Destination{Prefix: "8.8.8.0/24", Paths: []*api.Path{p}})
+		return nil
+	}
+	t.Cleanup(func() { lookupListPathHook = old })
+
+	entries, err := mgr.LookupRoute(ctx, 0, "8.8.8.0/24")
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("entries = %+v, err = %v", entries, err)
+	}
+	if entries[0].OriginatorID != "91.132.62.65" {
+		t.Fatalf("originator = %q", entries[0].OriginatorID)
+	}
+	if len(entries[0].ClusterList) != 1 || entries[0].ClusterList[0] != "172.16.16.66" {
+		t.Fatalf("cluster list = %v", entries[0].ClusterList)
+	}
+}

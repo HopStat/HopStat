@@ -211,3 +211,63 @@ func TestOriginRankCoversVendorSpellings(t *testing.T) {
 		t.Fatal("unexpected origin ranking")
 	}
 }
+
+// The live ESENYURT case, settled by the admin path lookup: one path was learned from an
+// external peer, the other reached the advertiser through a route reflector, and the
+// router selects the external one. Ages are the ones actually observed — the active path
+// was a minute old against five days — so this also pins the ordering: were age consulted
+// before reflection, the answer would flip.
+func TestEnsureBestAmongEntriesPrefersTheDirectlyLearnedPath(t *testing.T) {
+	entries := entriesFor("8.8.8.0/24",
+		&domain.BGPRouteEntry{
+			ASPath: "44901 15169", Origin: "IGP", LocalPref: "100",
+			NextHop: "172.16.16.65", NeighborIP: "172.16.16.15",
+			AgeSeconds: 5*24*3600 + 16*3600 + 38*60 + 49,
+			OriginatorID: "91.132.62.65", ClusterList: []string{"172.16.16.66"},
+		},
+		&domain.BGPRouteEntry{
+			ASPath: "204457 15169", Origin: "IGP", LocalPref: "100",
+			NextHop: "10.183.1.25", NeighborIP: "172.16.16.15", AgeSeconds: 79,
+		},
+	)
+
+	ensureBestAmongEntries(entries)
+
+	best := bestOf(entries)
+	if best == nil || best.ASPath != "204457 15169" {
+		t.Fatalf("best = %+v, want the path learned without reflection", best)
+	}
+}
+
+func TestEnsureBestAmongEntriesPrefersTheShorterClusterList(t *testing.T) {
+	entries := entriesFor("8.8.8.0/24",
+		&domain.BGPRouteEntry{
+			ASPath: "1 2", Origin: "IGP", LocalPref: "100", NextHop: "10.0.0.1",
+			OriginatorID: "10.9.9.9", ClusterList: []string{"10.0.0.100", "10.0.0.101"},
+		},
+		&domain.BGPRouteEntry{
+			ASPath: "3 4", Origin: "IGP", LocalPref: "100", NextHop: "10.0.0.2",
+			OriginatorID: "10.9.9.9", ClusterList: []string{"10.0.0.100"},
+		},
+	)
+
+	ensureBestAmongEntries(entries)
+
+	best := bestOf(entries)
+	if best == nil || best.ASPath != "3 4" {
+		t.Fatalf("best = %+v, want the shorter cluster list", best)
+	}
+}
+
+// Reflection is judged before the cluster list, and both before the local age.
+func TestReflectionOutranksAge(t *testing.T) {
+	direct := pathPreference{localPref: 100, asPathLen: 2, ageSec: 1}
+	reflected := pathPreference{localPref: 100, asPathLen: 2, reflected: true, clusterLen: 1, ageSec: 9999}
+
+	if !morePreferred(direct, reflected) {
+		t.Fatal("a directly learned path must win over an older reflected one")
+	}
+	if morePreferred(reflected, direct) {
+		t.Fatal("comparison must not be symmetric here")
+	}
+}

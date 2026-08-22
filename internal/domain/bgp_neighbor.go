@@ -91,5 +91,7 @@ type BGPRouteEntry struct {
 	Best       bool   `json:"best"`
 	Age          string   `json:"age"`
 	AgeSeconds   int64    `json:"age_seconds,omitempty"` // for best-path tie-breaking
+	OriginatorID string   `json:"originator_id,omitempty"`
+	ClusterList  []string `json:"cluster_list,omitempty"`
 	Communities  []string `json:"communities,omitempty"`
 }
