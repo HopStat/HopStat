@@ -8,6 +8,25 @@ function normalize(value: string): string {
   return value.trim().toLowerCase()
 }
 
+/**
+ * Collapses repeats of the same question. The node is deliberately not part of the key:
+ * asking the same thing from three nodes is one entry in the user's mind, and the most
+ * recent run is the one worth offering back.
+ */
+export function dedupeQueryHistory(entries: QueryHistoryRecord[], limit: number): QueryHistoryRecord[] {
+  const seen = new Set<string>()
+  const out: QueryHistoryRecord[] = []
+
+  for (const entry of entries) {
+    const key = `${normalize(entry.command)}|${normalize(entry.target)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(entry)
+    if (out.length === limit) break
+  }
+  return out
+}
+
 export function rankQueryHistory(
   entries: QueryHistoryRecord[],
   query: string,

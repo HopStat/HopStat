@@ -8,9 +8,11 @@ interface Props {
   lines: string[]
   isRunning?: boolean
   animateHops?: boolean
+  /** Full report to copy instead of the bare output lines. */
+  copyText?: () => string
 }
 
-export function OutputTerminal({ lines, isRunning, animateHops }: Props) {
+export function OutputTerminal({ lines, isRunning, animateHops, copyText }: Props) {
   const { t } = useI18n()
   const bodyRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
@@ -22,7 +24,7 @@ export function OutputTerminal({ lines, isRunning, animateHops }: Props) {
   }, [lines.length, isRunning])
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(lines.join('\n'))
+    await navigator.clipboard.writeText(copyText ? copyText() : lines.join('\n'))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

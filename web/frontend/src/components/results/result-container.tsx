@@ -147,6 +147,16 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
         }]
       : undefined
 
+  const copyResultText = () => buildResultText({
+    command: command ?? '',
+    target: historyContext?.target ?? '',
+    nodeName: historyContext?.nodeName,
+    shareUrl,
+    lines: displayLines,
+    bgp: command === 'bgp_route' ? bgpParsed : null,
+    nodePaths: command === 'bgp_route' ? result?.as_path_nodes : null,
+  })
+
   const shareContext = command && historyContext && shareUrl ? { command, shareUrl, ...historyContext } : null
   const shareSummary = shareContext
     ? [commandLabel(t, shareContext.command), shareContext.target, shareContext.nodeName]
@@ -160,15 +170,6 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
         <ResultShareBar
           summary={shareSummary}
           shareUrl={shareContext.shareUrl}
-          buildText={() => buildResultText({
-            command: shareContext.command,
-            target: shareContext.target,
-            nodeName: shareContext.nodeName,
-            shareUrl: shareContext.shareUrl,
-            lines: displayLines,
-            bgp: command === 'bgp_route' ? bgpParsed : null,
-            nodePaths: command === 'bgp_route' ? result?.as_path_nodes : null,
-          })}
         />
       )}
 
@@ -186,7 +187,7 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
       )}
 
       {showBgpRoutes && bgpParsed && (
-        <ResultBGP result={bgpParsed} enriched={enrichedForDisplay} />
+        <ResultBGP result={bgpParsed} enriched={enrichedForDisplay} copyText={copyResultText} />
       )}
 
       {showBgpRawMessage && bgpRawMessage && (
@@ -200,6 +201,7 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
           lines={displayLines}
           isRunning={terminalRunning}
           animateHops={command === 'traceroute'}
+          copyText={copyResultText}
         />
       )}
 

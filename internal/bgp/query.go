@@ -170,12 +170,19 @@ func ensureBestAmongEntries(entries []*domain.BGPRouteEntry) {
 			group[0].Best = true
 			continue
 		}
-		// Multiple paths for the same prefix: GoBGP's global Best flag may point at
-		// a different neighbor than the locally selected path shown with * in CLI.
-		for _, e := range group {
-			e.Best = false
+		// Multiple paths for the same prefix: GoBGP's global Best flag answers "best
+		// across every neighbor", which is not the question here — once the set is
+		// filtered to one node, the active path is whichever the decision process picks
+		// among that node's own paths.
+		best := 0
+		for i := 1; i < len(group); i++ {
+			if morePreferred(entryPreference(group[i]), entryPreference(group[best])) {
+				best = i
+			}
 		}
-		group[0].Best = true
+		for i, e := range group {
+			e.Best = i == best
+		}
 	}
 }
 
@@ -207,11 +214,18 @@ func EnsureBestAmongRoutes(routes []domain.BGPRoute) {
 		for _, i := range idxs {
 			routes[i].Best = false
 		}
+		// A vendor's own active-path marker beats anything we can reconstruct.
 		if marked >= 0 {
 			routes[marked].Best = true
 			continue
 		}
-		routes[idxs[0]].Best = true
+		best := idxs[0]
+		for _, i := range idxs[1:] {
+			if morePreferred(routePreference(&routes[i]), routePreference(&routes[best])) {
+				best = i
+			}
+		}
+		routes[best].Best = true
 	}
 }
 

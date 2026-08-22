@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ResultBGP } from './result-bgp'
 import type { ASInfo, BGPResult } from '@/types/domain'
@@ -179,5 +179,61 @@ describe('ResultBGP communities column alignment', () => {
     expect(prefixCell?.textContent).toBe(ipv6Prefix)
     expect(prefixCell?.className).toContain('whitespace-nowrap')
     expect(getComputedStyle(prefixCell!).maxWidth).toBe('none')
+  })
+})
+
+describe('ResultBGP copy control', () => {
+  const result: BGPResult = {
+    raw: '',
+    routes: [{
+      prefix: '8.8.8.0/24', next_hop: '10.0.0.1', as_path: [43260, 15169],
+      local_pref: 100, med: 0, origin: 'IGP', communities: [], status: '', protocol: '',
+      age: '1d', best: true,
+    }],
+  }
+
+  it('offers a copy control with the result', () => {
+    const { container } = render(<ResultBGP result={result} enriched={[]} copyText={() => 'report'} />)
+    expect(container.querySelector('.result-bgp-copyable__actions')).toBeTruthy()
+  })
+
+  it('acknowledges a click on the result the same way as the button', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.assign(navigator, { clipboard: { writeText } })
+
+    const { container } = render(<ResultBGP result={result} enriched={[]} copyText={() => 'report'} />)
+    const button = container.querySelector('.result-bgp-copyable__actions button') as HTMLElement
+    expect(button.textContent).toBe('result.copy_result')
+
+    fireEvent.click(container.querySelector('.result-table-frame') as HTMLElement)
+    await waitFor(() => expect(button.textContent).toBe('result.copied'))
+  })
+
+  it('copies when the result itself is clicked', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.assign(navigator, { clipboard: { writeText } })
+    const copyText = vi.fn(() => 'report')
+
+    const { container } = render(<ResultBGP result={result} enriched={[]} copyText={copyText} />)
+    fireEvent.click(container.querySelector('.result-table-frame') as HTMLElement)
+
+    expect(writeText).toHaveBeenCalledWith('report')
+  })
+
+  it('does not copy when the click ended a text selection', () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.assign(navigator, { clipboard: { writeText } })
+    vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => '8.8.8.0/24' } as Selection)
+
+    const { container } = render(<ResultBGP result={result} enriched={[]} copyText={() => 'report'} />)
+    fireEvent.click(container.querySelector('.result-table-frame') as HTMLElement)
+
+    expect(writeText).not.toHaveBeenCalled()
+    vi.restoreAllMocks()
+  })
+
+  it('stays inert without a copy source', () => {
+    const { container } = render(<ResultBGP result={result} enriched={[]} />)
+    expect(container.querySelector('.result-bgp-copyable__actions')).toBeNull()
   })
 })

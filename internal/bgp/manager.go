@@ -718,6 +718,7 @@ func (m *SessionManager) pathToRouteEntry(path *api.Path, prefix string) *domain
 		SourceASN:  path.SourceAsn,
 		Best:       path.Best,
 		Age:        time.Since(path.GetAge().AsTime()).Truncate(time.Second).String(),
+		AgeSeconds: int64(time.Since(path.GetAge().AsTime()).Seconds()),
 	}
 
 	attrs, err := apiutil.GetNativePathAttributes(path)

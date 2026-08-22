@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { QueryHistoryRecord } from '@/lib/query-history-db'
-import { highlightMatch, rankQueryHistory } from '@/lib/query-history-search'
+import { dedupeQueryHistory, highlightMatch, rankQueryHistory } from '@/lib/query-history-search'
 
 const entries: QueryHistoryRecord[] = [
   { key: '1', target: '8.8.8.8', command: 'ping', nodeId: 1, nodeName: 'Istanbul', usedAt: 3000 },
@@ -28,5 +28,35 @@ describe('highlightMatch', () => {
       match: '8.8',
       after: '.8.8',
     })
+  })
+})
+
+describe('dedupeQueryHistory', () => {
+  const entry = (key: string, command: string, target: string, nodeName: string, usedAt: number) =>
+    ({ key, command, target, nodeId: 1, nodeName, usedAt })
+
+  it('shows the same question once, keeping the most recent run', () => {
+    const out = dedupeQueryHistory([
+      entry('a', 'bgp_route', '8.8.8.8', 'BURSA', 30),
+      entry('b', 'bgp_route', '8.8.8.8', 'SOFIA', 20),
+      entry('c', 'bgp_route', '8.8.8.8', 'ESENYURT', 10),
+      entry('d', 'ping', '8.8.8.8', 'BURSA', 5),
+    ], 8)
+
+    expect(out.map(e => e.key)).toEqual(['a', 'd'])
+  })
+
+  it('treats casing and padding as the same question', () => {
+    const out = dedupeQueryHistory([
+      entry('a', 'bgp_route', 'Google.com', 'BURSA', 20),
+      entry('b', 'BGP_ROUTE', ' google.com ', 'SOFIA', 10),
+    ], 8)
+
+    expect(out).toHaveLength(1)
+  })
+
+  it('stops at the limit', () => {
+    const many = Array.from({ length: 20 }, (_, i) => entry(`k${i}`, 'ping', `10.0.0.${i}`, 'A', i))
+    expect(dedupeQueryHistory(many, 4)).toHaveLength(4)
   })
 })

@@ -19,6 +19,7 @@
   "query.home_title": "Edge noktasından hedefe giden yolu analiz edin.",
   "query.home_lead": "İstediğiniz hedefe Ping, Traceroute veya BGP sorgusu gönderin. Aşağıdan hızlı başlangıç seçin veya kendiniz girin.",
   "query.home_no_quick_queries": "Henüz hazır sorgu tanımlanmadı.",
+  "query.home_recent": "Son sorgular",
   "query.home_ping_hint": "Gecikme ve paket kaybı sorgusu",
   "query.home_traceroute_hint": "Hop-by-hop rota ve ASN detayları",
   "query.home_bgp_hint": "Rota kökeni ve AS Path sorgusu",

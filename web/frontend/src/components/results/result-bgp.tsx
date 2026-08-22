@@ -5,11 +5,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useI18n } from '@/contexts/i18n-context'
 import { RouteCommunities } from './community-badges'
 import { AsPathInline } from './as-path-inline'
+import { CopyResultButton } from './copy-result-button'
+import { isTextSelectionClick, useCopyFeedback } from '@/hooks/use-copy-feedback'
 import type { ASInfo, BGPRoute, BGPResult } from '@/types/domain'
 
 interface Props {
   result: BGPResult
   enriched: ASInfo[]
+  /** Text for the copy control in the table corner; omitted when there is nothing to copy. */
+  copyText?: () => string
 }
 
 
@@ -249,7 +253,8 @@ function buildBgpTableColumns(
   return columns
 }
 
-export function ResultBGP({ result, enriched }: Props) {
+export function ResultBGP({ result, enriched, copyText }: Props) {
+  const { copied, copy } = useCopyFeedback(copyText ?? (() => ''))
   const { t } = useI18n()
   const routes = useMemo(() => {
     const list = [...(result.routes ?? [])]
@@ -282,9 +287,16 @@ export function ResultBGP({ result, enriched }: Props) {
   const showMed = shouldShowRouteMetric(routes, 'med')
   const showMobileAsPath = routes.length > 1
 
+  // Clicking the result copies it, but not when the click was finishing a selection —
+  // people highlight prefixes and AS paths out of this table.
+  const copyOnClick = copyText ? () => { if (!isTextSelectionClick()) copy() } : undefined
+
   return (
-    <>
-      <div className="result-table-frame animate-fade-up md:hidden divide-y divide-border">
+    <div className="result-bgp-copyable">
+      <div
+        className="result-table-frame animate-fade-up md:hidden divide-y divide-border"
+        onClick={copyOnClick}
+      >
         {routes.map((route, i) => (
           <RouteMobileCard
             key={`${route.prefix}-${i}-mobile`}
@@ -298,7 +310,7 @@ export function ResultBGP({ result, enriched }: Props) {
         ))}
       </div>
 
-      <div className="result-table-frame hidden animate-fade-up md:block">
+      <div className="result-table-frame hidden animate-fade-up md:block" onClick={copyOnClick}>
         <Table className="result-bgp-table md:table" containerClassName="result-table-wrap">
           <colgroup>
             {tableColumns.map(column => (
@@ -327,6 +339,12 @@ export function ResultBGP({ result, enriched }: Props) {
           </TableBody>
         </Table>
       </div>
-    </>
+
+      {copyText && (
+        <div className="result-bgp-copyable__actions">
+          <CopyResultButton copied={copied} onCopy={copy} />
+        </div>
+      )}
+    </div>
   )
 }

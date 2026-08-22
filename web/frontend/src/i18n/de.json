@@ -19,6 +19,7 @@
   "query.home_title": "Analysieren Sie den Pfad vom Edge zum Ziel",
   "query.home_lead": "Ping, Traceroute oder BGP-Lookups gegen jedes Ziel ausführen. Schnellstart wählen oder eigenes Ziel eingeben.",
   "query.home_no_quick_queries": "Noch keine Schnellstart-Beispiele konfiguriert.",
+  "query.home_recent": "Letzte Abfragen",
   "query.home_ping_hint": "Latenz und Paketverlust",
   "query.home_traceroute_hint": "Hop-basierter Pfad mit ASN-Anreicherung",
   "query.home_bgp_hint": "Route Origin und AS Path Lookup",

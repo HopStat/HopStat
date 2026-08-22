@@ -19,6 +19,7 @@
   "query.home_title": "Probe the path from the edge",
   "query.home_lead": "Run ping, traceroute, or BGP lookups against any target. Pick a quick start below or type your own.",
   "query.home_no_quick_queries": "No quick start examples configured yet.",
+  "query.home_recent": "Recent queries",
   "query.home_ping_hint": "Latency and packet loss to a host",
   "query.home_traceroute_hint": "Hop-by-hop path and ASN enrichment",
   "query.home_bgp_hint": "Route origin and AS path lookup",

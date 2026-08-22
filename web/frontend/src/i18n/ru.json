@@ -19,6 +19,7 @@
   "query.home_title": "Анализируйте маршрут от edge до цели",
   "query.home_lead": "Запускайте Ping, Traceroute или BGP lookup к любой цели. Выберите быстрый старт или введите свою.",
   "query.home_no_quick_queries": "Быстрые примеры пока не настроены.",
+  "query.home_recent": "Недавние запросы",
   "query.home_ping_hint": "Задержка и потеря пакетов",
   "query.home_traceroute_hint": "Hop-by-hop путь с обогащением ASN",
   "query.home_bgp_hint": "Route origin и AS Path lookup",

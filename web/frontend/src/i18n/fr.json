@@ -19,6 +19,7 @@
   "query.home_title": "Analysez le chemin de l'edge vers la cible",
   "query.home_lead": "Lancez Ping, Traceroute ou BGP lookup sur n'importe quelle cible. Choisissez un démarrage rapide ou saisissez la vôtre.",
   "query.home_no_quick_queries": "Aucun exemple de démarrage rapide configuré.",
+  "query.home_recent": "Requêtes récentes",
   "query.home_ping_hint": "Latence et perte de paquets",
   "query.home_traceroute_hint": "Chemin hop par hop avec enrichissement ASN",
   "query.home_bgp_hint": "Route origin et AS Path lookup",

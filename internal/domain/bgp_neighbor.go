@@ -70,5 +70,6 @@ type BGPRouteEntry struct {
 	SourceASN  uint32 `json:"source_asn"`
 	Best       bool   `json:"best"`
 	Age          string   `json:"age"`
+	AgeSeconds   int64    `json:"age_seconds,omitempty"` // for best-path tie-breaking
 	Communities  []string `json:"communities,omitempty"`
 }

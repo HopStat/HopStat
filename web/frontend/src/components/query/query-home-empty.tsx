@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react'
 import { Activity, GitBranch, Route } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useI18n } from '@/contexts/i18n-context'
+import { listQueryHistory, type QueryHistoryRecord } from '@/lib/query-history-db'
+import { dedupeQueryHistory } from '@/lib/query-history-search'
 import type { QuickQuery } from '@/types/domain'
+
+/** Recent queries carry no description, so more of them fit than quick-start cards. */
+const RECENT_LIMIT = 8
 
 interface Props {
   onQuickStart: (command: string, target: string, nodeId?: number | null) => void
@@ -29,6 +34,7 @@ const commandLabelKeys: Record<string, string> = {
 export function QueryHomeEmpty({ onQuickStart }: Props) {
   const { t } = useI18n()
   const [items, setItems] = useState<QuickQuery[]>([])
+  const [recent, setRecent] = useState<QueryHistoryRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -39,7 +45,13 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading || items.length === 0) {
+  useEffect(() => {
+    listQueryHistory()
+      .then(entries => setRecent(dedupeQueryHistory(entries, RECENT_LIMIT)))
+      .catch(() => setRecent([]))
+  }, [])
+
+  if (loading || (items.length === 0 && recent.length === 0)) {
     return null
   }
 
@@ -51,6 +63,7 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
         <p className="query-home-empty__lead">{t('query.home_lead')}</p>
       </div>
 
+      {items.length > 0 && (
       <ul className="query-home-empty__grid">
         {items.map(item => {
           const Icon = iconByCommand[item.command] ?? Activity
@@ -81,6 +94,38 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
           )
         })}
       </ul>
+      )}
+
+      {recent.length > 0 && (
+        <>
+          <h3 className="query-home-empty__subtitle">{t('query.home_recent')}</h3>
+          <ul className="query-home-empty__grid query-home-empty__grid--dense">
+            {recent.map(entry => {
+              const Icon = iconByCommand[entry.command] ?? Activity
+              const titleKey = commandLabelKeys[entry.command]
+              return (
+                <li key={entry.key}>
+                  <button
+                    type="button"
+                    className="query-home-card query-home-card--compact"
+                    onClick={() => onQuickStart(entry.command, entry.target, entry.nodeId || null)}
+                  >
+                    <span className="query-home-card__icon" aria-hidden>
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <span className="query-home-card__body">
+                      <span className="query-home-card__target font-data">{entry.target}</span>
+                      <span className="query-home-card__desc">
+                        {[titleKey ? t(titleKey) : entry.command, entry.nodeName].filter(Boolean).join(' · ')}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </section>
   )
 }
