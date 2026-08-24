@@ -64,9 +64,17 @@ function colorClass(nodeId: number | null | undefined, order: Map<number, number
   return index === undefined ? '' : `nm-c${index % 8}`
 }
 
+/** What the pointer rests on: a whole node's traffic, or just one of its chains. Hovering
+ *  the node box shows everything the node holds; hovering a hop shows only the chain the
+ *  hop is actually part of, so a fallback hop does not light the live route beside it. */
+interface HoverTarget {
+  nodeId: number
+  scope: 'all' | 'live' | 'backup'
+}
+
 export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: Props) {
   const { t } = useI18n()
-  const [hoveredNode, setHoveredNode] = useState<number | null>(null)
+  const [hovered, setHovered] = useState<HoverTarget | null>(null)
   const [wrapRef, availableWidth] = useAvailableWidth()
   const compact = availableWidth > 0 && availableWidth < COMPACT_BELOW
   // A phone has height to spare and no width, so the diagram turns to run downwards.
@@ -92,20 +100,33 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
     ? Math.max(MIN_SCALE, Math.min(1, availableWidth / graph.width))
     : 1
   // Falls back to the queried node so its route reads as the active one at rest.
-  const activeNode = hoveredNode ?? queriedNodeId ?? null
-  const isActive = (nodeIds: number[]) => activeNode !== null && nodeIds.includes(activeNode)
+  const active: HoverTarget | null = hovered
+    ?? (queriedNodeId !== undefined ? { nodeId: queriedNodeId, scope: 'all' } : null)
+  const activeNode = active?.nodeId ?? null
+
+  const isActive = (el: { nodeIds: number[]; selectedFor: number[]; backupFor: number[]; kind?: string }) => {
+    if (!active || !el.nodeIds.includes(active.nodeId)) return false
+    // The node box anchors every chain it holds, so it lights whichever one is traced.
+    if (active.scope === 'all' || el.kind === 'node') return true
+    const carrier = active.scope === 'live' ? el.selectedFor : el.backupFor
+    return carrier.includes(active.nodeId)
+  }
 
   // A highlighted chain takes the hovered node's colour end to end, including the hops it
   // shares with other nodes — otherwise the traced line changes colour halfway.
-  const chainClass = (vertexNodeId: number | undefined, nodeIds: number[]) =>
-    isActive(nodeIds) ? colorClass(activeNode, nodeOrder) : colorClass(vertexNodeId, nodeOrder)
+  const chainClass = (el: Parameters<typeof isActive>[0], ownColor: number | undefined) =>
+    isActive(el) ? colorClass(activeNode, nodeOrder) : colorClass(ownColor, nodeOrder)
 
-  // Hovering a hop lights the route that runs through it. A shared hop keeps the route
-  // already in focus, so tracing a path hop by hop never jumps to a sibling's route;
-  // elsewhere the first node routing over the hop live wins, backups only as a last resort.
-  const routeThrough = (vertex: GraphVertex): number | null => {
-    if (activeNode !== null && vertex.nodeIds.includes(activeNode)) return activeNode
-    return vertex.selectedFor[0] ?? vertex.nodeIds[0] ?? null
+  // Hovering a hop lights the chain that runs through it — and only that chain: a hop
+  // carrying nothing but a node's fallback traces the fallback, not the live route beside
+  // it. A shared hop keeps the node already in focus, so tracing a path hop by hop never
+  // jumps to a sibling's route; elsewhere the first node routing over the hop live wins.
+  const hopTarget = (vertex: GraphVertex): HoverTarget | null => {
+    const nodeId = activeNode !== null && vertex.nodeIds.includes(activeNode)
+      ? activeNode
+      : vertex.selectedFor[0] ?? vertex.nodeIds[0]
+    if (nodeId === undefined) return null
+    return { nodeId, scope: vertex.selectedFor.includes(nodeId) ? 'live' : 'backup' }
   }
 
   return (
@@ -132,10 +153,10 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
                 d={edge.d}
                 className={[
                   'network-map__edge',
-                  chainClass(undefined, edge.nodeIds),
+                  chainClass(edge, undefined),
                   isBackupFor(edge, activeNode) ? 'is-alt' : '',
                   edge.viaDefaultRoute ? 'is-default' : '',
-                  isActive(edge.nodeIds) ? 'is-active' : '',
+                  isActive(edge) ? 'is-active' : '',
                 ].filter(Boolean).join(' ')}
               />
             ))}
@@ -150,10 +171,10 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
                 ? {
                     tabIndex: 0,
                     role: selectable ? 'button' : undefined,
-                    onMouseEnter: () => setHoveredNode(vertex.nodeId ?? null),
-                    onMouseLeave: () => setHoveredNode(null),
-                    onFocus: () => setHoveredNode(vertex.nodeId ?? null),
-                    onBlur: () => setHoveredNode(null),
+                    onMouseEnter: () => setHovered(vertex.nodeId === undefined ? null : { nodeId: vertex.nodeId, scope: 'all' }),
+                    onMouseLeave: () => setHovered(null),
+                    onFocus: () => setHovered(vertex.nodeId === undefined ? null : { nodeId: vertex.nodeId, scope: 'all' }),
+                    onBlur: () => setHovered(null),
                     onClick: run,
                     onKeyDown: (e: React.KeyboardEvent) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -163,8 +184,8 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
                     },
                   }
                 : {
-                    onMouseEnter: () => setHoveredNode(routeThrough(vertex)),
-                    onMouseLeave: () => setHoveredNode(null),
+                    onMouseEnter: () => setHovered(hopTarget(vertex)),
+                    onMouseLeave: () => setHovered(null),
                   }
               return (
               <g
@@ -174,8 +195,8 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
                   'network-map__vertex',
                   isNodeBox ? 'network-map__vertex--node' : '',
                   isNodeBox ? '' : isBackupFor(vertex, activeNode) ? 'is-alt' : '',
-                  chainClass(vertex.nodeId, vertex.nodeIds),
-                  isActive(vertex.nodeIds) ? 'is-active' : '',
+                  chainClass(vertex, vertex.nodeId),
+                  isActive(vertex) ? 'is-active' : '',
                 ].filter(Boolean).join(' ')}
                 {...trace}
               >

@@ -82,6 +82,30 @@ describe('NetworkMap', () => {
     active.forEach(edge => expect(edge.getAttribute('class')).not.toContain('nm-c1'))
   })
 
+  it('traces only the chain a hovered hop is part of, not everything its node holds', () => {
+    const { container } = renderMap({
+      entries: [
+        { node_id: 1, node_name: 'BURSA', as_path: [9121, 3356, 15169], best: true },
+        { node_id: 1, node_name: 'BURSA', as_path: [9121, 6939, 15169] },
+        { node_id: 2, node_name: 'SOFIA', as_path: [8866, 15169], best: true },
+      ],
+    })
+    const activeEdges = () => container.querySelectorAll('.network-map__edge.is-active')
+
+    // AS6939 carries only BURSA's fallback: the fallback chain lights (node → AS9121 →
+    // AS6939 → AS15169), the live route over AS3356 stays dark.
+    fireEvent.mouseEnter(screen.getByText('AS6939').closest('g') as SVGGElement)
+    expect(activeEdges()).toHaveLength(3)
+    expect(container.querySelectorAll('.network-map__edge.is-active.is-alt')).toHaveLength(2)
+
+    fireEvent.mouseLeave(screen.getByText('AS6939').closest('g') as SVGGElement)
+
+    // AS3356 carries only the live route: same three edges on the selected chain, no backup.
+    fireEvent.mouseEnter(screen.getByText('AS3356').closest('g') as SVGGElement)
+    expect(activeEdges()).toHaveLength(3)
+    expect(container.querySelectorAll('.network-map__edge.is-active.is-alt')).toHaveLength(0)
+  })
+
   it('prints the flag and AS name on the label instead of in a tooltip', () => {
     const { container } = renderMap({
       enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '🇺🇸' }],
