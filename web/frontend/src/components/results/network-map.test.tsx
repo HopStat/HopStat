@@ -106,6 +106,26 @@ describe('NetworkMap', () => {
     expect(container.querySelectorAll('.network-map__edge.is-active.is-alt')).toHaveLength(0)
   })
 
+  it('does not light a sibling fallback of the same node', () => {
+    // The lg.dgn.plus case: one node holding two distinct fallbacks. Hovering a hop on
+    // one of them must not light the other.
+    const { container } = renderMap({
+      entries: [
+        { node_id: 3, node_name: 'ESENYURT', as_path: [43260, 201178, 13335], best: true },
+        { node_id: 3, node_name: 'ESENYURT', as_path: [43260, 44901, 13335] },
+        { node_id: 3, node_name: 'ESENYURT', as_path: [43260, 204457, 15924, 13335] },
+      ],
+    })
+
+    fireEvent.mouseEnter(screen.getByText('AS15924').closest('g') as SVGGElement)
+    // Node → AS43260 → AS204457 → AS15924 → AS13335: four edges, nothing else.
+    expect(container.querySelectorAll('.network-map__edge.is-active')).toHaveLength(4)
+    const sibling = screen.getByText('AS44901').closest('g') as SVGGElement
+    expect(sibling.getAttribute('class')).not.toContain('is-active')
+    const live = screen.getByText('AS201178').closest('g') as SVGGElement
+    expect(live.getAttribute('class')).not.toContain('is-active')
+  })
+
   it('prints the flag and AS name on the label instead of in a tooltip', () => {
     const { container } = renderMap({
       enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '🇺🇸' }],

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/contexts/i18n-context'
-import { buildNetworkGraph, fitCaption, isBackupFor, SUB_ADVANCE, type GraphVertex } from '@/lib/network-graph'
+import { buildNetworkGraph, fitCaption, isBackupFor, isLivePath, pathNodePrefix, SUB_ADVANCE, type GraphVertex } from '@/lib/network-graph'
 import type { ASInfo, NodeASPath } from '@/types/domain'
 
 interface Props {
@@ -64,12 +64,13 @@ function colorClass(nodeId: number | null | undefined, order: Map<number, number
   return index === undefined ? '' : `nm-c${index % 8}`
 }
 
-/** What the pointer rests on: a whole node's traffic, or just one of its chains. Hovering
- *  the node box shows everything the node holds; hovering a hop shows only the chain the
- *  hop is actually part of, so a fallback hop does not light the live route beside it. */
+/** What the pointer rests on: a whole node's traffic, or specific chains of it. Hovering
+ *  the node box shows everything the node holds (paths null); hovering a hop shows only
+ *  the chains the hop is actually part of, so a fallback hop lights neither the live route
+ *  beside it nor the node's other fallbacks. */
 interface HoverTarget {
   nodeId: number
-  scope: 'all' | 'live' | 'backup'
+  paths: string[] | null
 }
 
 export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: Props) {
@@ -101,15 +102,14 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
     : 1
   // Falls back to the queried node so its route reads as the active one at rest.
   const active: HoverTarget | null = hovered
-    ?? (queriedNodeId !== undefined ? { nodeId: queriedNodeId, scope: 'all' } : null)
+    ?? (queriedNodeId !== undefined ? { nodeId: queriedNodeId, paths: null } : null)
   const activeNode = active?.nodeId ?? null
 
-  const isActive = (el: { nodeIds: number[]; selectedFor: number[]; backupFor: number[]; kind?: string }) => {
+  const isActive = (el: { nodeIds: number[]; paths: string[]; kind?: string }) => {
     if (!active || !el.nodeIds.includes(active.nodeId)) return false
     // The node box anchors every chain it holds, so it lights whichever one is traced.
-    if (active.scope === 'all' || el.kind === 'node') return true
-    const carrier = active.scope === 'live' ? el.selectedFor : el.backupFor
-    return carrier.includes(active.nodeId)
+    if (active.paths === null || el.kind === 'node') return true
+    return el.paths.some(chain => active.paths?.includes(chain))
   }
 
   // A highlighted chain takes the hovered node's colour end to end, including the hops it
@@ -117,16 +117,19 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
   const chainClass = (el: Parameters<typeof isActive>[0], ownColor: number | undefined) =>
     isActive(el) ? colorClass(activeNode, nodeOrder) : colorClass(ownColor, nodeOrder)
 
-  // Hovering a hop lights the chain that runs through it — and only that chain: a hop
-  // carrying nothing but a node's fallback traces the fallback, not the live route beside
-  // it. A shared hop keeps the node already in focus, so tracing a path hop by hop never
-  // jumps to a sibling's route; elsewhere the first node routing over the hop live wins.
+  // Hovering a hop lights the chains that actually run through it — a hop carrying one
+  // fallback traces that fallback alone, not the live route or the node's other fallbacks.
+  // A shared hop keeps the node already in focus, so tracing a path hop by hop never jumps
+  // to a sibling's route; elsewhere the first node routing over the hop live wins. When
+  // both a node's live route and a fallback cross the hop, the live one is shown.
   const hopTarget = (vertex: GraphVertex): HoverTarget | null => {
     const nodeId = activeNode !== null && vertex.nodeIds.includes(activeNode)
       ? activeNode
       : vertex.selectedFor[0] ?? vertex.nodeIds[0]
     if (nodeId === undefined) return null
-    return { nodeId, scope: vertex.selectedFor.includes(nodeId) ? 'live' : 'backup' }
+    const through = vertex.paths.filter(chain => chain.startsWith(pathNodePrefix(nodeId)))
+    const live = through.filter(isLivePath)
+    return { nodeId, paths: live.length > 0 ? live : through }
   }
 
   return (
@@ -171,9 +174,9 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
                 ? {
                     tabIndex: 0,
                     role: selectable ? 'button' : undefined,
-                    onMouseEnter: () => setHovered(vertex.nodeId === undefined ? null : { nodeId: vertex.nodeId, scope: 'all' }),
+                    onMouseEnter: () => setHovered(vertex.nodeId === undefined ? null : { nodeId: vertex.nodeId, paths: null }),
                     onMouseLeave: () => setHovered(null),
-                    onFocus: () => setHovered(vertex.nodeId === undefined ? null : { nodeId: vertex.nodeId, scope: 'all' }),
+                    onFocus: () => setHovered(vertex.nodeId === undefined ? null : { nodeId: vertex.nodeId, paths: null }),
                     onBlur: () => setHovered(null),
                     onClick: run,
                     onKeyDown: (e: React.KeyboardEvent) => {

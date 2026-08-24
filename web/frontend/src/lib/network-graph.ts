@@ -61,6 +61,9 @@ export interface GraphVertex {
    *  a backup. */
   selectedFor: number[]
   backupFor: number[]
+  /** The individual chains running through this vertex (see pathId): a node's fallbacks
+   *  are distinct chains, so one can be traced without lighting its siblings. */
+  paths: string[]
   viaDefaultRoute?: boolean
   prefix?: string
 }
@@ -74,6 +77,8 @@ export interface GraphEdge {
    *  Kept per node because one node's fallback is often another's live path. */
   selectedFor: number[]
   backupFor: number[]
+  /** The individual chains running over this edge (see pathId). */
+  paths: string[]
   viaDefaultRoute: boolean
   d: string
 }
@@ -139,6 +144,17 @@ function verticalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout, bl
 
 const nodeKey = (nodeId: number) => `n:${nodeId}`
 const asKey = (asn: number) => `as:${asn}`
+
+/** Names one chain of one node — its live route or one specific fallback — so hovering a
+ *  hop can light just the chain it lies on. The `|` keeps node 1 distinct from node 12. */
+export const pathId = (nodeId: number, live: boolean, index: number) =>
+  `${nodeId}|${live ? 'live' : `alt${index}`}`
+
+/** The pathId prefix selecting every chain of one node. */
+export const pathNodePrefix = (nodeId: number) => `${nodeId}|`
+
+/** True for the pathId of a live (selected) route. */
+export const isLivePath = (id: string) => id.endsWith('|live')
 
 /**
  * Collapses prepends and drops non-consecutive repeats (AS path poisoning), so each path
@@ -258,33 +274,39 @@ export function buildNetworkGraph(
   const edgeTargets = new Map<string, Set<string>>()
   const edges = new Map<string, GraphEdge>()
 
-  const addRole = (target: { selectedFor: number[]; backupFor: number[] }, nodeId: number, alternate: boolean) => {
+  const addRole = (
+    target: { selectedFor: number[]; backupFor: number[]; paths: string[] },
+    nodeId: number,
+    alternate: boolean,
+    path: string,
+  ) => {
     const list = alternate ? target.backupFor : target.selectedFor
     if (!list.includes(nodeId)) list.push(nodeId)
+    if (!target.paths.includes(path)) target.paths.push(path)
   }
 
-  const touchVertex = (key: string, seed: () => GraphVertex, nodeId: number, alternate = false) => {
+  const touchVertex = (key: string, seed: () => GraphVertex, nodeId: number, alternate: boolean, path: string) => {
     const existing = vertices.get(key)
     if (existing) {
       if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId)
-      addRole(existing, nodeId, alternate)
+      addRole(existing, nodeId, alternate, path)
       return existing
     }
     const created = seed()
-    addRole(created, nodeId, alternate)
+    addRole(created, nodeId, alternate, path)
     vertices.set(key, created)
     edgeTargets.set(key, new Set())
     return created
   }
 
-  const linkVertices = (from: string, to: string, nodeId: number, path: NodeASPath) => {
+  const linkVertices = (from: string, to: string, nodeId: number, path: NodeASPath, id: string) => {
     const alternate = !path.best
     const viaDefaultRoute = Boolean(path.via_default_route)
     const key = `${from}|${to}`
     const existing = edges.get(key)
     if (existing) {
       if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId)
-      addRole(existing, nodeId, alternate)
+      addRole(existing, nodeId, alternate, id)
       existing.viaDefaultRoute = existing.viaDefaultRoute && viaDefaultRoute
       return
     }
@@ -292,9 +314,9 @@ export function buildNetworkGraph(
     if (edgeTargets.get(to)?.has(from)) return
     edgeTargets.get(from)?.add(to)
     const edge: GraphEdge = {
-      key, from, to, nodeIds: [nodeId], selectedFor: [], backupFor: [], viaDefaultRoute, d: '',
+      key, from, to, nodeIds: [nodeId], selectedFor: [], backupFor: [], paths: [], viaDefaultRoute, d: '',
     }
-    addRole(edge, nodeId, alternate)
+    addRole(edge, nodeId, alternate, id)
     edges.set(key, edge)
   }
 
@@ -318,12 +340,14 @@ export function buildNetworkGraph(
       nodeIds: [id],
       selectedFor: [],
       backupFor: [],
+      paths: [],
       viaDefaultRoute: selected.entry.via_default_route,
       prefix: selected.entry.prefix,
-    }), id)
+    }), id, false, pathId(id, Boolean(selected.entry.best), group.paths.indexOf(selected)))
 
-    group.paths.forEach(({ entry, hops }) => {
+    group.paths.forEach(({ entry, hops }, index) => {
       const alternate = !entry.best
+      const chain = pathId(id, !alternate, index)
       hops.forEach(hop => {
         const info = byAsn.get(hop.asn)
         touchVertex(asKey(hop.asn), () => ({
@@ -342,12 +366,13 @@ export function buildNetworkGraph(
           nodeIds: [id],
           selectedFor: [],
           backupFor: [],
-        }), id, alternate)
+          paths: [],
+        }), id, alternate, chain)
       })
 
-      linkVertices(nodeKey(id), asKey(hops[0].asn), id, entry)
+      linkVertices(nodeKey(id), asKey(hops[0].asn), id, entry, chain)
       for (let i = 0; i < hops.length - 1; i++) {
-        linkVertices(asKey(hops[i].asn), asKey(hops[i + 1].asn), id, entry)
+        linkVertices(asKey(hops[i].asn), asKey(hops[i + 1].asn), id, entry, chain)
       }
     })
   })
