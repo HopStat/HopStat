@@ -100,6 +100,14 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
   const chainClass = (vertexNodeId: number | undefined, nodeIds: number[]) =>
     isActive(nodeIds) ? colorClass(activeNode, nodeOrder) : colorClass(vertexNodeId, nodeOrder)
 
+  // Hovering a hop lights the route that runs through it. A shared hop keeps the route
+  // already in focus, so tracing a path hop by hop never jumps to a sibling's route;
+  // elsewhere the first node routing over the hop live wins, backups only as a last resort.
+  const routeThrough = (vertex: GraphVertex): number | null => {
+    if (activeNode !== null && vertex.nodeIds.includes(activeNode)) return activeNode
+    return vertex.selectedFor[0] ?? vertex.nodeIds[0] ?? null
+  }
+
   return (
     <div className="result-surface result-surface--path network-map animate-fade-up px-3 py-3 sm:px-5 sm:py-4">
       <div className="result-surface--path__scroll network-map__canvas" ref={wrapRef}>
@@ -154,7 +162,10 @@ export function NetworkMap({ entries, enriched, queriedNodeId, onNodeSelect }: P
                       }
                     },
                   }
-                : {}
+                : {
+                    onMouseEnter: () => setHoveredNode(routeThrough(vertex)),
+                    onMouseLeave: () => setHoveredNode(null),
+                  }
               return (
               <g
                 key={vertex.key}

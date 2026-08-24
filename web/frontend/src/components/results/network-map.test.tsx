@@ -57,6 +57,31 @@ describe('NetworkMap', () => {
     expect(container.querySelectorAll('.network-map__edge.is-active')).toHaveLength(0)
   })
 
+  it('lights the route running through a hovered hop', () => {
+    const { container } = renderMap()
+    const hop = screen.getByText('AS6939').closest('g') as SVGGElement
+
+    // AS6939 sits only on SOFIA's path, so hovering it traces SOFIA end to end.
+    fireEvent.mouseEnter(hop)
+    const active = container.querySelectorAll('.network-map__edge.is-active')
+    expect(active.length).toBeGreaterThan(0)
+    active.forEach(edge => expect(edge.getAttribute('class')).toContain('nm-c1'))
+
+    fireEvent.mouseLeave(hop)
+    expect(container.querySelectorAll('.network-map__edge.is-active')).toHaveLength(0)
+  })
+
+  it('keeps the focused route when hovering a hop it shares', () => {
+    const { container } = renderMap({ queriedNodeId: 2 })
+
+    // AS15169 is shared by both nodes; with SOFIA in focus its route must not jump to BURSA.
+    fireEvent.mouseEnter(screen.getByText('AS15169').closest('g') as SVGGElement)
+    const active = container.querySelectorAll('.network-map__edge.is-active')
+    expect(active.length).toBeGreaterThan(0)
+    active.forEach(edge => expect(edge.getAttribute('class')).toContain('nm-c0'))
+    active.forEach(edge => expect(edge.getAttribute('class')).not.toContain('nm-c1'))
+  })
+
   it('prints the flag and AS name on the label instead of in a tooltip', () => {
     const { container } = renderMap({
       enriched: [{ asn: 15169, org_name: 'Google LLC', short_name: '', country_code: 'US', flag_emoji: '🇺🇸' }],
