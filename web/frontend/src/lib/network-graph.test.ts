@@ -352,3 +352,140 @@ describe('isBackupFor with a shared edge', () => {
     expect(isBackupFor(contested, null)).toBe(false)
   })
 })
+
+describe('isBackupFor outside the focused node', () => {
+  // The live shape behind "why is BELCLOUD on this map": three nodes reach the target
+  // directly, and only SOFIA also holds a fallback through AS44901.
+  const entries = [
+    { node_id: 1, node_name: 'ESENYURT', as_path: [43260, 201178], best: true },
+    { node_id: 2, node_name: 'BURSA', as_path: [43260, 201178], best: true },
+    { node_id: 3, node_name: 'SOFIA', as_path: [43260, 201178], best: true },
+    { node_id: 3, node_name: 'SOFIA', as_path: [43260, 44901, 201178] },
+  ]
+
+  it('marks a hop no node routes over live as a fallback, whoever is in focus', () => {
+    const graph = buildNetworkGraph(entries, [], { queriedNodeId: 1 })!
+    const intoBelcloud = graph.edges.find(e => e.from === 'as:43260' && e.to === 'as:44901')!
+    const belcloud = graph.vertices.find(v => v.asn === 44901)!
+
+    // Focused on ESENYURT, which never touches this hop.
+    expect(isBackupFor(intoBelcloud, 1)).toBe(true)
+    expect(isBackupFor(belcloud, 1)).toBe(true)
+    // And for the node that actually holds it as a fallback.
+    expect(isBackupFor(intoBelcloud, 3)).toBe(true)
+  })
+
+  it('still calls the shared live hop a live one', () => {
+    const graph = buildNetworkGraph(entries, [], { queriedNodeId: 1 })!
+    const shared = graph.edges.find(e => e.from === 'as:43260' && e.to === 'as:201178')!
+
+    expect(isBackupFor(shared, 1)).toBe(false)
+    expect(isBackupFor(shared, 3)).toBe(false)
+    expect(isBackupFor(shared, null)).toBe(false)
+  })
+})
+
+describe('edges that skip a column', () => {
+  it('runs straight when the row it crosses is clear', () => {
+    // The live shape: four nodes reach the target directly, so the fallback hop settles on
+    // its own row and the live edge has nothing to avoid.
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'ESENYURT', as_path: [43260, 201178], best: true },
+      { node_id: 2, node_name: 'BURSA', as_path: [43260, 201178], best: true },
+      { node_id: 3, node_name: 'LEVENT', as_path: [43260, 201178], best: true },
+      { node_id: 4, node_name: 'SOFIA', as_path: [43260, 201178], best: true },
+      { node_id: 4, node_name: 'SOFIA', as_path: [43260, 44901, 201178] },
+    ], [])!
+
+    const direct = graph.edges.find(e => e.from === 'as:43260' && e.to === 'as:201178')!
+    const from = graph.vertices.find(v => v.key === 'as:43260')!
+    const to = graph.vertices.find(v => v.key === 'as:201178')!
+    const belcloud = graph.vertices.find(v => v.asn === 44901)!
+
+    expect(to.col - from.col).toBeGreaterThan(1)
+    expect(belcloud.row).not.toBe(from.row)
+    expect(direct.d).toContain(' L ')
+  })
+
+  it('bows only around a box standing in its way', () => {
+    // Two nodes share the origin, and the middle hop lands on the same row as the edge
+    // that skips it.
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'A', as_path: [100, 300, 900], best: true },
+      { node_id: 2, node_name: 'B', as_path: [100, 900], best: true },
+    ], [])!
+
+    const skipping = graph.edges.find(e => e.from === 'as:100' && e.to === 'as:900')!
+    const middle = graph.vertices.find(v => v.asn === 300)!
+    const from = graph.vertices.find(v => v.asn === 100)!
+
+    if (middle.row === from.row) {
+      expect(skipping.d).toContain('C')
+      expect(skipping.d).not.toContain(' L ')
+    } else {
+      expect(skipping.d).toContain(' L ')
+    }
+  })
+})
+
+describe('hop placement', () => {
+  it('drops a hop only the last node uses down beside it', () => {
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'ESENYURT', as_path: [43260, 201178], best: true },
+      { node_id: 2, node_name: 'BURSA', as_path: [43260, 201178], best: true },
+      { node_id: 3, node_name: 'LEVENT', as_path: [43260, 201178], best: true },
+      { node_id: 4, node_name: 'SOFIA', as_path: [43260, 201178], best: true },
+      { node_id: 4, node_name: 'SOFIA', as_path: [43260, 44901, 201178] },
+    ], [], { queriedNodeId: 1 })!
+
+    const sofia = graph.vertices.find(v => v.nodeId === 4)!
+    const belcloud = graph.vertices.find(v => v.asn === 44901)!
+    const hub = graph.vertices.find(v => v.asn === 43260)!
+
+    // Only SOFIA reaches it, so it sits on SOFIA's row rather than at the top.
+    expect(belcloud.row).toBe(sofia.row)
+    // The hub every node crosses stays in the middle of the fan.
+    expect(hub.row).toBeGreaterThan(0)
+    expect(hub.row).toBeLessThan(sofia.row)
+  })
+
+  it('pushes a colliding hop to the next free row instead of overlapping', () => {
+    const graph = buildNetworkGraph([
+      { node_id: 1, node_name: 'A', as_path: [100, 999], best: true },
+      { node_id: 2, node_name: 'B', as_path: [200, 999], best: true },
+    ], [])!
+
+    const first = graph.vertices.find(v => v.asn === 100)!
+    const second = graph.vertices.find(v => v.asn === 200)!
+    expect(first.col).toBe(second.col)
+    expect(first.row).not.toBe(second.row)
+  })
+})
+
+describe('layout spacing', () => {
+  const entries = [
+    { node_id: 1, node_name: 'A', as_path: [43260, 201178], best: true },
+    { node_id: 2, node_name: 'B', as_path: [43260, 201178], best: true },
+    { node_id: 3, node_name: 'C', as_path: [43260, 201178], best: true },
+    { node_id: 4, node_name: 'D', as_path: [43260, 201178], best: true },
+  ]
+
+  it('centres a hop every node crosses on the middle of the fan', () => {
+    const graph = buildNetworkGraph(entries, [])!
+    const boxes = graph.vertices.filter(v => v.kind === 'node')
+    const hub = graph.vertices.find(v => v.asn === 43260)!
+
+    const middle = (Math.min(...boxes.map(v => v.y)) + Math.max(...boxes.map(v => v.y))) / 2
+    expect(hub.y).toBe(middle)
+  })
+
+  it('leaves room between the node column and the first hop', () => {
+    const graph = buildNetworkGraph(entries, [])!
+    const box = graph.vertices.find(v => v.kind === 'node')!
+    const hub = graph.vertices.find(v => v.asn === 43260)!
+
+    const gap = hub.x - (box.x + graph.layout.boxW)
+    expect(gap).toBe(graph.layout.colW - graph.layout.boxW + graph.layout.nodeGap)
+    expect(graph.layout.nodeGap).toBeGreaterThan(0)
+  })
+})

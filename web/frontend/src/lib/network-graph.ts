@@ -8,12 +8,14 @@ export interface Layout {
   boxW: number
   boxH: number
   pad: number
+  /** Extra room between the node column and the first hop, so the fan has space to open. */
+  nodeGap: number
 }
 
-export const WIDE_LAYOUT: Layout = { colW: 140, rowH: 60, boxW: 116, boxH: 36, pad: 18 }
+export const WIDE_LAYOUT: Layout = { colW: 140, rowH: 60, boxW: 116, boxH: 36, pad: 18, nodeGap: 28 }
 
 /** Narrow screens get tighter geometry so the diagram needs less shrinking to fit. */
-export const COMPACT_LAYOUT: Layout = { colW: 108, rowH: 48, boxW: 96, boxH: 30, pad: 10 }
+export const COMPACT_LAYOUT: Layout = { colW: 108, rowH: 48, boxW: 96, boxH: 30, pad: 10, nodeGap: 16 }
 
 /** Caption font size, and the advance width of IBM Plex Mono at that size. Knowing the
  *  advance lets captions be placed and trimmed without measuring rendered text. */
@@ -98,22 +100,39 @@ interface NodeGroup {
   paths: NormalizedEntry[]
 }
 
-/** Left-to-right connector: out of the right edge, into the left edge. */
-function horizontalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout): string {
+/**
+ * Left-to-right connector: out of the right edge, into the left edge. Bowed only when a box
+ * actually stands in the way — drawn straight through one, the edge would read as though
+ * the path went via that hop.
+ */
+function horizontalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout, blocked: boolean): string {
   const x1 = from.x + layout.boxW
   const x2 = to.x
-  if (from.y === to.y) return `M ${x1} ${from.y} L ${x2} ${to.y}`
+
+  if (from.y === to.y) {
+    if (!blocked) return `M ${x1} ${from.y} L ${x2} ${to.y}`
+    const bow = from.y - (layout.boxH / 2 + layout.rowH * 0.22)
+    return `M ${x1} ${from.y} C ${x1 + (x2 - x1) * 0.25} ${bow}, ${x2 - (x2 - x1) * 0.25} ${bow}, ${x2} ${to.y}`
+  }
+
   const dx = Math.max((x2 - x1) * 0.4, 12)
   return `M ${x1} ${from.y} C ${x1 + dx} ${from.y}, ${x2 - dx} ${to.y}, ${x2} ${to.y}`
 }
 
-/** Top-to-bottom connector: out of the bottom edge, into the top edge. */
-function verticalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout): string {
+/** Top-to-bottom connector: out of the bottom edge, into the top edge, bowed only around a
+ *  box that actually stands in the way. */
+function verticalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout, blocked: boolean): string {
   const cx1 = from.x + layout.boxW / 2
   const cx2 = to.x + layout.boxW / 2
   const y1 = from.y + layout.boxH / 2
   const y2 = to.y - layout.boxH / 2
-  if (cx1 === cx2) return `M ${cx1} ${y1} L ${cx2} ${y2}`
+
+  if (cx1 === cx2) {
+    if (!blocked) return `M ${cx1} ${y1} L ${cx2} ${y2}`
+    const bow = cx1 - (layout.boxW / 2 + layout.colW * 0.16)
+    return `M ${cx1} ${y1} C ${bow} ${y1 + (y2 - y1) * 0.25}, ${bow} ${y2 - (y2 - y1) * 0.25}, ${cx2} ${y2}`
+  }
+
   const dy = Math.max((y2 - y1) * 0.4, 12)
   return `M ${cx1} ${y1} C ${cx1} ${y1 + dy}, ${cx2} ${y2 - dy}, ${cx2} ${y2}`
 }
@@ -184,16 +203,19 @@ function layerVertices(keys: string[], edges: Map<string, Set<string>>): Map<str
   return layer
 }
 
-/** True when the element carries only a fallback route for the node currently in focus. */
+/** True when the element carries only a fallback route rather than a live one. */
 export function isBackupFor(
   element: { selectedFor: number[]; backupFor: number[] },
   nodeId: number | null,
 ): boolean {
-  if (nodeId === null) {
-    // Nothing in focus: only call it a backup when no node routes over it live.
-    return element.selectedFor.length === 0 && element.backupFor.length > 0
+  // On the focused node's own path the question is per node: one node's fallback is
+  // often another's live route.
+  if (nodeId !== null && (element.selectedFor.includes(nodeId) || element.backupFor.includes(nodeId))) {
+    return !element.selectedFor.includes(nodeId)
   }
-  return element.backupFor.includes(nodeId) && !element.selectedFor.includes(nodeId)
+  // Elsewhere on the map, judge it on its own merits — a hop no node routes over live is
+  // a fallback no matter which node happens to be in focus.
+  return element.selectedFor.length === 0 && element.backupFor.length > 0
 }
 
 export function buildNetworkGraph(
@@ -362,7 +384,15 @@ export function buildNetworkGraph(
         return rows.reduce((sum, row) => sum + row, 0) / (rows.length || 1)
       }
       list.sort((a, b) => barycenter(a) - barycenter(b) || (a.asn ?? 0) - (b.asn ?? 0))
-      list.forEach((vertex, index) => { vertex.row = index })
+      // Sit each hop level with the nodes that use it rather than packing from the top:
+      // a hop every node crosses lands centred on the fan, one only the last node reaches
+      // belongs down beside it. Rows are fractional for that reason; collisions push down
+      // to the next clear row, which keeps the sorted order.
+      let nextFree = 0
+      list.forEach(vertex => {
+        vertex.row = Math.max(barycenter(vertex), nextFree)
+        nextFree = vertex.row + 1
+      })
     }
     list.forEach(vertex => { maxRow = Math.max(maxRow, vertex.row) })
   }
@@ -372,20 +402,36 @@ export function buildNetworkGraph(
   // Vertical mode swaps the axes: paths run top to bottom and siblings spread sideways,
   // which is the shape a phone screen actually has room for.
   for (const vertex of vertices.values()) {
+    const depthGap = vertex.col > 0 ? layout.nodeGap : 0
     if (vertical) {
       vertex.x = layout.pad + vertex.row * layout.colW
-      vertex.y = layout.pad + vertex.col * layout.rowH + layout.boxH / 2
+      vertex.y = layout.pad + vertex.col * layout.rowH + depthGap + layout.boxH / 2
     } else {
-      vertex.x = layout.pad + vertex.col * layout.colW
+      vertex.x = layout.pad + vertex.col * layout.colW + depthGap
       vertex.y = layout.pad + vertex.row * layout.rowH + layout.boxH / 2
     }
+  }
+
+  // Which grid cells hold a box, so an edge can tell whether anything is in its way.
+  const occupied = new Set<string>()
+  for (const vertex of vertices.values()) {
+    occupied.add(`${vertex.col}:${vertex.row}`)
+  }
+  const blockedBetween = (from: GraphVertex, to: GraphVertex) => {
+    for (let col = from.col + 1; col < to.col; col++) {
+      if (occupied.has(`${col}:${from.row}`)) return true
+    }
+    return false
   }
 
   for (const edge of edges.values()) {
     const from = vertices.get(edge.from)
     const to = vertices.get(edge.to)
     if (!from || !to) continue
-    edge.d = vertical ? verticalEdgePath(from, to, layout) : horizontalEdgePath(from, to, layout)
+    const blocked = from.row === to.row && blockedBetween(from, to)
+    edge.d = vertical
+      ? verticalEdgePath(from, to, layout, blocked)
+      : horizontalEdgePath(from, to, layout, blocked)
   }
 
   return {
@@ -395,9 +441,9 @@ export function buildNetworkGraph(
     vertical,
     width: vertical
       ? layout.pad * 2 + maxRow * layout.colW + layout.boxW
-      : layout.pad * 2 + maxCol * layout.colW + layout.boxW,
+      : layout.pad * 2 + maxCol * layout.colW + layout.nodeGap + layout.boxW,
     height: vertical
-      ? layout.pad * 2 + maxCol * layout.rowH + layout.boxH
+      ? layout.pad * 2 + maxCol * layout.rowH + layout.nodeGap + layout.boxH
       : layout.pad * 2 + (maxRow + 1) * layout.rowH,
   }
 }
