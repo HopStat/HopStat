@@ -129,8 +129,8 @@ func TestBuildPeerConfigPeerTypes(t *testing.T) {
 func TestBuildPeerConfigEnablesAddPathReceive(t *testing.T) {
 	mgr := NewSessionManager(config.BGPConfig{LocalAS: 65000, AddPathReceive: true})
 	peer := mgr.buildPeerConfig(&domain.BGPNeighbor{RemoteAS: 174}, "10.0.0.1", "10.0.0.2")
-	if len(peer.AfiSafis) != 2 {
-		t.Fatalf("afi-safis = %d, want 2", len(peer.AfiSafis))
+	if len(peer.AfiSafis) != 1 {
+		t.Fatalf("afi-safis = %d, want 1", len(peer.AfiSafis))
 	}
 	v4 := peer.AfiSafis[0]
 	if !v4.Config.Enabled {
@@ -139,14 +139,43 @@ func TestBuildPeerConfigEnablesAddPathReceive(t *testing.T) {
 	if v4.AddPaths == nil || v4.AddPaths.Config == nil || !v4.AddPaths.Config.Receive {
 		t.Fatal("expected add-path receive on enabled ipv4 unicast")
 	}
-	v6 := peer.AfiSafis[1]
-	if v6.Config.Enabled {
-		t.Fatal("expected ipv6 unicast disabled for ipv4 peer")
-	}
 
 	mgrDisabled := NewSessionManager(config.BGPConfig{LocalAS: 65000, AddPathReceive: false})
 	peerDisabled := mgrDisabled.buildPeerConfig(&domain.BGPNeighbor{RemoteAS: 174}, "10.0.0.1", "10.0.0.2")
 	if peerDisabled.AfiSafis[0].AddPaths != nil {
 		t.Fatal("expected add-path disabled when config is false")
+	}
+}
+
+// A session must announce exactly the family it carries: GoBGP advertises a multiprotocol
+// capability for every afi-safi handed to it, so a spare entry would make an IPv4-only
+// session claim IPv6 and draw an NLRI mismatch from the router.
+func TestBuildPeerConfigAnnouncesOnlyItsOwnFamily(t *testing.T) {
+	mgr := NewSessionManager(config.BGPConfig{LocalAS: 65000})
+
+	for _, tc := range []struct {
+		name     string
+		neighbor string
+		want     api.Family_Afi
+	}{
+		{"ipv4", "10.0.0.2", api.Family_AFI_IP},
+		{"ipv6", "2001:db8::2", api.Family_AFI_IP6},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			peer := mgr.buildPeerConfig(&domain.BGPNeighbor{RemoteAS: 174}, "", tc.neighbor)
+			if len(peer.AfiSafis) != 1 {
+				t.Fatalf("afi-safis = %d, want 1", len(peer.AfiSafis))
+			}
+			af := peer.AfiSafis[0].Config
+			if af.Family.Afi != tc.want {
+				t.Fatalf("afi = %v, want %v", af.Family.Afi, tc.want)
+			}
+			if af.Family.Safi != api.Family_SAFI_UNICAST {
+				t.Fatalf("safi = %v, want UNICAST", af.Family.Safi)
+			}
+			if !af.Enabled {
+				t.Fatal("expected the announced family to be enabled")
+			}
+		})
 	}
 }

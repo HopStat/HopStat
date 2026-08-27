@@ -1552,6 +1552,8 @@
     stroke-width: 1.75;
     stroke-linecap: round;
     transition: stroke 0.12s ease, stroke-width 0.12s ease;
+    /* Only boxes answer the pointer; a line never selects anything. */
+    pointer-events: none;
   }
 
   /* Backup paths are dashed; a default-route hop is dotted so the two stay distinct. */
@@ -1594,10 +1596,12 @@
   }
 
   /* A hop only a backup route passes through is outlined the same way its edges are
-     drawn, so the live route stands out from the fallback at a glance. */
+     drawn, so the live route stands out from the fallback at a glance. The fill stays
+     opaque: a see-through box lets cables show through it, and pointing at such a cable
+     reads as hovering the cable when it is really hovering the box. */
   .network-map__vertex.is-alt .network-map__box {
     stroke-dasharray: 5 4;
-    fill: transparent;
+    fill: var(--nm-box);
   }
 
   .network-map__vertex.is-alt .network-map__label {
@@ -1627,7 +1631,8 @@
   .nm-c1 { --nm-active: hsl(160 62% 34%); }
   .nm-c2 { --nm-active: hsl(28 82% 46%); }
   .nm-c3 { --nm-active: hsl(280 52% 52%); }
-  .nm-c4 { --nm-active: hsl(348 68% 50%); }
+  /* Deliberately no red slot: on a network map red reads as an outage, not an identity. */
+  .nm-c4 { --nm-active: hsl(322 55% 46%); }
   .nm-c5 { --nm-active: hsl(190 68% 38%); }
   .nm-c6 { --nm-active: hsl(96 48% 36%); }
   .nm-c7 { --nm-active: hsl(255 58% 58%); }
@@ -1636,7 +1641,7 @@
   .dark .nm-c1 { --nm-active: hsl(160 62% 56%); }
   .dark .nm-c2 { --nm-active: hsl(28 88% 62%); }
   .dark .nm-c3 { --nm-active: hsl(280 62% 72%); }
-  .dark .nm-c4 { --nm-active: hsl(348 78% 68%); }
+  .dark .nm-c4 { --nm-active: hsl(322 62% 70%); }
   .dark .nm-c5 { --nm-active: hsl(190 72% 58%); }
   .dark .nm-c6 { --nm-active: hsl(96 52% 56%); }
   .dark .nm-c7 { --nm-active: hsl(255 72% 74%); }

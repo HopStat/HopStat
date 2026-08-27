@@ -584,11 +584,15 @@ func (m *SessionManager) configuredLocalAS() uint32 {
 }
 
 func (m *SessionManager) buildPeerConfig(n *domain.BGPNeighbor, localAddr, neighborAddr string) *api.Peer {
-	isV6 := strings.Contains(neighborAddr, ":")
-	afiSafis := []*api.AfiSafi{
-		m.buildAfiSafi(api.Family_AFI_IP, api.Family_SAFI_UNICAST, !isV6),
-		m.buildAfiSafi(api.Family_AFI_IP6, api.Family_SAFI_UNICAST, isV6),
+	afi := api.Family_AFI_IP
+	if strings.Contains(neighborAddr, ":") {
+		afi = api.Family_AFI_IP6
 	}
+	// Only the family this session actually carries. Listing the other one as disabled
+	// does not work: on the gRPC path GoBGP overwrites Enabled to true and then
+	// advertises a multiprotocol capability for every entry, so the peer would announce
+	// IPv6 on an IPv4-only session and the router logs an NLRI mismatch against it.
+	afiSafis := []*api.AfiSafi{m.buildAfiSafi(afi, api.Family_SAFI_UNICAST)}
 
 	peer := &api.Peer{
 		Conf: &api.PeerConf{
@@ -628,14 +632,14 @@ func peerTypeFromNeighbor(n *domain.BGPNeighbor, localAS uint32) api.PeerType {
 	return api.PeerType_EXTERNAL
 }
 
-func (m *SessionManager) buildAfiSafi(afi api.Family_Afi, safi api.Family_Safi, enabled bool) *api.AfiSafi {
+func (m *SessionManager) buildAfiSafi(afi api.Family_Afi, safi api.Family_Safi) *api.AfiSafi {
 	af := &api.AfiSafi{
 		Config: &api.AfiSafiConfig{
 			Family:  &api.Family{Afi: afi, Safi: safi},
-			Enabled: enabled,
+			Enabled: true,
 		},
 	}
-	if enabled && m.cfg.AddPathReceive {
+	if m.cfg.AddPathReceive {
 		af.AddPaths = &api.AddPaths{
 			Config: &api.AddPathsConfig{
 				Receive: true,
