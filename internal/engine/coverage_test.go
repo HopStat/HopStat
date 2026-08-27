@@ -404,6 +404,49 @@ func TestEnsureTargetASInResult(t *testing.T) {
 	e.ensureTargetASInResult(br, result, ExecuteOption{})
 }
 
+// Both helpers are handed whatever the lookup produced, and an LG node with nothing to
+// report yields no result at all. Neither may panic on it, and neither may invent a path.
+func TestASPathHelpersTolerateAnEmptyLookup(t *testing.T) {
+	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, nil, nil, nil, 0)
+
+	t.Run("apply with no routes at all", func(t *testing.T) {
+		result := &domain.QueryResult{}
+		partials := 0
+		e.applyBGPASPath(context.Background(), nil, "1.1.1.1", result, ExecuteOption{
+			OnPartial: func(*domain.QueryResult) { partials++ },
+		})
+		if result.ASPath != nil || result.ASPathPrefix != "" {
+			t.Fatalf("expected nothing recorded, got path %v prefix %q", result.ASPath, result.ASPathPrefix)
+		}
+		if partials != 0 {
+			t.Fatalf("partials = %d, want none", partials)
+		}
+	})
+
+	for _, tc := range []struct {
+		name string
+		br   *domain.BGPResult
+	}{
+		{"no result", nil},
+		{"no target AS", &domain.BGPResult{}},
+		{"target AS without a number", &domain.BGPResult{TargetAS: &domain.ASInfo{}}},
+	} {
+		t.Run("ensure with "+tc.name, func(t *testing.T) {
+			result := &domain.QueryResult{}
+			partials := 0
+			e.ensureTargetASInResult(tc.br, result, ExecuteOption{
+				OnPartial: func(*domain.QueryResult) { partials++ },
+			})
+			if len(result.ASPathEnriched) != 0 {
+				t.Fatalf("enriched = %v, want nothing", result.ASPathEnriched)
+			}
+			if partials != 0 {
+				t.Fatalf("partials = %d, want none", partials)
+			}
+		})
+	}
+}
+
 func TestEnrichASPathEmptyPath(t *testing.T) {
 	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, testGeoDB(t), nil, nil, 0)
 	br := &domain.BGPResult{Routes: []domain.BGPRoute{{Prefix: "1.1.1.0/24", ASPath: []uint32{15169}, Best: true}}}

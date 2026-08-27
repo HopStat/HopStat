@@ -14,8 +14,7 @@ test:
 test-cover:
 	go test $(shell go list ./... | grep -v node_modules) -coverprofile=coverage.out -covermode=atomic -coverpkg=./internal/...
 	go tool cover -func=coverage.out | tail -1
-	@pct=$$(go tool cover -func=coverage.out | tail -1 | sed -E 's/.*[^0-9]([0-9]+\.[0-9]+)%/\1/'); \
-	awk -v p="$$pct" 'BEGIN { if (p+0 < 100) { printf "coverage %.1f%% below 100%% threshold\n", p; exit 1 } }'
+	@./scripts/coverage-gate.sh coverage.out
 
 test-race:
 	go test -race ./...
