@@ -73,7 +73,10 @@ func TestUpdateNeighborAfterServerStop(t *testing.T) {
 		t.Fatalf("AddNeighbor: %v", err)
 	}
 	mgr.Stop()
-	if err := mgr.UpdateNeighbor(neighbor); err == nil {
+	// A change the router would see needs the server; with it stopped the rebuild fails.
+	// (A metadata-only save is answered from memory and needs nothing.)
+	moved := testNeighbor(62, 1, "10.0.0.63")
+	if err := mgr.UpdateNeighbor(moved); err == nil {
 		t.Fatal("expected AddNeighbor failure after server stop")
 	}
 }

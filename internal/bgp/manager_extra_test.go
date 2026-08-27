@@ -264,6 +264,123 @@ func TestRemoveUpdateNeighbor(t *testing.T) {
 	_ = ctx
 }
 
+// Saving a neighbour from the admin panel must not cost an established session unless the
+// session itself is being changed — otherwise renaming a node drops the peering.
+func TestUpdateNeighborKeepsSessionWhenOnlyMetadataChanges(t *testing.T) {
+	mgr, _ := startTestManager(t, config.BGPConfig{LocalAS: 65000, RouterID: "127.0.0.1"})
+	neighbor := testNeighbor(20, 2, "10.0.0.20")
+	if err := mgr.AddNeighbor(neighbor); err != nil {
+		t.Fatalf("AddNeighbor: %v", err)
+	}
+
+	deleted := 0
+	old := deletePeerHook
+	deletePeerHook = func(_ context.Context, _ *api.DeletePeerRequest) error {
+		deleted++
+		return nil
+	}
+	defer func() { deletePeerHook = old }()
+
+	// The everyday save: same session, same node, one corrected field.
+	corrected := testNeighbor(20, 2, "10.0.0.20")
+	corrected.DefaultRouteAS = 3356
+	if err := mgr.UpdateNeighbor(corrected); err != nil {
+		t.Fatalf("UpdateNeighbor: %v", err)
+	}
+	entry, err := mgr.neighborEntry(20)
+	if err != nil {
+		t.Fatalf("neighbor should still exist: %v", err)
+	}
+	if entry.neighbor.DefaultRouteAS != 3356 {
+		t.Fatalf("default route AS = %d, want the updated 3356", entry.neighbor.DefaultRouteAS)
+	}
+	if entry.neighborIP != "10.0.0.20" {
+		t.Fatalf("neighbor ip = %q, want it preserved", entry.neighborIP)
+	}
+	if !mgr.HasNeighbors(2) {
+		t.Fatal("expected the neighbour to stay filed under its node")
+	}
+
+	// Moving it to another node is still no reason to drop the peering.
+	moved := testNeighbor(20, 7, "10.0.0.20")
+	if err := mgr.UpdateNeighbor(moved); err != nil {
+		t.Fatalf("UpdateNeighbor after node move: %v", err)
+	}
+	if !mgr.HasNeighbors(7) {
+		t.Fatal("expected the neighbour to be filed under its new node")
+	}
+	if mgr.HasNeighbors(2) {
+		t.Fatal("expected the neighbour to be gone from its old node")
+	}
+
+	if deleted != 0 {
+		t.Fatalf("peer deleted %d times, want the session left alone throughout", deleted)
+	}
+}
+
+// A change the router would see must still rebuild the peer.
+func TestUpdateNeighborRebuildsWhenSessionParamsChange(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		apply func(*domain.BGPNeighbor)
+	}{
+		{"remote as", func(n *domain.BGPNeighbor) { n.RemoteAS = 3356 }},
+		{"neighbor ip", func(n *domain.BGPNeighbor) { n.NeighborIP = "10.0.0.31" }},
+		{"peering ip", func(n *domain.BGPNeighbor) { n.PeeringIP = "127.0.0.2" }},
+		{"multihop", func(n *domain.BGPNeighbor) { n.Multihop = true }},
+		{"ipv6 neighbor ip", func(n *domain.BGPNeighbor) { n.IPv6NeighborIP = "2001:db8::31" }},
+		{"ipv6 peering ip", func(n *domain.BGPNeighbor) { n.IPv6PeeringIP = "2001:db8::1" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mgr, _ := startTestManager(t, config.BGPConfig{LocalAS: 65000, RouterID: "127.0.0.1"})
+			if err := mgr.AddNeighbor(testNeighbor(30, 2, "10.0.0.30")); err != nil {
+				t.Fatalf("AddNeighbor: %v", err)
+			}
+
+			deleted := 0
+			old := deletePeerHook
+			// Count the teardown but still perform it, so the re-add sees a free address.
+			deletePeerHook = func(ctx context.Context, req *api.DeletePeerRequest) error {
+				deleted++
+				return mgr.bgpServer.DeletePeer(ctx, req)
+			}
+			defer func() { deletePeerHook = old }()
+
+			changed := testNeighbor(30, 2, "10.0.0.30")
+			tc.apply(changed)
+			if err := mgr.UpdateNeighbor(changed); err != nil {
+				t.Fatalf("UpdateNeighbor: %v", err)
+			}
+			if deleted == 0 {
+				t.Fatal("expected the peer to be rebuilt when the session changes")
+			}
+		})
+	}
+}
+
+// An update for a neighbour the manager never saw simply adds it.
+func TestUpdateNeighborAddsUnknown(t *testing.T) {
+	mgr, _ := startTestManager(t, config.BGPConfig{LocalAS: 65000, RouterID: "127.0.0.1"})
+	if err := mgr.UpdateNeighbor(testNeighbor(40, 4, "10.0.0.40")); err != nil {
+		t.Fatalf("UpdateNeighbor: %v", err)
+	}
+	if _, err := mgr.neighborEntry(40); err != nil {
+		t.Fatalf("neighbor should exist after update: %v", err)
+	}
+}
+
+func TestSessionParamsEqualRejectsMissingRecords(t *testing.T) {
+	n := testNeighbor(50, 5, "10.0.0.50")
+	if sessionParamsEqual(nil, n) || sessionParamsEqual(n, nil) {
+		t.Fatal("a missing record can never match a session")
+	}
+	// Whitespace around an address is not a different session.
+	spaced := testNeighbor(50, 5, "  10.0.0.50  ")
+	if !sessionParamsEqual(n, spaced) {
+		t.Fatal("expected surrounding whitespace to be ignored")
+	}
+}
+
 func TestAddNeighborIPv6Only(t *testing.T) {
 	mgr, _ := startTestManager(t, config.BGPConfig{LocalAS: 65000, RouterID: "127.0.0.1"})
 	neighbor := &domain.BGPNeighbor{

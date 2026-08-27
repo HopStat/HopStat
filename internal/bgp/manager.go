@@ -348,13 +348,69 @@ func (m *SessionManager) RemoveNeighbor(id int64) error {
 	return nil
 }
 
+// sessionParamsEqual reports whether two revisions of a neighbour describe the same BGP
+// session. Only what reaches the router counts: everything else on the record — the node it
+// belongs to, the AS its default route is recognised by — is read where it is needed and
+// changes without disturbing an established session.
+func sessionParamsEqual(a, b *domain.BGPNeighbor) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.TrimSpace(a.NeighborIP) == strings.TrimSpace(b.NeighborIP) &&
+		strings.TrimSpace(a.PeeringIP) == strings.TrimSpace(b.PeeringIP) &&
+		strings.TrimSpace(a.IPv6NeighborIP) == strings.TrimSpace(b.IPv6NeighborIP) &&
+		strings.TrimSpace(a.IPv6PeeringIP) == strings.TrimSpace(b.IPv6PeeringIP) &&
+		a.RemoteAS == b.RemoteAS &&
+		a.Multihop == b.Multihop
+}
+
 func (m *SessionManager) UpdateNeighbor(n *domain.BGPNeighbor) error {
-	// Remove the existing peer (if any) then re-add with the new config.
-	// This avoids AddPeer failing with "already exists" when the IP hasn't changed.
+	m.mu.RLock()
+	existing, known := m.neighbors[n.ID]
+	var current *domain.BGPNeighbor
+	if known {
+		current = existing.neighbor
+	}
+	m.mu.RUnlock()
+
+	// Saving a neighbour whose session parameters did not move must not cost the session:
+	// renaming the node it serves, or correcting its default-route AS, would otherwise
+	// drop an established peering for the seconds it takes to rebuild.
+	if known && sessionParamsEqual(current, n) {
+		m.adoptNeighborRecord(n, existing)
+		m.recordEvent(n.ID, "info", "settings updated; session left up", existing.neighborIP)
+		slog.Info("bgp neighbor updated without touching the session", "id", n.ID, "neighbor_ip", existing.neighborIP)
+		return nil
+	}
+
+	// Otherwise the peer really is a different one: remove it before re-adding, so AddPeer
+	// does not fail with "already exists" when only the AS or the bind address moved.
 	if err := m.RemoveNeighbor(n.ID); err != nil {
 		slog.Warn("bgp update: failed to remove old neighbor", "id", n.ID, "err", err)
 	}
 	return m.AddNeighbor(n)
+}
+
+// adoptNeighborRecord swaps in a new revision of a neighbour whose session stays up, and
+// re-files it under the node it now belongs to.
+func (m *SessionManager) adoptNeighborRecord(n *domain.BGPNeighbor, entry *neighborEntry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	entry.neighbor = n
+	for nodeID, ids := range m.nodeNeighbors {
+		if nodeID == n.NodeID {
+			continue
+		}
+		delete(ids, n.ID)
+		if len(ids) == 0 {
+			delete(m.nodeNeighbors, nodeID)
+		}
+	}
+	if m.nodeNeighbors[n.NodeID] == nil {
+		m.nodeNeighbors[n.NodeID] = make(map[int64]struct{})
+	}
+	m.nodeNeighbors[n.NodeID][n.ID] = struct{}{}
 }
 
 func (m *SessionManager) GetStatus(id int64) domain.BGPSessionState {
