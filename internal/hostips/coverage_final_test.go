@@ -89,6 +89,45 @@ func TestListSkipsUnusableIPv6(t *testing.T) {
 	}
 }
 
+// The same address is often bound to more than one interface, and it must be listed once.
+// Injected rather than read from the host: whether the machine running the tests happens
+// to have a duplicate decides nothing here.
+func TestListReportsAnAddressBoundTwiceOnlyOnce(t *testing.T) {
+	oldIfaces := listHostInterfaces
+	oldAddrs := getInterfaceAddrs
+	listHostInterfaces = func() ([]net.Interface, error) {
+		return []net.Interface{
+			{Name: "eth0", Flags: net.FlagUp},
+			{Name: "eth1", Flags: net.FlagUp},
+		}, nil
+	}
+	getInterfaceAddrs = func(net.Interface) ([]net.Addr, error) {
+		return []net.Addr{
+			&net.IPNet{IP: net.ParseIP("192.0.2.1"), Mask: net.CIDRMask(32, 32)},
+			&net.IPNet{IP: net.ParseIP("2001:db8::1"), Mask: net.CIDRMask(128, 128)},
+		}, nil
+	}
+	t.Cleanup(func() {
+		listHostInterfaces = oldIfaces
+		getInterfaceAddrs = oldAddrs
+	})
+
+	v4, v6, err := List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v4) != 1 || v4[0].IP != "192.0.2.1" {
+		t.Fatalf("v4 = %+v, want the address once", v4)
+	}
+	if len(v6) != 1 || v6[0].IP != "2001:db8::1" {
+		t.Fatalf("v6 = %+v, want the address once", v6)
+	}
+	// The interface it is reported against is the first one carrying it.
+	if v4[0].Interface != "eth0" || v6[0].Interface != "eth0" {
+		t.Fatalf("interfaces = %q / %q, want eth0", v4[0].Interface, v6[0].Interface)
+	}
+}
+
 func TestListSkipsNilNormalizedIP(t *testing.T) {
 	oldIfaces := listHostInterfaces
 	oldAddrs := getInterfaceAddrs
