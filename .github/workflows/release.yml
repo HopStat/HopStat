@@ -39,7 +39,16 @@ jobs:
           npm run build
 
       - name: Run tests
-        run: go test ./...
+        run: |
+          go test -race -count=1 -shuffle=on \
+            -coverprofile=coverage.out \
+            -covermode=atomic \
+            -coverpkg=./internal/... \
+            $(go list ./... | grep -v node_modules)
+          ./scripts/coverage-gate.sh coverage.out
+
+      - name: Smoke tests
+        run: go test -count=1 -tags=smoke ./tests/smoke/...
 
       - name: Extract version
         id: version

@@ -1,12 +1,7 @@
 import type { ReactNode } from 'react'
+import { formatReleaseVersion, stripReleaseTitleHeadings } from './release-notes-format'
 
 const INLINE_PATTERN = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g
-
-export function formatReleaseVersion(v: string): string {
-  const core = v.trim().replace(/^v/i, '')
-  if (!core) return ''
-  return `v${core}`
-}
 
 function splitReleaseSections(markdown: string): string[] {
   const cleaned = stripReleaseTitleHeadings(markdown)
@@ -33,7 +28,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
           href={linkMatch[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-brand hover:underline"
+          className="text-brand-accent hover:underline"
         >
           {linkMatch[1]}
         </a>
@@ -41,23 +36,6 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     }
     return part
   })
-}
-
-export function stripReleaseTitleHeadings(markdown: string): string {
-  const stripSection = (section: string) =>
-    section
-      .replace(/\r\n/g, '\n')
-      .replace(/^#\s+HopStat\s+v[^\n]*\n+/i, '')
-      .trim()
-
-  const normalized = markdown.replace(/\r\n/g, '\n').trim()
-  if (!normalized.includes('\n\n---\n\n')) {
-    return stripSection(normalized)
-  }
-  return normalized
-    .split('\n\n---\n\n')
-    .map(stripSection)
-    .join('\n\n---\n\n')
 }
 
 export function ReleaseNotesContent({ markdown }: { markdown: string }) {

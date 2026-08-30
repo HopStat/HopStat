@@ -19,9 +19,9 @@ type PublicCommunity struct {
 }
 
 var (
-	communitiesMu         sync.RWMutex
-	cachedCommunities     []PublicCommunity
-	cachedCommunityRules  []*domain.CommunityRule
+	communitiesMu            sync.RWMutex
+	cachedCommunities        []PublicCommunity
+	cachedCommunityRules     []*domain.CommunityRule
 	loadActiveCommunityRules = func(db *sql.DB) ([]*domain.CommunityRule, error) {
 		r := repo.NewCommunityRuleRepo(db)
 		return r.GetActive(context.Background())

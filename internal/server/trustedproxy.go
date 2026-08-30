@@ -41,7 +41,7 @@ func ConfigureClientIP(router *gin.Engine, cfg config.ServerConfig) {
 	}
 
 	if len(proxies) == 0 {
-		router.SetTrustedProxies(nil)
+		_ = router.SetTrustedProxies(nil)
 		return
 	}
 
@@ -53,6 +53,6 @@ func ConfigureClientIP(router *gin.Engine, cfg config.ServerConfig) {
 
 	if err := router.SetTrustedProxies(proxies); err != nil {
 		slog.Warn("invalid trusted proxy CIDRs", "error", err)
-		router.SetTrustedProxies(nil)
+		_ = router.SetTrustedProxies(nil)
 	}
 }

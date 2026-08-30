@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/osrg/gobgp/v3/api"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
+	api "github.com/osrg/gobgp/v3/api"
 )
 
 func TestAddNeighborUsesConfigLocalAS(t *testing.T) {

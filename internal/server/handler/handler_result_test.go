@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/gin-gonic/gin"
 )
 
 func TestGetResult_Found(t *testing.T) {

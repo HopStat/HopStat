@@ -76,7 +76,7 @@ export function OutputTerminal({ lines, isRunning, animateHops, copyText }: Prop
             className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             {copied ? (
-              <><Check className="w-3 h-3 text-brand" /><span>{t('result.copied')}</span></>
+              <><Check className="w-3 h-3 text-brand-accent" /><span>{t('result.copied')}</span></>
             ) : (
               <><Copy className="w-3 h-3" /><span>{t('result.copy')}</span></>
             )}

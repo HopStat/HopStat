@@ -33,6 +33,16 @@ jobs:
           cd web/frontend
           npm ci
 
+      - name: Frontend typecheck
+        run: |
+          cd web/frontend
+          npx tsc -b
+
+      - name: Frontend lint
+        run: |
+          cd web/frontend
+          npx eslint . --max-warnings=0
+
       - name: Frontend unit tests
         run: |
           cd web/frontend
@@ -47,14 +57,16 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
-          args: --config=.golangci.ci.yml ./internal/... ./cmd/...
+          args: --config=.golangci.yml ./internal/... ./cmd/...
 
       - name: go vet
-        run: go vet ./...
+        run: go vet $(go list ./... | grep -v node_modules)
 
+      # -shuffle=on: order-dependent tests pass in the default order and fail at random
+      # later. Shuffling turns that into a reproducible failure here instead.
       - name: Tests
         run: |
-          go test -race -count=1 \
+          go test -race -count=1 -shuffle=on \
             -coverprofile=coverage.out \
             -covermode=atomic \
             -coverpkg=./internal/... \
@@ -73,3 +85,28 @@ jobs:
 
       - name: Build binary
         run: CGO_ENABLED=0 go build -o /dev/null ./cmd/lg/
+
+      # Drives the real compiled binary end to end: bootstrap, server start, login,
+      # node CRUD, query -> SSE -> stored result.
+      - name: Smoke tests
+        run: go test -count=1 -tags=smoke ./tests/smoke/...
+
+      - name: Install Playwright browser
+        run: |
+          cd web/frontend
+          npx playwright install --with-deps chromium
+
+      # Renders the production bundle in a browser and measures the contrast of every run
+      # of text, across brand colours and both themes.
+      - name: UI smoke and contrast scan
+        run: |
+          cd web/frontend
+          npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/frontend/playwright-report/
+          retention-days: 7

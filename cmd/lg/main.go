@@ -390,7 +390,8 @@ AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 WantedBy=multi-user.target
 `, binDest, mode, effectiveCfg)
 
-	if err := os.WriteFile(unitFile, []byte(unit), 0644); err != nil {
+	// A systemd unit must be readable by systemd itself; it holds paths, no secrets.
+	if err := os.WriteFile(unitFile, []byte(unit), 0644); err != nil { //nolint:gosec // G306
 		return fmt.Errorf("write unit file: %w", err)
 	}
 
@@ -445,11 +446,13 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	return os.Rename(tmp, dst)
 }
 
+// replaceInFile edits a file the installer just wrote. Both call sites pass a path the
+// installer derived itself, never one taken from a request or an untrusted argument.
 func replaceInFile(path, old, new string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G703: path is installer-derived
 	if err != nil {
 		return err
 	}
 	updated := strings.ReplaceAll(string(data), old, new)
-	return os.WriteFile(path, []byte(updated), 0600)
+	return os.WriteFile(path, []byte(updated), 0600) //nolint:gosec // G703: path is installer-derived
 }

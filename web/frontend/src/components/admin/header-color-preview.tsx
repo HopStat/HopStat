@@ -1,34 +1,45 @@
 import { useTheme } from '@/contexts/theme-context'
-import { buildBrandPalette } from '@/lib/brand-color'
+import { buildBrandPalette, contrastRatio, hexToRgb, relativeLuminance } from '@/lib/brand-color'
 
 interface Props {
   color: string
 }
 
-function headerBandBackground(palette: ReturnType<typeof buildBrandPalette>): string {
-  return palette.header
+function ratioOf(a: string, b: string): number {
+  const [rgbA, rgbB] = [hexToRgb(a), hexToRgb(b)]
+  if (!rgbA || !rgbB) return 0
+  return contrastRatio(relativeLuminance(rgbA), relativeLuminance(rgbB))
 }
 
+/**
+ * Shows what the chosen colour will actually look like in use. The old preview painted
+ * three palette fields that no stylesheet consumed, so it could look fine while the real
+ * site did not — the point of showing a filled button with real text on it is that a pale
+ * colour proves itself here rather than in production.
+ */
 export function HeaderColorPreview({ color }: Props) {
   const { theme } = useTheme()
   const palette = buildBrandPalette(color, theme)
+  const onBrand = ratioOf(palette.foreground, palette.brand)
 
   return (
-    <div
-      className="ml-auto h-10 flex-1 max-w-[180px] rounded-xl overflow-hidden ring-1 ring-border/80"
-      title={palette.brand}
-    >
-      <div className="h-[42%]" style={{ background: headerBandBackground(palette) }} />
+    <div className="ml-auto flex items-center gap-3">
       <div
-        className="h-px"
-        style={{ background: palette.accentLine, opacity: 0.75 }}
-      />
-      <div
-        className="h-[calc(58%-1px)] flex items-end p-1.5"
-        style={{ background: `linear-gradient(180deg, ${palette.formTo}, ${palette.formFrom})` }}
+        className="flex h-10 items-center gap-2 rounded-md px-3"
+        style={{ background: palette.brand, color: palette.foreground }}
+        title={`${palette.brand} · ${onBrand.toFixed(1)}:1`}
       >
-        <div className="h-2 w-full rounded-sm bg-white/90 ring-1 ring-black/5" />
+        <span className="text-xs font-semibold">Aa</span>
+        <span className="h-4 w-px opacity-30" style={{ background: palette.foreground }} />
+        <span className="font-data text-2xs tabular-nums">{onBrand.toFixed(1)}:1</span>
       </div>
+      <span
+        className="font-data text-2xs"
+        style={{ color: palette.accent }}
+        title={`Link and accent tone: ${palette.accent}`}
+      >
+        AS13335
+      </span>
     </div>
   )
 }

@@ -22,18 +22,23 @@ export function CommunitiesPanel({ onClose }: Props) {
   const { t } = useI18n()
   const [rules, setRules] = useState<CommunityRule[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [failure, setFailure] = useState<Error | 'unknown' | null>(null)
 
+  // Fetched once. It used to depend on `t`, so switching language re-ran the request just
+  // to restate an error; keeping the failure and translating it at render gets the same
+  // message without the round trip, and leaves nothing to reset on the way in.
   useEffect(() => {
-    setLoading(true)
-    setError('')
+    let cancelled = false
     api.get<CommunityRule[]>('/communities')
-      .then(data => setRules(sortCommunities(data)))
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : t('communities.load_failed'))
-      })
-      .finally(() => setLoading(false))
-  }, [t])
+      .then(data => { if (!cancelled) setRules(sortCommunities(data)) })
+      .catch((err: unknown) => { if (!cancelled) setFailure(err instanceof Error ? err : 'unknown') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const error = failure === null
+    ? ''
+    : failure === 'unknown' ? t('communities.load_failed') : failure.message
 
   return (
     <div className="communities-panel">

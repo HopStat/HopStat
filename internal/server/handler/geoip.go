@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/geo"
 	"github.com/HopStat/HopStat/internal/store/queries"
+	"github.com/gin-gonic/gin"
 )
 
 func GeoIPStatus(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB) gin.HandlerFunc {

@@ -216,7 +216,8 @@ func EnsureBestAmongRoutes(routes []domain.BGPRoute) {
 		}
 		// A vendor's own active-path marker beats anything we can reconstruct.
 		if marked >= 0 {
-			routes[marked].Best = true
+			// marked always comes from idxs, which holds indices into routes.
+			routes[marked].Best = true //nolint:gosec // G602: index provably in range
 			continue
 		}
 		best := idxs[0]

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -25,7 +26,7 @@ type SessionManager struct {
 	cfg       config.BGPConfig
 
 	mu            sync.RWMutex
-	neighbors     map[int64]*neighborEntry // keyed by domain BGPNeighbor.ID
+	neighbors     map[int64]*neighborEntry     // keyed by domain BGPNeighbor.ID
 	nodeNeighbors map[int64]map[int64]struct{} // nodeID → neighbor IDs
 	states        map[int64]domain.BGPSessionState
 	stateSince    map[int64]time.Time
@@ -212,7 +213,7 @@ func (m *SessionManager) ensureBGPGlobalStarted(ctx context.Context, localAS uin
 	}
 
 	listenPort := int32(11790)
-	if m.cfg.ListenPort > 0 {
+	if m.cfg.ListenPort > 0 && m.cfg.ListenPort <= math.MaxUint16 {
 		listenPort = int32(m.cfg.ListenPort)
 	}
 
@@ -503,7 +504,8 @@ func (m *SessionManager) countAdjPrefixes(ctx context.Context, peerAddr string, 
 	if err != nil {
 		return 0, err
 	}
-	return int(resp.NumDestination), nil
+	// Clamped so the conversion is lossless even where int is 32 bits.
+	return int(min(resp.NumDestination, math.MaxInt32)), nil //nolint:gosec // G115: clamped on the line itself
 }
 
 func (m *SessionManager) NodeIDForNeighborIP(neighborIP string) (int64, bool) {
@@ -572,7 +574,7 @@ func (m *SessionManager) LookupRoute(ctx context.Context, nodeID int64, prefix s
 
 	var ip net.IP
 	if strings.Contains(prefix, "/") {
-		ip, _, err = net.ParseCIDR(prefix)
+		ip, _, _ = net.ParseCIDR(prefix)
 	} else {
 		ip = net.ParseIP(prefix)
 	}

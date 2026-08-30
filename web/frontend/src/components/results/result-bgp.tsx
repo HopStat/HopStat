@@ -113,7 +113,7 @@ function RouteMobileCard({
       <div className="flex items-start gap-2 min-w-0">
         <div className="w-4 shrink-0 pt-0.5 text-center">
           {route.best ? (
-            <Star className="w-3.5 h-3.5 mx-auto fill-amber-400 text-amber-400" aria-hidden />
+            <Star className="w-3.5 h-3.5 mx-auto fill-warning-on-surface text-warning-on-surface" aria-hidden />
           ) : (
             <span className="inline-block w-3.5" aria-hidden />
           )}
@@ -166,7 +166,7 @@ function buildBgpTableColumns(
       header: <span className="sr-only">{t('result.best')}</span>,
       renderCell: route => route.best ? (
         <Star
-          className="w-3.5 h-3.5 mx-auto fill-amber-400 text-amber-400"
+          className="w-3.5 h-3.5 mx-auto fill-warning-on-surface text-warning-on-surface"
           aria-label={t('result.best_route')}
         />
       ) : null,

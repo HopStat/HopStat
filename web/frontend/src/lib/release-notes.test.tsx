@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ReleaseNotesContent, ReleaseNotesPanel, formatReleaseVersion, stripReleaseTitleHeadings } from './release-notes'
+import { ReleaseNotesContent, ReleaseNotesPanel } from './release-notes'
+import { formatReleaseVersion, stripReleaseTitleHeadings } from './release-notes-format'
 
 describe('ReleaseNotesContent', () => {
   it('renders headings and bullet lists from markdown', () => {

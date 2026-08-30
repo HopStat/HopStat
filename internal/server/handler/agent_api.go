@@ -5,7 +5,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
@@ -13,6 +12,7 @@ import (
 	"github.com/HopStat/HopStat/internal/driver/standalone"
 	"github.com/HopStat/HopStat/internal/geo"
 	"github.com/HopStat/HopStat/internal/server/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 func MountAgentAPI(r gin.IRouter, cfg *config.Config, bgpMgr *bgp.SessionManager, geoDB *geo.GeoIPDB) {

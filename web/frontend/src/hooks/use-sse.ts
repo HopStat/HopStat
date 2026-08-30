@@ -44,19 +44,20 @@ export function useQueryStream(queryId: string | null): UseQueryStreamReturn {
   const esRef = useRef<EventSource | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    if (!queryId) {
-      setResult(null)
-      setLines([])
-      setError(null)
-      setOutputComplete(false)
-      return
-    }
-
+  // Switching query clears everything the previous one produced. Done during render rather
+  // than in the effect: the effect ran after the first paint, so a new query briefly showed
+  // the old query's terminal output before wiping it.
+  const [streamedId, setStreamedId] = useState(queryId)
+  if (queryId !== streamedId) {
+    setStreamedId(queryId)
     setResult(null)
     setLines([])
     setError(null)
     setOutputComplete(false)
+  }
+
+  useEffect(() => {
+    if (!queryId) return
 
     const es = new EventSource(`/api/v1/query/${queryId}/stream`)
     esRef.current = es

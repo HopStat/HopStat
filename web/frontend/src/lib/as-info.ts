@@ -42,7 +42,7 @@ function trimLegalSuffixWords(words: string[]): string[] {
 
 /** Compact org label for the AS path map: whole word parts only, up to 15 chars (no ellipsis). */
 export function compactAsMapName(raw: string): string {
-  let name = normalizeOrgForDisplay(raw)
+  const name = normalizeOrgForDisplay(raw)
   if (!name) return ''
 
   const words = trimLegalSuffixWords(name.split(/\s+/).filter(Boolean))

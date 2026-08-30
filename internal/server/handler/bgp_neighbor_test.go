@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/gin-gonic/gin"
 )
 
 func TestBGPNeighborRequestValidate(t *testing.T) {

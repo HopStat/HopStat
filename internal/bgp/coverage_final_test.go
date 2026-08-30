@@ -586,7 +586,7 @@ func TestSynthesizeDefaultRoutesWithEntryAndRaw(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[3] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 3, NodeID: 10, DefaultRouteAS: 6453, NeighborIP: "10.0.0.3"},
+		neighbor:   &domain.BGPNeighbor{ID: 3, NodeID: 10, DefaultRouteAS: 6453, NeighborIP: "10.0.0.3"},
 		neighborIP: "10.0.0.3",
 	}
 	mgr.nodeNeighbors[10] = map[int64]struct{}{3: {}}
@@ -724,7 +724,7 @@ func TestSynthesizeDefaultRoutesNodeNameFromEntry(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[4] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 4, NodeID: 11, DefaultRouteAS: 6453, NeighborIP: "10.0.0.4"},
+		neighbor:   &domain.BGPNeighbor{ID: 4, NodeID: 11, DefaultRouteAS: 6453, NeighborIP: "10.0.0.4"},
 		neighborIP: "10.0.0.4",
 	}
 	mgr.nodeNeighbors[11] = map[int64]struct{}{4: {}}
@@ -764,7 +764,7 @@ func TestSynthesizeDefaultRoutesNodeNameFromNeighborIP(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[5] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 5, NodeID: 12, DefaultRouteAS: 6453, NeighborIP: "10.0.0.5"},
+		neighbor:   &domain.BGPNeighbor{ID: 5, NodeID: 12, DefaultRouteAS: 6453, NeighborIP: "10.0.0.5"},
 		neighborIP: "10.0.0.5",
 	}
 	mgr.nodeNeighbors[12] = map[int64]struct{}{5: {}}
@@ -882,11 +882,11 @@ func TestSynthesizeDefaultRoutesMultipleCandidates(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[6] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 6, NodeID: 13, DefaultRouteAS: 6453, NeighborIP: "10.0.0.6"},
+		neighbor:   &domain.BGPNeighbor{ID: 6, NodeID: 13, DefaultRouteAS: 6453, NeighborIP: "10.0.0.6"},
 		neighborIP: "10.0.0.6",
 	}
 	mgr.neighbors[7] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 7, NodeID: 13, DefaultRouteAS: 6460, NeighborIP: "10.0.0.7"},
+		neighbor:   &domain.BGPNeighbor{ID: 7, NodeID: 13, DefaultRouteAS: 6460, NeighborIP: "10.0.0.7"},
 		neighborIP: "10.0.0.7",
 	}
 	mgr.nodeNeighbors[13] = map[int64]struct{}{6: {}, 7: {}}
@@ -918,7 +918,7 @@ func TestSynthesizeDefaultRoutesLookupError(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[8] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 8, NodeID: 14, DefaultRouteAS: 6453, NeighborIP: "10.0.0.8"},
+		neighbor:   &domain.BGPNeighbor{ID: 8, NodeID: 14, DefaultRouteAS: 6453, NeighborIP: "10.0.0.8"},
 		neighborIP: "10.0.0.8",
 	}
 	mgr.nodeNeighbors[14] = map[int64]struct{}{8: {}}
@@ -1136,7 +1136,7 @@ func TestSynthesizeDefaultRoutesEntryNeighborName(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[9] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 9, NodeID: 17, DefaultRouteAS: 6453, NeighborIP: "10.0.0.9"},
+		neighbor:   &domain.BGPNeighbor{ID: 9, NodeID: 17, DefaultRouteAS: 6453, NeighborIP: "10.0.0.9"},
 		neighborIP: "10.0.0.9",
 	}
 	mgr.nodeNeighbors[17] = map[int64]struct{}{9: {}}

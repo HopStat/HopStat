@@ -244,15 +244,17 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     }
   }, [selectedNodeId, command, availableCmds])
 
-  function queryTabFields(): HTMLElement[] {
+  // Both close over refs only, so they are stable and can be listed as effect deps
+  // without re-subscribing the key handler on every render.
+  const queryTabFields = useCallback((): HTMLElement[] => {
     const fields: HTMLElement[] = []
     if (showNodeRef.current && nodeSelectRef.current) fields.push(nodeSelectRef.current)
     if (commandSelectRef.current) fields.push(commandSelectRef.current)
     if (targetInputRef.current) fields.push(targetInputRef.current)
     return fields
-  }
+  }, [])
 
-  function focusQueryTabField(backwards: boolean) {
+  const focusQueryTabField = useCallback((backwards: boolean) => {
     const fields = queryTabFields()
     if (!fields.length) return
 
@@ -275,7 +277,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
 
     const next = idx + (backwards ? -1 : 1)
     fields[next]?.focus()
-  }
+  }, [queryTabFields])
 
   function handleFormKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
     if (e.key !== 'Tab' || e.defaultPrevented) return
@@ -338,7 +340,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [loading, suggestionsOpen, history, command])
+  }, [loading, suggestionsOpen, history, command, focusQueryTabField])
 
   const submitQuery = useCallback(async (cmd: string, tgt: string, nodeIdOverride?: string) => {
     const trimmed = tgt.trim()
@@ -494,7 +496,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       type="submit"
       disabled={submitDisabled}
       aria-label={t('query.submit')}
-      className="h-10 w-10 shrink-0 rounded-md p-0 sm:w-[4.75rem] sm:px-2 flex items-center justify-center text-white text-xs font-semibold bg-brand hover:bg-brand/90 disabled:opacity-45"
+      className="h-10 w-10 shrink-0 rounded-md p-0 sm:w-[4.75rem] sm:px-2 flex items-center justify-center text-brand-foreground text-xs font-semibold bg-brand hover:bg-brand/90 disabled:opacity-45"
     >
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin" />

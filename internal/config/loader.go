@@ -231,8 +231,11 @@ func validate(cfg *Config) error {
 		if len(cfg.Security.CredentialKey) != 64 {
 			return fmt.Errorf("security.credential_key must be 64 hex characters (32 bytes)")
 		}
+		isHexDigit := func(c rune) bool {
+			return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+		}
 		for _, c := range cfg.Security.CredentialKey {
-			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			if !isHexDigit(c) {
 				return fmt.Errorf("security.credential_key must be valid hex characters only")
 			}
 		}

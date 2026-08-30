@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	fetchGitTagsHook       func(context.Context, string) ([]string, error)
-	fetchRawNoteHook       func(context.Context, string, string) (string, error)
+	fetchGitTagsHook         func(context.Context, string) ([]string, error)
+	fetchRawNoteHook         func(context.Context, string, string) (string, error)
 	listEmbeddedVersionsHook func() []string
 )
 

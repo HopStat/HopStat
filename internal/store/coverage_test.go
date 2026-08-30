@@ -92,11 +92,11 @@ func TestNullHelpers(t *testing.T) {
 	if v := nullIntArg(sql.NullInt64{}); v != nil {
 		t.Fatalf("nullIntArg invalid = %v", v)
 	}
-	if v := maxInt64(sql.NullInt64{}, 9); v != 9 {
-		t.Fatalf("maxInt64 invalid = %d", v)
+	if v := asNumber(sql.NullInt64{}); v != 0 {
+		t.Fatalf("asNumber invalid = %d", v)
 	}
-	if v := maxInt64(sql.NullInt64{Int64: 5, Valid: true}, 9); v != 5 {
-		t.Fatalf("maxInt64 valid = %d", v)
+	if v := asNumber(sql.NullInt64{Int64: 5, Valid: true}); v != 5 {
+		t.Fatalf("asNumber valid = %d", v)
 	}
 }
 

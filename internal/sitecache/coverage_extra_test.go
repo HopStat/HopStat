@@ -22,6 +22,12 @@ func TestCachedNodeRepo_GetByIDFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// This test needs a cache miss, but the node cache is process-wide and other tests
+	// populate it. Refresh from this empty DB so the miss is deterministic.
+	if err := sitecache.RefreshNodes(db, ""); err != nil {
+		t.Fatal(err)
+	}
+
 	inner := sitecache.NewCachedNodeRepo(db, "")
 	created, err := inner.Create(context.Background(), &domain.Node{
 		Name: "fallback", Type: domain.NodeTypeStandalone, Active: true,

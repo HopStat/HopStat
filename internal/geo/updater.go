@@ -152,11 +152,9 @@ func (u *Updater) needsDownload(edition, targetPath string) (bool, time.Time, ti
 }
 
 func (u *Updater) updateAll(ctx context.Context) {
-	needsReload := false
-
-	if u.tryDownloadEdition(ctx, "GeoLite2-ASN", u.asnPath) {
-		needsReload = true
-	}
+	// Both editions are attempted every time, so these must not be folded into a single
+	// short-circuiting expression.
+	needsReload := u.tryDownloadEdition(ctx, "GeoLite2-ASN", u.asnPath)
 	if u.tryDownloadEdition(ctx, "GeoLite2-City", u.cityPath) {
 		needsReload = true
 	}

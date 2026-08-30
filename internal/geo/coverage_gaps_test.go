@@ -132,8 +132,11 @@ func TestLookupIPChosenSourceDNS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.DNS.Available && report.ChosenSource == SourceNone && report.Result == nil {
-		// acceptable when DNS returns no ASN
+	// The outcome is deliberately loose: with DNS available but returning no ASN, both a
+	// nil result and SourceNone are legitimate. What must hold is that a report comes back
+	// at all rather than a nil dereference further up.
+	if report == nil {
+		t.Fatal("expected a report even when no source resolves the address")
 	}
 }
 

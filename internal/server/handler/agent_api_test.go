@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/server/middleware"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/gin-gonic/gin"
 )
 
 func TestStandaloneAgentAPI_Auth(t *testing.T) {

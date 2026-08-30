@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { Server, FileText, Globe, Network, Cpu } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
 import { AdminPanel } from '@/components/admin/admin-panel'
 import { ResourceUsageCell } from '@/components/admin/resource-usage-cell'
@@ -32,9 +31,9 @@ function BGPStatCard({ neighbors }: { neighbors: BGPNeighbor[] }) {
   const connected = established.length
   const totalRoutes = established.reduce((sum, n) => sum + (n.prefixes_received ?? 0), 0)
   const iconClass = connected === neighbors.length
-    ? 'text-emerald-500'
+    ? 'text-success-on-surface'
     : connected > 0
-      ? 'text-amber-500'
+      ? 'text-warning-on-surface'
       : 'text-muted-foreground'
 
   return (
@@ -70,7 +69,7 @@ function GeoIPStatCard({ status }: { status: GeoIPStatus | null }) {
   if (!status?.configured) return null
 
   const lastDL = status.last_download
-  const iconClass = status.enabled ? 'text-emerald-500' : 'text-amber-500'
+  const iconClass = status.enabled ? 'text-success-on-surface' : 'text-warning-on-surface'
 
   return (
     <Link to="/admin/geoip" className="block h-full">
@@ -127,7 +126,7 @@ function SystemResourcesPanel({ status, loading }: { status: SystemStatus | null
           <h2 className="admin-dashboard-recent__title">{t('admin.system_resources')}</h2>
           <p className="text-xs text-muted-foreground mt-1">{t('admin.system_thresholds_hint')}</p>
         </div>
-        <div className="admin-stat-card__icon text-brand mb-0.5">
+        <div className="admin-stat-card__icon text-brand-accent mb-0.5">
           <Cpu className="w-[1.125rem] h-[1.125rem]" />
         </div>
       </div>
@@ -253,7 +252,7 @@ export function DashboardPage() {
 
         <Link to="/admin/audit" className="block h-full">
           <div className="admin-stat-card">
-            <div className="admin-stat-card__icon text-brand">
+            <div className="admin-stat-card__icon text-brand-accent">
               <FileText className="w-[1.125rem] h-[1.125rem]" />
             </div>
             <div className="min-w-0">
@@ -272,7 +271,7 @@ export function DashboardPage() {
 
         <Link to="/admin/nodes" className="block h-full">
           <div className="admin-stat-card">
-            <div className="admin-stat-card__icon text-brand">
+            <div className="admin-stat-card__icon text-brand-accent">
               <Server className="w-[1.125rem] h-[1.125rem]" />
             </div>
             <div className="min-w-0">

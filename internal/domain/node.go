@@ -73,23 +73,23 @@ type StandaloneBGPConfig struct {
 }
 
 type Node struct {
-	ID           int64              `json:"id"`
-	Name         string             `json:"name"`
-	Description  string             `json:"description"`
-	Type         NodeType           `json:"type"`
-	City         string             `json:"city"`
-	Country      string             `json:"country"`
-	Lat          *float64           `json:"lat,omitempty"`
-	Lon          *float64           `json:"lon,omitempty"`
-	CredentialID *int64             `json:"credential_id,omitempty"`
-	Active       bool               `json:"active"`
-	IsDefault    bool               `json:"is_default"`
-	EnabledCmds  []CommandType      `json:"enabled_cmds"`
+	ID           int64                `json:"id"`
+	Name         string               `json:"name"`
+	Description  string               `json:"description"`
+	Type         NodeType             `json:"type"`
+	City         string               `json:"city"`
+	Country      string               `json:"country"`
+	Lat          *float64             `json:"lat,omitempty"`
+	Lon          *float64             `json:"lon,omitempty"`
+	CredentialID *int64               `json:"credential_id,omitempty"`
+	Active       bool                 `json:"active"`
+	IsDefault    bool                 `json:"is_default"`
+	EnabledCmds  []CommandType        `json:"enabled_cmds"`
 	BGPConfig    *StandaloneBGPConfig `json:"bgp_config,omitempty"`
-	AgentURL     string             `json:"agent_url"`
-	AgentToken   string             `json:"agent_token,omitempty"`
-	CreatedAt    time.Time          `json:"created_at"`
-	UpdatedAt    time.Time          `json:"updated_at"`
+	AgentURL     string               `json:"agent_url"`
+	AgentToken   string               `json:"agent_token,omitempty"`
+	CreatedAt    time.Time            `json:"created_at"`
+	UpdatedAt    time.Time            `json:"updated_at"`
 }
 
 func (n *Node) CanExecute(cmd CommandType) bool {

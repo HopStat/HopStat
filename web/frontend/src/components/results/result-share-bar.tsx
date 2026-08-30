@@ -35,7 +35,7 @@ export function ResultShareBar({ summary, shareUrl }: Props) {
           title={shareUrl}
         >
           {copied === 'link' ? (
-            <><Check className="w-3 h-3 text-brand" aria-hidden /><span>{t('result.link_copied')}</span></>
+            <><Check className="w-3 h-3 text-brand-accent" aria-hidden /><span>{t('result.link_copied')}</span></>
           ) : (
             <><Link2 className="w-3 h-3" aria-hidden /><span>{t('result.copy_link')}</span></>
           )}

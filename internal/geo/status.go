@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	SettingLicenseKey      = "geoip_license_key"
-	SettingAccountID       = "geoip_account_id"
-	SettingUpdateInterval  = "geoip_update_interval"
-	SettingASNLastDownload = "geoip_asn_last_download"
+	SettingLicenseKey       = "geoip_license_key"
+	SettingAccountID        = "geoip_account_id"
+	SettingUpdateInterval   = "geoip_update_interval"
+	SettingASNLastDownload  = "geoip_asn_last_download"
 	SettingCityLastDownload = "geoip_city_last_download"
 )
 

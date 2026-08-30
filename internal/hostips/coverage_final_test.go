@@ -64,7 +64,6 @@ func TestListErrorPaths(t *testing.T) {
 	})
 }
 
-
 func TestListSkipsUnusableIPv6(t *testing.T) {
 	oldIfaces := listHostInterfaces
 	oldAddrs := getInterfaceAddrs

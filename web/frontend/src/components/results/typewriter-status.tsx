@@ -18,18 +18,15 @@ export function TypewriterStatus({ active, className, inBody = false }: Props) {
   const { t, locale } = useI18n()
   const runningText = t('result.running')
   const completedText = t('result.completed')
-  const [phase, setPhase] = useState<Phase>(() => (active ? 'running' : 'completed'))
+  // Derived during render rather than mirrored into state by an effect: `phase` has no
+  // source other than `active`, so storing it only bought an extra render on every change.
+  const phase: Phase = active ? 'running' : 'completed'
   const [display, setDisplay] = useState('')
 
   useEffect(() => {
-    setPhase(active ? 'running' : 'completed')
-  }, [active])
-
-  useEffect(() => {
-    if (phase !== 'running') {
-      setDisplay('')
-      return
-    }
+    // Nothing to reset when idle: the completed branch never renders `display`, and the
+    // next running pass starts its own count from zero.
+    if (phase !== 'running') return
 
     let cancelled = false
     let index = 0

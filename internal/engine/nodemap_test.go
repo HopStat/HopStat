@@ -105,7 +105,7 @@ func TestCollectBGPASPathASNsIncludesNodeMap(t *testing.T) {
 	result := &domain.QueryResult{
 		ASPath: []uint32{9121, 3356},
 		ASPathNodes: []domain.NodeASPath{
-			{NodeID: 1, ASPath: []uint32{9121, 3356}},   // already seen, must not duplicate
+			{NodeID: 1, ASPath: []uint32{9121, 3356}},    // already seen, must not duplicate
 			{NodeID: 2, ASPath: []uint32{9121, 6939, 0}}, // 0 is dropped
 		},
 	}

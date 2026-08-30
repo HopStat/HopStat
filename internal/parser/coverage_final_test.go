@@ -227,7 +227,6 @@ func TestMikroTikParsePingTransmittedReceived(t *testing.T) {
 	}
 }
 
-
 func TestParseBirdRouteLineNoRouteFields(t *testing.T) {
 	if route, prefix := parseBirdRouteLine("* 10.0.0.0/24 10.0.0.1 100 65000 I", ""); route == nil || prefix != "10.0.0.0/24" {
 		t.Fatalf("route=%+v prefix=%q", route, prefix)
@@ -324,7 +323,6 @@ func TestParseBGPLineShortOriginTwoFields(t *testing.T) {
 		t.Fatalf("route=%+v", route)
 	}
 }
-
 
 func TestParseTracerouteGenericHopNilSkipped(t *testing.T) {
 	got, err := parseTracerouteGeneric("1\n 2  10.0.0.2  2.000 ms")

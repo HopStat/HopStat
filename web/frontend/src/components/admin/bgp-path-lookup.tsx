@@ -96,7 +96,7 @@ export function BGPPathLookup({ nodes }: Props) {
                 <span className="font-semibold">{path.prefix}</span>
                 <span>path-id: {path.identifier}</span>
                 <span>{t('admin.bgp_lookup_from')}: {path.node_name || path.neighbor_ip}</span>
-                {path.best && <span className="text-brand">{t('result.best')}</span>}
+                {path.best && <span className="text-brand-accent">{t('result.best')}</span>}
                 <span className="text-muted-foreground">{path.age}</span>
               </div>
 

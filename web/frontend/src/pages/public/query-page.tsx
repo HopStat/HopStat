@@ -26,9 +26,14 @@ export function QueryPage() {
 
   const siteName = settings.site_name || 'Looking Glass'
 
-  useEffect(() => {
+  // Leaving for the communities view discards the result behind it. Adjusted during render
+  // rather than in an effect, which is React's own guidance for state that has to follow a
+  // prop or route change: an effect would render the stale result once before clearing it.
+  const [wasShowingCommunities, setWasShowingCommunities] = useState(showCommunities)
+  if (showCommunities !== wasShowingCommunities) {
+    setWasShowingCommunities(showCommunities)
     if (showCommunities) setQueryMeta(null)
-  }, [showCommunities])
+  }
 
   // A query path with no usable target (/ping, /bgp/) is not a real link — fall back to home.
   useEffect(() => {

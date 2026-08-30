@@ -34,12 +34,12 @@ func (m *idNodeRepo) GetByID(_ context.Context, id int64) (*domain.Node, error) 
 	}
 	return nil, domain.ErrNodeNotFound
 }
-func (m *idNodeRepo) GetActive(context.Context) ([]*domain.Node, error)   { return nil, nil }
-func (m *idNodeRepo) GetAll(context.Context) ([]*domain.Node, error)      { return nil, nil }
+func (m *idNodeRepo) GetActive(context.Context) ([]*domain.Node, error)          { return nil, nil }
+func (m *idNodeRepo) GetAll(context.Context) ([]*domain.Node, error)             { return nil, nil }
 func (m *idNodeRepo) Create(context.Context, *domain.Node) (*domain.Node, error) { return nil, nil }
 func (m *idNodeRepo) Update(context.Context, *domain.Node) (*domain.Node, error) { return nil, nil }
-func (m *idNodeRepo) SetDefault(context.Context, int64) error             { return nil }
-func (m *idNodeRepo) Delete(context.Context, int64) error                   { return nil }
+func (m *idNodeRepo) SetDefault(context.Context, int64) error                    { return nil }
+func (m *idNodeRepo) Delete(context.Context, int64) error                        { return nil }
 func (m *idNodeRepo) UpdateEnabledCmds(context.Context, int64, []domain.CommandType) error {
 	return nil
 }
@@ -92,17 +92,17 @@ func newAgentServer(t *testing.T) *httptest.Server {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(domain.PingResult{
-				Raw:          "PING 8.8.8.8\n1 packets transmitted, 1 received, 0% packet loss",
-				PacketsSent:  1,
-				PacketsRecv:  1,
-				PacketLoss:   0,
-				MinRTT:       1.0,
-				AvgRTT:       1.0,
-				MaxRTT:       1.0,
+				Raw:         "PING 8.8.8.8\n1 packets transmitted, 1 received, 0% packet loss",
+				PacketsSent: 1,
+				PacketsRecv: 1,
+				PacketLoss:  0,
+				MinRTT:      1.0,
+				AvgRTT:      1.0,
+				MaxRTT:      1.0,
 			})
 		case "/agent/v1/traceroute":
 			_ = json.NewEncoder(w).Encode(domain.TracerouteResult{
-				Raw: "traceroute to 8.8.8.8\n 1  10.0.0.1 (10.0.0.1)  1.000 ms",
+				Raw:  "traceroute to 8.8.8.8\n 1  10.0.0.1 (10.0.0.1)  1.000 ms",
 				Hops: []domain.Hop{{Number: 1, IP: "1.128.0.1", RTT: []float64{1.0}}},
 			})
 		case "/agent/v1/bgp/route":
@@ -183,7 +183,7 @@ func TestExecutePingTracerouteBGP(t *testing.T) {
 				Target:  "8.8.8.8",
 				Options: domain.QueryOptions{PingCount: 1, MaxHops: 5},
 			}, ExecuteOption{
-				OnLine: func(line string) { streamed = append(streamed, line) },
+				OnLine:    func(line string) { streamed = append(streamed, line) },
 				OnPartial: func(*domain.QueryResult) { partials++ },
 			})
 			if err != nil {
@@ -500,7 +500,7 @@ type errorBGPDriver struct {
 	err error
 }
 
-func (d errorBGPDriver) Capabilities() []domain.CommandType { return nil }
+func (d errorBGPDriver) Capabilities() []domain.CommandType   { return nil }
 func (d errorBGPDriver) TestConnection(context.Context) error { return nil }
 func (d errorBGPDriver) Ping(context.Context, string, int) (*domain.PingResult, error) {
 	return nil, nil
@@ -826,8 +826,11 @@ func TestNodeNameForNeighborIPCache(t *testing.T) {
 	repo := &idNodeRepo{nodes: map[int64]*domain.Node{2: {ID: 2, Name: "cached-node"}}}
 	e := New(&QueryConfig{MaxConcurrent: 4}, repo, nil, nil, mgr, nil, 0)
 	resolver := e.nodeNameForNeighborIP(context.Background())
-	if resolver("10.4.4.3") != "cached-node" || resolver("10.4.4.3") != "cached-node" {
-		t.Fatal("expected cached neighbor name")
+	// Called twice on purpose: the first resolves, the second must come from the cache.
+	first := resolver("10.4.4.3")
+	cached := resolver("10.4.4.3")
+	if first != "cached-node" || cached != "cached-node" {
+		t.Fatalf("resolver returned %q then %q, want cached-node both times", first, cached)
 	}
 }
 

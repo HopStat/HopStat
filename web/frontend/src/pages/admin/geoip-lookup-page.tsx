@@ -11,7 +11,7 @@ import { CountryFlag } from '@/components/ui/country-flag'
 import { api } from '@/lib/api-client'
 import { formatAS, formatSourceStatus, geoipSourceLabel, sourceBadgeVariant } from '@/lib/geoip-display'
 import { useI18n } from '@/contexts/i18n-context'
-import type { GeoIPLookupReport, GeoIPResolveSource } from '@/types/domain'
+import type { GeoIPLookupReport } from '@/types/domain'
 
 function SourceRow({
   label,

@@ -250,7 +250,7 @@ func TestBuildRouteResultWithDefaultEntry(t *testing.T) {
 	mgr.globalAS = 9121
 	mgr.mu.Lock()
 	mgr.neighbors[1] = &neighborEntry{
-		neighbor: &domain.BGPNeighbor{ID: 1, NodeID: 6, DefaultRouteAS: 6453, NeighborIP: "10.0.0.1"},
+		neighbor:   &domain.BGPNeighbor{ID: 1, NodeID: 6, DefaultRouteAS: 6453, NeighborIP: "10.0.0.1"},
 		neighborIP: "10.0.0.1",
 	}
 	mgr.nodeNeighbors[6] = map[int64]struct{}{1: {}}

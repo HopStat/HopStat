@@ -9,7 +9,7 @@ const Switch = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRe
       'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
       'disabled:cursor-not-allowed disabled:opacity-50',
-      'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600',
+      'data-[state=checked]:bg-success data-[state=checked]:border-success',
       'data-[state=unchecked]:bg-muted data-[state=unchecked]:border-border',
       'dark:data-[state=unchecked]:bg-muted-foreground/35',
       className,

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/HopStat/HopStat/internal/config"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestBruteForceCleanupExpiredBan(t *testing.T) {

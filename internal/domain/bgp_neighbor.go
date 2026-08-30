@@ -23,19 +23,19 @@ func (p BGPPeerType) IsInternal() bool {
 }
 
 type BGPNeighbor struct {
-	ID              int64     `json:"id"`
-	NodeID          int64     `json:"node_id"`
-	LocalAS         uint32    `json:"local_as"`
-	RemoteAS        uint32    `json:"remote_as"`
-	PeeringIP       string    `json:"peering_ip"`
-	NeighborIP      string    `json:"neighbor_ip"`
-	IPv6PeeringIP   string    `json:"ipv6_peering_ip"`
-	IPv6NeighborIP  string    `json:"ipv6_neighbor_ip"`
-	Multihop        bool      `json:"multihop"`
-	PeerType        BGPPeerType `json:"peer_type"`
-	DefaultRouteAS  uint32    `json:"default_route_as,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID             int64       `json:"id"`
+	NodeID         int64       `json:"node_id"`
+	LocalAS        uint32      `json:"local_as"`
+	RemoteAS       uint32      `json:"remote_as"`
+	PeeringIP      string      `json:"peering_ip"`
+	NeighborIP     string      `json:"neighbor_ip"`
+	IPv6PeeringIP  string      `json:"ipv6_peering_ip"`
+	IPv6NeighborIP string      `json:"ipv6_neighbor_ip"`
+	Multihop       bool        `json:"multihop"`
+	PeerType       BGPPeerType `json:"peer_type"`
+	DefaultRouteAS uint32      `json:"default_route_as,omitempty"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
 type BGPSessionState string
@@ -80,15 +80,15 @@ type BGPPathDetail struct {
 }
 
 type BGPRouteEntry struct {
-	Prefix     string `json:"prefix"`
-	NextHop    string `json:"next_hop"`
-	ASPath     string `json:"as_path"`
-	Origin     string `json:"origin"`
-	LocalPref  string `json:"local_pref"`
-	MED        string `json:"med"`
-	NeighborIP string `json:"neighbor_ip"`
-	SourceASN  uint32 `json:"source_asn"`
-	Best       bool   `json:"best"`
+	Prefix       string   `json:"prefix"`
+	NextHop      string   `json:"next_hop"`
+	ASPath       string   `json:"as_path"`
+	Origin       string   `json:"origin"`
+	LocalPref    string   `json:"local_pref"`
+	MED          string   `json:"med"`
+	NeighborIP   string   `json:"neighbor_ip"`
+	SourceASN    uint32   `json:"source_asn"`
+	Best         bool     `json:"best"`
 	Age          string   `json:"age"`
 	AgeSeconds   int64    `json:"age_seconds,omitempty"` // for best-path tie-breaking
 	OriginatorID string   `json:"originator_id,omitempty"`

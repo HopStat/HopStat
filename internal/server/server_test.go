@@ -5,9 +5,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"encoding/pem"
@@ -110,7 +110,7 @@ type memFileWithStat struct {
 
 func (m *memFileWithStat) Close() error { return nil }
 func (m *memFileWithStat) Stat() (fs.FileInfo, error) {
-	return &fakeFileInfo{name: m.name, size: int64(m.Reader.Len())}, nil
+	return &fakeFileInfo{name: m.name, size: int64(m.Len())}, nil
 }
 
 type dirEntry struct{ name string }
@@ -146,9 +146,14 @@ type fakeFileInfo struct {
 	dir  bool
 }
 
-func (f *fakeFileInfo) Name() string       { return f.name }
-func (f *fakeFileInfo) Size() int64        { return f.size }
-func (f *fakeFileInfo) Mode() fs.FileMode  { if f.dir { return fs.ModeDir | 0o644 }; return 0o644 }
+func (f *fakeFileInfo) Name() string { return f.name }
+func (f *fakeFileInfo) Size() int64  { return f.size }
+func (f *fakeFileInfo) Mode() fs.FileMode {
+	if f.dir {
+		return fs.ModeDir | 0o644
+	}
+	return 0o644
+}
 func (f *fakeFileInfo) ModTime() time.Time { return time.Unix(1, 0) }
 func (f *fakeFileInfo) IsDir() bool        { return f.dir }
 func (f *fakeFileInfo) Sys() any           { return nil }
@@ -359,8 +364,7 @@ func TestServerRunAndShutdown(t *testing.T) {
 
 	// Wait for server to be ready by polling the health endpoint
 	client := &http.Client{Timeout: 2 * time.Second}
-	url := "http://127.0.0.1:" + strings.TrimLeft(listener.Addr().String(), "127.0.0.1:")
-	url = "http://127.0.0.1:" + itoa(port) + "/health"
+	url := "http://127.0.0.1:" + itoa(port) + "/health"
 
 	var lastErr error
 	for i := 0; i < 50; i++ {
@@ -541,23 +545,6 @@ func waitForTLSHealth(t *testing.T, port int) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("tls server never became ready")
-}
-
-func waitForHealth(t *testing.T, port int) {
-	t.Helper()
-	client := &http.Client{Timeout: 2 * time.Second}
-	url := "http://127.0.0.1:" + itoa(port) + "/health"
-	for i := 0; i < 50; i++ {
-		resp, err := client.Get(url)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return
-			}
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatal("server never became ready")
 }
 
 func TestServerAppearanceBootNotFound(t *testing.T) {

@@ -48,7 +48,7 @@ export function QueryHeader({ siteName, siteDescription, logoPath, onTraceroute,
               type="button"
               onClick={onHomeClick}
               title={siteName}
-              className="query-header__logo query-header__home shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+              className="query-header__logo query-header__home shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-ui"
             >
               <img
                 key={logoPath}

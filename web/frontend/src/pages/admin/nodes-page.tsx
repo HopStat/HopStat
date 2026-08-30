@@ -166,7 +166,7 @@ export function NodesPage() {
                     onClick={() => handleSetDefault(n.id)}
                     disabled={n.is_default}
                   >
-                    <Star className={`w-4 h-4 ${n.is_default ? 'fill-amber-400 text-amber-500' : 'text-muted-foreground'}`} />
+                    <Star className={`w-4 h-4 ${n.is_default ? 'fill-warning-on-surface text-warning-on-surface' : 'text-muted-foreground'}`} />
                   </Button>
                 </div>
               </TableCell>

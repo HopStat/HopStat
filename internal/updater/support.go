@@ -8,11 +8,10 @@ import (
 )
 
 var (
-	osStat     = os.Stat
-	osReadFile = os.ReadFile
+	osStat      = os.Stat
+	osReadFile  = os.ReadFile
 	runtimeGOOS = runtime.GOOS
 	osWriteFile = os.WriteFile
-	osChmod     = os.Chmod
 )
 
 // SelfUpdateSupported reports whether the current process can replace its own binary.

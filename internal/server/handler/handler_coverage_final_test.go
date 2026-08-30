@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
@@ -30,17 +29,18 @@ import (
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/repo"
 	"github.com/HopStat/HopStat/internal/updater"
+	"github.com/gin-gonic/gin"
 )
 
 type stubAgentDriver struct {
-	pingErr        error
-	pingResult     *domain.PingResult
-	tracerouteErr  error
-	tracerouteRes  *domain.TracerouteResult
-	bgpErr         error
-	bgpRes         *domain.BGPResult
-	createErr      error
-	onLine         func(string)
+	pingErr       error
+	pingResult    *domain.PingResult
+	tracerouteErr error
+	tracerouteRes *domain.TracerouteResult
+	bgpErr        error
+	bgpRes        *domain.BGPResult
+	createErr     error
+	onLine        func(string)
 }
 
 func (s stubAgentDriver) Ping(ctx context.Context, target string, count int) (*domain.PingResult, error) {
@@ -74,7 +74,7 @@ func (s stubAgentDriver) BGPRoute(ctx context.Context, prefix string) (*domain.B
 	return &domain.BGPResult{Raw: "ok"}, nil
 }
 
-func (s stubAgentDriver) Capabilities() []domain.CommandType { return domain.DefaultEnabledCmds() }
+func (s stubAgentDriver) Capabilities() []domain.CommandType       { return domain.DefaultEnabledCmds() }
 func (s stubAgentDriver) TestConnection(ctx context.Context) error { return nil }
 
 func withStubAgentDriver(t *testing.T, stub stubAgentDriver) {
@@ -1586,7 +1586,7 @@ func TestUpdateCommunityRule_InvalidSeverity(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &created)
 
-	body := fmt.Sprintf(`{"community":"1:1","severity":"bad","message_i18n":"x","scope":"global","active":true}`)
+	body := `{"community":"1:1","severity":"bad","message_i18n":"x","scope":"global","active":true}`
 	c, w = setupAdminContext(db, http.MethodPut, fmt.Sprintf("/admin/community-rules/%d", created.Data.ID), body, 1)
 	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(created.Data.ID)}}
 	UpdateCommunityRule(db)(c)
@@ -1893,7 +1893,7 @@ func TestRefreshCacheWarnings(t *testing.T) {
 		t.Fatalf("create status = %d", w.Code)
 	}
 
-	updateBody := fmt.Sprintf(`{"name":"updated","type":"standalone","enabled_cmds":["ping"]}`)
+	updateBody := `{"name":"updated","type":"standalone","enabled_cmds":["ping"]}`
 	c, w = setupAdminContext(db, http.MethodPut, fmt.Sprintf("/admin/nodes/%d", node.ID), updateBody, 1)
 	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(node.ID)}}
 	UpdateNode(db, "")(c)
@@ -2119,17 +2119,6 @@ func TestValidQuickQueryTarget_InvalidDefault(t *testing.T) {
 	}
 }
 
-type errReader struct{}
-
-func (errReader) Read([]byte) (int, error) { return 0, errors.New("read fail") }
-func (errReader) Close() error             { return nil }
-
-type errSeeker struct {
-	*bytes.Reader
-}
-
-func (e errSeeker) Seek(int64, int) (int64, error) { return 0, errors.New("seek fail") }
-
 func TestUploadLogo_ErrorPaths(t *testing.T) {
 	db := setupDB(t)
 	uploadDir := t.TempDir()
@@ -2286,7 +2275,7 @@ func TestCommunityRules_ErrorPaths(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &created)
 
-	body := fmt.Sprintf(`{"community":"1:1","severity":"bad","message_i18n":"x","scope":"global","active":true}`)
+	body := `{"community":"1:1","severity":"bad","message_i18n":"x","scope":"global","active":true}`
 	c, w = setupAdminContext(db, http.MethodPut, fmt.Sprintf("/admin/community-rules/%d", created.Data.ID), body, 1)
 	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(created.Data.ID)}}
 	UpdateCommunityRule(db)(c)
@@ -2294,7 +2283,7 @@ func TestCommunityRules_ErrorPaths(t *testing.T) {
 		t.Fatalf("severity status = %d", w.Code)
 	}
 
-	body = fmt.Sprintf(`{"community":"1:1","severity":"info","message_i18n":"x","scope":"bad","active":true}`)
+	body = `{"community":"1:1","severity":"info","message_i18n":"x","scope":"bad","active":true}`
 	c, w = setupAdminContext(db, http.MethodPut, fmt.Sprintf("/admin/community-rules/%d", created.Data.ID), body, 1)
 	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(created.Data.ID)}}
 	UpdateCommunityRule(db)(c)
@@ -2390,7 +2379,7 @@ func TestUpdateApplyBlockedDefaultFn(t *testing.T) {
 	if !blocked || msg == "" {
 		t.Fatalf("blocked=%v msg=%q", blocked, msg)
 	}
-	if blocked, msg = updateApplyBlocked(&updater.Status{SelfUpdateEnabled: true}); blocked {
+	if blocked, _ = updateApplyBlocked(&updater.Status{SelfUpdateEnabled: true}); blocked {
 		t.Fatal("expected enabled status not blocked")
 	}
 }
@@ -2521,7 +2510,7 @@ func TestUpdateCommunityRule_BindAndUpdateErrors(t *testing.T) {
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &created)
 
-	updateBody := fmt.Sprintf(`{"community":"1:1","severity":"","message_i18n":"x","scope":"","active":true}`)
+	updateBody := `{"community":"1:1","severity":"","message_i18n":"x","scope":"","active":true}`
 	c, w = setupAdminContext(db, http.MethodPut, fmt.Sprintf("/admin/community-rules/%d", created.Data.ID), updateBody, 1)
 	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(created.Data.ID)}}
 	UpdateCommunityRule(db)(c)
@@ -2833,7 +2822,9 @@ func TestUpdateCommunityRule_RefreshWarningOnUpdate(t *testing.T) {
 	c, w := setupAdminContext(db, http.MethodPost, "/admin/community-rules", createBody, 1)
 	CreateCommunityRule(db)(c)
 	var created struct {
-		Data struct { ID int64 `json:"id"` } `json:"data"`
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &created)
 
@@ -2841,7 +2832,7 @@ func TestUpdateCommunityRule_RefreshWarningOnUpdate(t *testing.T) {
 	refreshCommunitiesCacheFn = func(*sql.DB) error { return errors.New("refresh fail") }
 	t.Cleanup(func() { refreshCommunitiesCacheFn = prev })
 
-	body := fmt.Sprintf(`{"community":"1:1","severity":"info","message_i18n":"updated","scope":"global","active":true}`)
+	body := `{"community":"1:1","severity":"info","message_i18n":"updated","scope":"global","active":true}`
 	c, w = setupAdminContext(db, http.MethodPut, fmt.Sprintf("/admin/community-rules/%d", created.Data.ID), body, 1)
 	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(created.Data.ID)}}
 	UpdateCommunityRule(db)(c)

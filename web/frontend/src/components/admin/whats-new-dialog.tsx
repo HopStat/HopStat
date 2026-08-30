@@ -8,7 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ReleaseNotesPanel, formatReleaseVersion } from '@/lib/release-notes'
+import { ReleaseNotesPanel } from '@/lib/release-notes'
+import { formatReleaseVersion } from '@/lib/release-notes-format'
 import { useI18n } from '@/contexts/i18n-context'
 
 interface Props {
@@ -102,7 +103,7 @@ export function WhatsNewDialog({
               href={releaseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-brand hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-brand-accent hover:underline"
             >
               {t('admin.whats_new_github')}
               <ExternalLink className="h-3 w-3" />

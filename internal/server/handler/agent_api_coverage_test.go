@@ -9,22 +9,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/geo"
 	"github.com/HopStat/HopStat/internal/server/middleware"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/gin-gonic/gin"
 )
 
 func setupAgentRouter(t *testing.T, db *sql.DB, node *domain.Node) *gin.Engine {
 	t.Helper()
 	if node != nil && node.ID == 0 {
 		nodeRepo := repo.NewNodeRepo(db, "")
-		created, err := nodeRepo.Create(t.Context(), node)
-		if err != nil {
+		// Persisted for its side effect: NodeAgentAuth looks the node up in the database.
+		if _, err := nodeRepo.Create(t.Context(), node); err != nil {
 			t.Fatalf("create node: %v", err)
 		}
-		node = created
 	}
 
 	gin.SetMode(gin.TestMode)

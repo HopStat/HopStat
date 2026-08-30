@@ -8,7 +8,7 @@ import { ResultPing } from './result-ping'
 import { QueryErrorAlert } from './query-error-alert'
 import { ResultShareBar } from './result-share-bar'
 import { NetworkMap } from './network-map'
-import { buildBgpMapAsPath, extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, hasPingData, isPingOutputComplete, bestBGPRoute, shouldShowBgpAsPathMap } from '@/lib/result-parse'
+import { buildBgpMapAsPath, extractASPathFromBGP, extractASPathFromLines, parsePingFromLines, mergePingResult, isPingOutputComplete, bestBGPRoute, shouldShowBgpAsPathMap } from '@/lib/result-parse'
 import { translateQueryError, translateBgpRawMessage } from '@/lib/query-errors'
 import { buildResultText } from '@/lib/result-export'
 import type { BGPResult, NodeASPath, PingResult } from '@/types/domain'
@@ -123,7 +123,6 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
   const showPingStats = command === 'ping'
   const pingOutputComplete = command === 'ping' && isPingOutputComplete(displayLines)
   const pingRunning = isRunning && !pingOutputComplete
-  const pingLoading = pingRunning && !hasPingData(pingDisplay)
   const tracerouteOutputComplete = command === 'traceroute' && outputComplete
   const commandOutputComplete = pingOutputComplete || tracerouteOutputComplete
   const terminalRunning = isRunning && !commandOutputComplete
@@ -183,7 +182,7 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
       )}
 
       {showPingStats && (
-        <ResultPing result={pingDisplay} loading={pingLoading} running={pingRunning} />
+        <ResultPing result={pingDisplay} running={pingRunning} />
       )}
 
       {showBgpRoutes && bgpParsed && (
@@ -191,7 +190,7 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
       )}
 
       {showBgpRawMessage && bgpRawMessage && (
-        <div className="result-surface result-surface--message px-4 py-3 text-sm text-muted-foreground font-data animate-fade-up">
+        <div className="result-surface px-4 py-3 text-sm text-muted-foreground font-data animate-fade-up">
           {bgpRawMessage}
         </div>
       )}

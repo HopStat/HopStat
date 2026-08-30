@@ -11,7 +11,7 @@ type stubBGPDriver struct {
 	result *domain.BGPResult
 }
 
-func (d stubBGPDriver) Capabilities() []domain.CommandType { return nil }
+func (d stubBGPDriver) Capabilities() []domain.CommandType   { return nil }
 func (d stubBGPDriver) TestConnection(context.Context) error { return nil }
 func (d stubBGPDriver) Ping(context.Context, string, int) (*domain.PingResult, error) {
 	return nil, nil

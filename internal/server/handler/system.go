@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/HopStat/HopStat/internal/hoststats"
 	"github.com/HopStat/HopStat/internal/hostips"
+	"github.com/HopStat/HopStat/internal/hoststats"
+	"github.com/gin-gonic/gin"
 )
 
 var systemStatsCollector hoststats.Collector = hoststatsCollector{}

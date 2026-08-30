@@ -222,7 +222,6 @@ func TestQueries_GetAllNodes(t *testing.T) {
 	}
 }
 
-
 func TestQueries_GetUserByEmail(t *testing.T) {
 	db, q := setupTestDB(t)
 	ctx := context.Background()

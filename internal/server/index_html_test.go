@@ -9,9 +9,9 @@ import (
 	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
+// Not parallel: injectIndexHTML reads the process-wide sitecache, which each of these
+// tests overwrites with different settings.
 func TestInjectIndexHTML(t *testing.T) {
-	t.Parallel()
-
 	db := setupTestDB(t)
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`); err != nil {
 		t.Fatal(err)
@@ -42,6 +42,12 @@ func TestInjectIndexHTML(t *testing.T) {
 }
 
 func TestInjectIndexHTML_EmptySettings(t *testing.T) {
+	// Stub the cache rather than relying on it being empty: every other test in this file
+	// populates the process-wide sitecache, so the state here depends on run order.
+	prev := indexHTMLAllSettings
+	indexHTMLAllSettings = func() map[string]string { return nil }
+	t.Cleanup(func() { indexHTMLAllSettings = prev })
+
 	indexHTML := []byte(`<!doctype html><html><head><!-- hopstat:bootstrap --><title>Looking Glass</title></head></html>`)
 	out := injectIndexHTML(indexHTML)
 	if string(out) != string(indexHTML) {
@@ -50,7 +56,6 @@ func TestInjectIndexHTML_EmptySettings(t *testing.T) {
 }
 
 func TestInjectIndexHTML_Defaults(t *testing.T) {
-	t.Parallel()
 	db := setupTestDB(t)
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`); err != nil {
 		t.Fatal(err)

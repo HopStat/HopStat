@@ -9,15 +9,20 @@ import {
 export const APPEARANCE_CACHE_KEY = 'hopstat-appearance'
 export const THEME_STORAGE_KEY = 'hopstat-theme'
 
+/** Bumped whenever the set of variables written to the document changes. A cache from an
+ *  older set is discarded rather than replayed, which would paint the page with variables
+ *  the current stylesheet no longer understands. */
+export const APPEARANCE_CACHE_VERSION = 4
+
 export type Theme = 'light' | 'dark'
 
 export interface AppearanceCache {
+  version: number
   header_color: string
   site_name: string
   site_description: string
   theme: Theme
   brandDark: 'true' | 'false'
-  brandLightTone: 'true' | 'false'
   vars: Record<string, string>
 }
 
@@ -47,17 +52,14 @@ function paletteToVars(palette: BrandPalette, theme: Theme): Record<string, stri
 
   const vars: Record<string, string> = {
     '--brand': palette.brand,
-    '--brand-header': palette.header,
     '--brand-h': String(palette.hsl.h),
     '--brand-s': `${palette.hsl.s}%`,
     '--brand-l': `${palette.hsl.l}%`,
-    '--brand-on-dark': palette.onDark,
-    '--brand-dark': palette.dark,
-    '--brand-light': palette.light,
-    '--brand-deepest': palette.darkest,
+    '--brand-foreground': palette.foreground,
+    '--brand-accent': palette.accent,
+    '--brand-accent-ui': palette.accentUi,
     '--brand-accent-line': palette.accentLine,
-    '--brand-form-from': palette.formFrom,
-    '--brand-form-to': palette.formTo,
+    '--brand-muted': palette.muted,
     '--brand-terminal-bg': terminal.bg,
     '--brand-terminal-border': terminal.border,
     '--brand-terminal-fg': terminal.fg,
@@ -94,6 +96,11 @@ export function readAppearanceCache(): AppearanceCache | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as AppearanceCache
     if (!parsed?.vars || typeof parsed.vars !== 'object') return null
+    if (parsed.version !== APPEARANCE_CACHE_VERSION) return null
+    // Dark-mode surfaces are baked into the cached variables, so a cache written for the
+    // other theme would paint this one with the wrong surfaces. Happens whenever the
+    // system preference flips or another tab toggles the theme.
+    if (parsed.theme !== getInitialTheme()) return null
     return parsed
   } catch {
     return null
@@ -106,7 +113,6 @@ export function applyAppearanceCache(cache: AppearanceCache) {
     root.style.setProperty(key, value)
   }
   root.dataset.brandDark = cache.brandDark
-  root.dataset.brandLightTone = cache.brandLightTone
 }
 
 export function saveAppearanceCache(settings: AppearanceSettings, theme: Theme) {
@@ -115,12 +121,12 @@ export function saveAppearanceCache(settings: AppearanceSettings, theme: Theme) 
   applyBrandPalette(palette, theme)
 
   const cache: AppearanceCache = {
+    version: APPEARANCE_CACHE_VERSION,
     header_color: headerColor,
     site_name: settings.site_name?.trim() || 'Looking Glass',
     site_description: settings.site_description?.trim() || '',
     theme,
     brandDark: palette.isDarkBrand ? 'true' : 'false',
-    brandLightTone: palette.isDarkBrand ? 'false' : 'true',
     vars: paletteToVars(palette, theme),
   }
 

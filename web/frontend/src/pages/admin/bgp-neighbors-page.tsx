@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, RefreshCw, Square, RotateCw, ScrollText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,7 +51,7 @@ function formatBGPStatusTitle(state: string, t: (key: string) => string): string
 
 const logLevelClass = (level: string): string => {
   if (level === 'error') return 'text-destructive'
-  if (level === 'warn') return 'text-amber-600'
+  if (level === 'warn') return 'text-warning-on-surface'
   return 'text-muted-foreground'
 }
 
@@ -121,20 +121,25 @@ export function BGPNeighborsPage() {
     return () => clearInterval(timer)
   }, [])
 
-  const loadLogs = (neighborId: number) => {
+  const loadLogs = useCallback((neighborId: number) => {
     setLogsLoading(true)
-    api.get<BGPLogEntry[]>(`/admin/bgp-neighbors/${neighborId}/logs?limit=200`)
+    return api.get<BGPLogEntry[]>(`/admin/bgp-neighbors/${neighborId}/logs?limit=200`)
       .then(setLogs)
       .catch(() => setLogs([]))
       .finally(() => setLogsLoading(false))
-  }
+  }, [])
+
+  // Closes over the id rather than the neighbour object, so the 2s poll cannot keep
+  // requesting logs for whichever neighbour was open when the interval was created.
+  const openLogsNeighborId = logsOpen ? logsNeighbor?.id ?? null : null
 
   useEffect(() => {
-    if (!logsOpen || !logsNeighbor) return
-    loadLogs(logsNeighbor.id)
-    const timer = setInterval(() => loadLogs(logsNeighbor.id), 2000)
+    if (openLogsNeighborId == null) return
+    const poll = () => { void loadLogs(openLogsNeighborId) }
+    poll()
+    const timer = setInterval(poll, 2000)
     return () => clearInterval(timer)
-  }, [logsOpen, logsNeighbor?.id])
+  }, [openLogsNeighborId, loadLogs])
 
   function openCreate() {
     setEditItem(null)
@@ -267,10 +272,10 @@ export function BGPNeighborsPage() {
       {actionError && <QueryErrorAlert message={actionError} className="mb-4" />}
 
       {bgpConfig?.status === 'not_configured' && (
-        <p className="text-sm text-amber-600">{t('admin.bgp_local_as_missing')}</p>
+        <p className="text-sm text-warning-on-surface">{t('admin.bgp_local_as_missing')}</p>
       )}
       {bgpConfig?.status === 'restart_required' && (
-        <p className="text-sm text-amber-600">{t('admin.bgp_local_as_restart')}</p>
+        <p className="text-sm text-warning-on-surface">{t('admin.bgp_local_as_restart')}</p>
       )}
       {bgpConfig && bgpConfig.local_as > 0 && (
         <p className="text-sm text-muted-foreground">

@@ -69,3 +69,8 @@ Thumbs.db
 
 # Accidental scratch file
 web/frontend/SQLite
+
+# Playwright run artefacts
+web/frontend/test-results/
+web/frontend/playwright-report/
+web/frontend/blob-report/

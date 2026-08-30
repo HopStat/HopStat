@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HopStat/HopStat/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/HopStat/HopStat/internal/config"
 )
 
 const testJWTSecret = "test-secret-that-is-at-least-32-chars"

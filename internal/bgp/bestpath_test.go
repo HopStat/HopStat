@@ -222,7 +222,7 @@ func TestEnsureBestAmongEntriesPrefersTheDirectlyLearnedPath(t *testing.T) {
 		&domain.BGPRouteEntry{
 			ASPath: "44901 15169", Origin: "IGP", LocalPref: "100",
 			NextHop: "172.16.16.65", NeighborIP: "172.16.16.15",
-			AgeSeconds: 5*24*3600 + 16*3600 + 38*60 + 49,
+			AgeSeconds:   5*24*3600 + 16*3600 + 38*60 + 49,
 			OriginatorID: "91.132.62.65", ClusterList: []string{"172.16.16.66"},
 		},
 		&domain.BGPRouteEntry{

@@ -274,7 +274,7 @@ export function SettingsPage() {
                   onClick={() => toggleLanguage(code)}
                   className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
                     active
-                      ? 'border-brand/40 bg-brand/10 text-brand'
+                      ? 'border-brand-accent-ui/40 bg-brand/10 text-brand-accent'
                       : 'border-border text-muted-foreground hover:border-border/80'
                   }`}
                 >

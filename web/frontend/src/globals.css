@@ -1,20 +1,24 @@
 @import "tailwindcss";
 
+/* Self-hosted rather than fetched from Google: the page already blocks on the appearance
+   boot script, and a second render-blocking third-party request on top of that is the
+   slowest part of first paint. Variable fonts, so one file covers every weight. */
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/jetbrains-mono";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --brand: #1e293b;
-  --brand-header: var(--brand);
   --brand-h: 213;
   --brand-s: 52%;
   --brand-l: 24%;
-  --brand-dark: hsl(213 52% 20%);
-  --brand-light: hsl(213 38% 28%);
-  --brand-deepest: hsl(213 52% 8%);
-  --brand-accent-line: hsl(213 74% 54%);
-  --brand-form-from: hsl(213 56% 20%);
-  --brand-form-to: hsl(213 60% 26%);
-  --brand-on-dark: #f8fafc;
+  --brand-accent-line: var(--brand-accent-ui);
+  /* Contrast-solved at runtime from header_color; these are the solved values for the
+     seeded brand, so the page is readable before the boot script runs. */
+  --brand-foreground: #f8fafc;
+  --brand-accent: #425e8a;
+  --brand-accent-ui: #425e8a;
   --brand-terminal-bg: hsl(213 18% 97%);
   --brand-terminal-border: hsl(213 14% 88%);
   --brand-terminal-fg: hsl(213 28% 24%);
@@ -29,30 +33,88 @@
   --color-muted-foreground: #5a677a;
   --color-border: #d4dbe6;
   --color-primary: var(--brand);
-  --color-primary-foreground: #ffffff;
+  --color-primary-foreground: var(--brand-foreground);
   --color-destructive: #c41e3a;
   --color-destructive-foreground: #ffffff;
+  --color-destructive-surface: #fbe9ec;
+  --color-destructive-on-surface: #96162c;
+  /* Status ramps. Every pair below is measured: text on the solid and text on the tint
+     both clear 4.5:1, so a status never depends on colour alone being legible. Warning
+     carries dark text because an amber dark enough for white stops reading as amber. */
+  --color-success: #0d874a;
+  --color-success-foreground: #ffffff;
+  --color-success-surface: #e7f6ee;
+  --color-success-on-surface: #0b6b40;
+  --color-warning: #d9930f;
+  --color-warning-foreground: #1a1204;
+  --color-warning-surface: #fdf2dc;
+  --color-warning-on-surface: #7a4f06;
+  --color-info: #1273bd;
+  --color-info-foreground: #ffffff;
+  --color-info-surface: #e6f1fb;
+  --color-info-on-surface: #0f5b96;
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-ui: var(--brand-accent-ui);
   --color-accent: #eef1f6;
   --color-accent-foreground: #152033;
   --color-card: #ffffff;
   --color-card-foreground: #152033;
   --color-popover: #ffffff;
   --color-popover-foreground: #152033;
-  --color-ring: var(--brand);
-  --color-input: #c5ceda;
+  /* The focus ring is a non-text object, so it rides the 3:1 accent rather than the raw
+     brand — a pale brand used directly leaves keyboard users with no visible focus. */
+  --color-ring: var(--brand-accent-ui);
+  /* Solved to 3:1 against the card. This border is the only thing marking where a
+     field is — the fill barely differs from the surface behind it — so 1.4.11 applies. */
+  --color-input: #798eaa;
   --color-sidebar: #fafbfc;
   --color-sidebar-foreground: #3d4d63;
   --color-sidebar-border: #dce2eb;
   --color-brand: var(--brand);
   --color-surface-elevated: #ffffff;
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.625rem;
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Referenced once at globals.css and never defined until now; the mono face is what the
+     data columns were always meant to use. */
+  --font-data: var(--font-mono);
+
+  /* One radius scale. Five used to coexist — four tokens that nothing referenced plus a
+     spread of hardcoded values — so a card, a dialog and a table never agreed on a corner.
+     Soft console: generous but not pill-shaped. */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-full: 9999px;
+
+  /* Type scale. Body sits at 0.875rem rather than 1rem: this is a data-dense operations
+     tool, and the tables assume a tighter measure. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.625rem;
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: 1.75rem;
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: 2.125rem;
+
+  /* Elevation. The two existing names stay — cva call sites depend on them — and the soft
+     console adds a mid step and an overlay step above them. */
   --shadow-soft: 0 1px 2px rgba(21, 32, 51, 0.05);
+  --shadow-raised: 0 1px 2px rgba(21, 32, 51, 0.04), 0 4px 12px rgba(21, 32, 51, 0.06);
   --shadow-elevated: 0 1px 3px rgba(21, 32, 51, 0.06), 0 8px 24px rgba(21, 32, 51, 0.08);
+  --shadow-overlay: 0 24px 60px rgba(21, 32, 51, 0.16), 0 2px 8px rgba(21, 32, 51, 0.08);
 }
 
 @layer base {
@@ -63,20 +125,43 @@
     --color-muted-foreground: #8b97a8;
     --color-border: #252f3f;
     --color-primary: var(--brand);
+    --color-primary-foreground: var(--brand-foreground);
     --color-destructive: #e85d6f;
+    --color-destructive-foreground: #1a0e11;
+    --color-destructive-surface: #2c1418;
+    --color-destructive-on-surface: #f4a3ad;
+    --color-success: #22a45f;
+    --color-success-foreground: #04140b;
+    --color-success-surface: #0f2a1e;
+    --color-success-on-surface: #6ddc9f;
+    --color-warning: #d99516;
+    --color-warning-foreground: #1a1204;
+    --color-warning-surface: #2c2110;
+    --color-warning-on-surface: #f0c268;
+    --color-info: #2b93d6;
+    --color-info-foreground: #04121c;
+    --color-info-surface: #0e2438;
+    --color-info-on-surface: #79c0f0;
+    --brand-foreground: #f8fafc;
+    --brand-accent: #7591bd;
+    --brand-accent-ui: #7591bd;
     --color-accent: #161d28;
     --color-accent-foreground: #e8edf4;
     --color-card: #121820;
     --color-card-foreground: #e8edf4;
     --color-popover: #121820;
     --color-popover-foreground: #e8edf4;
-    --color-input: #2a3547;
+    --color-input: #52678a;
     --color-sidebar: #0f141c;
     --color-sidebar-foreground: #a8b4c4;
     --color-sidebar-border: #1f2a3a;
     --color-surface-elevated: #161d28;
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.25);
-    --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.35);
+    /* A drop shadow is nearly invisible against a dark surface, so each step leads with a
+       hairline top highlight. That inset edge is what reads as "raised" in dark mode. */
+    --shadow-soft: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 2px 10px rgba(0, 0, 0, 0.34);
+    --shadow-elevated: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 4px 16px rgba(0, 0, 0, 0.42);
+    --shadow-overlay: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 24px 60px rgba(0, 0, 0, 0.6);
     --brand-terminal-bg: hsl(213 52% 8%);
     --brand-terminal-border: hsl(213 40% 16%);
     --brand-terminal-fg: hsl(213 24% 82%);
@@ -168,7 +253,14 @@
     background-color: var(--color-background);
     background-image: none;
   }
+}
 
+/* The hand-written component system. It belongs in `components`, not `utilities`:
+   `utilities` is the last cascade layer, so every rule below used to outrank the Tailwind
+   classes written alongside it in JSX, and the only way to win an argument with it was
+   `!important`. In `components` the utilities win by default, which is what the markup
+   assumes. */
+@layer components {
   .query-page-shell {
     position: relative;
     isolation: isolate;
@@ -192,7 +284,7 @@
     background:
       radial-gradient(ellipse 70% 55% at 50% -10%, color-mix(in srgb, var(--brand-accent-line) 22%, transparent), transparent 70%),
       radial-gradient(ellipse 40% 30% at 85% 10%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 70%);
-    opacity: 0.9;
+    opacity: 0.5;
   }
 
   .query-page-grid {
@@ -201,38 +293,33 @@
     background-image:
       linear-gradient(color-mix(in srgb, var(--brand) 8%, transparent) 1px, transparent 1px),
       linear-gradient(90deg, color-mix(in srgb, var(--brand) 8%, transparent) 1px, transparent 1px);
-    background-size: 28px 28px;
-    mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
-    opacity: 0.45;
+    background-size: 32px 32px;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 88%);
+    opacity: 0.22;
   }
 
   .dark .query-page-glow {
-    opacity: 0.55;
+    opacity: 0.38;
     background:
       radial-gradient(ellipse 70% 55% at 50% -10%, color-mix(in srgb, var(--brand-accent-line) 28%, transparent), transparent 72%),
       radial-gradient(ellipse 40% 30% at 85% 10%, color-mix(in srgb, var(--brand-accent-line) 12%, transparent), transparent 70%);
   }
 
+  /* One card, one shadow. This used to stack an inset white highlight, a wide brand-tinted
+     drop and an elevation shadow behind a 10px backdrop blur — a lot of glass for a
+     surface with nothing meaningful behind it. */
   .query-console {
     position: relative;
     z-index: 1;
     overflow: hidden;
-    border-radius: 1.5rem;
-    border: 1px solid color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
-    background: color-mix(in srgb, var(--color-card) 92%, transparent);
-    box-shadow:
-      0 1px 0 color-mix(in srgb, #fff 70%, transparent) inset,
-      0 24px 60px -32px color-mix(in srgb, var(--brand) 28%, transparent),
-      var(--shadow-elevated);
-    backdrop-filter: blur(10px);
+    border-radius: var(--radius-xl);
+    border: 1px solid color-mix(in srgb, var(--brand-accent-line) 14%, var(--color-border));
+    background: var(--color-card);
+    box-shadow: var(--shadow-elevated);
   }
 
   .dark .query-console {
-    background: color-mix(in srgb, var(--color-card) 88%, transparent);
-    border-color: color-mix(in srgb, var(--brand-accent-line) 22%, var(--color-border));
-    box-shadow:
-      0 1px 0 color-mix(in srgb, var(--brand-accent-line) 10%, transparent) inset,
-      0 28px 70px -34px color-mix(in srgb, var(--brand) 42%, transparent);
+    border-color: color-mix(in srgb, var(--brand-accent-line) 20%, var(--color-border));
   }
 
   .query-header {
@@ -511,8 +598,8 @@
 
   .query-header__home:focus-visible {
     outline: none;
-    border-radius: 0.25rem;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 35%, transparent);
+    border-radius: var(--radius-xs);
+    box-shadow: 0 0 0 2px var(--brand-accent-line);
   }
 
   .query-header__logo.query-header__home {
@@ -528,7 +615,9 @@
     max-width: 42rem;
     font-size: 0.6875rem;
     line-height: 1.1;
-    color: var(--color-muted-foreground);
+    /* Sits on the brand-tinted band, which a dark brand darkens well below the card, so
+       the fixed muted token is not dark enough here. */
+    color: var(--brand-muted, var(--color-muted-foreground));
   }
 
   @media (min-width: 640px) {
@@ -640,7 +729,7 @@
   .query-home-card--compact .query-home-card__icon {
     width: 1.75rem;
     height: 1.75rem;
-    border-radius: 0.6rem;
+    border-radius: var(--radius-sm);
   }
 
   .query-home-card--compact .query-home-card__target {
@@ -665,7 +754,7 @@
 
   .query-home-card--skeleton {
     min-height: 4.75rem;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--brand) 8%, var(--color-border));
     background: linear-gradient(
       90deg,
@@ -696,7 +785,7 @@
     width: 100%;
     min-height: 4.75rem;
     padding: 0.9rem 1rem;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
     background: linear-gradient(
       180deg,
@@ -720,7 +809,7 @@
     justify-content: center;
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--brand-accent-line) 14%, var(--color-muted));
     color: color-mix(in srgb, var(--brand-accent-line) 78%, var(--color-foreground));
   }
@@ -1157,7 +1246,7 @@
   .query-header-band {
     position: relative;
     overflow: hidden;
-    border-radius: 1.5rem 1.5rem 0 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--brand) 22%, var(--color-card)) 0%,
@@ -1217,7 +1306,7 @@
   }
 
   .query-header-band .visitor-ip-badge__meta {
-    color: var(--color-muted-foreground);
+    color: var(--brand-muted, var(--color-muted-foreground));
   }
 
   .query-header-band .query-header__theme {
@@ -1258,21 +1347,21 @@
 
   /* Locale select — standalone header (brand-color background): use on-dark contrast */
   .locale-switcher__select {
-    border-color: color-mix(in srgb, var(--brand-on-dark) 24%, transparent);
-    background: color-mix(in srgb, var(--brand-on-dark) 10%, transparent);
-    color: var(--brand-on-dark);
+    border-color: color-mix(in srgb, var(--brand-foreground) 24%, transparent);
+    background: color-mix(in srgb, var(--brand-foreground) 10%, transparent);
+    color: var(--brand-foreground);
   }
   .locale-switcher__select:hover {
-    background: color-mix(in srgb, var(--brand-on-dark) 18%, transparent);
+    background: color-mix(in srgb, var(--brand-foreground) 18%, transparent);
   }
   .locale-switcher__chevron {
-    color: color-mix(in srgb, var(--brand-on-dark) 70%, transparent);
+    color: color-mix(in srgb, var(--brand-foreground) 70%, transparent);
   }
 
   .query-form-band {
     position: relative;
     overflow: hidden;
-    border-radius: 0 0 1.5rem 1.5rem;
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     background: color-mix(in srgb, var(--color-card) 96%, var(--color-muted));
     border-top: none;
   }
@@ -1295,7 +1384,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
     overflow: hidden;
-    border-radius: 1.5rem;
+    border-radius: var(--radius-xl);
     border: 1px solid color-mix(in srgb, var(--brand-accent-line) 24%, var(--color-border));
     background: var(--color-border);
   }
@@ -1428,7 +1517,7 @@
 
   .query-results-shell {
     overflow: visible;
-    border-radius: 1.5rem;
+    border-radius: var(--radius-xl);
     border: 0;
     background: transparent;
   }
@@ -1445,7 +1534,7 @@
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    border-radius: 1.5rem;
+    border-radius: var(--radius-xl);
     border: 0;
     background: var(--color-card);
     max-width: 100%;
@@ -1656,12 +1745,12 @@
   }
 
   .result-table-wrap {
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow-x: auto;
+    overflow-y: hidden;
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
   }
@@ -1676,12 +1765,12 @@
 
   .result-surface .result-table-wrap thead,
   .result-table-frame .result-table-wrap thead {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
   }
 
   .result-surface .result-table-wrap thead th,
   .result-table-frame .result-table-wrap thead th {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
     border-bottom: 1px solid var(--color-border);
   }
 
@@ -1689,7 +1778,7 @@
   .dark .result-surface .result-table-wrap thead th,
   .dark .result-table-frame .result-table-wrap thead,
   .dark .result-table-frame .result-table-wrap thead th {
-    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card)) !important;
+    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card));
   }
 
   .result-surface .result-table-wrap table,
@@ -1735,8 +1824,8 @@
   }
 
   .result-bgp-table thead th.result-bgp-table__star {
-    padding-left: 0.375rem !important;
-    padding-right: 0.375rem !important;
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
   }
 
   .result-bgp-table__col-star {
@@ -1747,8 +1836,8 @@
     width: 2.75rem;
     min-width: 2.75rem;
     max-width: 2.75rem;
-    padding-left: 0.875rem !important;
-    padding-right: 0.375rem !important;
+    padding-left: 0.875rem;
+    padding-right: 0.375rem;
   }
 
   .result-bgp-table__col-node,
@@ -1836,7 +1925,7 @@
 
   .communities-table-frame {
     overflow: hidden;
-    border-radius: 1.5rem;
+    border-radius: var(--radius-xl);
     border: 1px solid color-mix(in srgb, var(--brand-accent-line) 20%, var(--color-border));
     background: var(--color-card);
   }
@@ -1846,24 +1935,24 @@
   }
 
   .communities-table-wrap {
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .communities-table-frame .communities-table-wrap thead {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
   }
 
   .communities-table-frame .communities-table-wrap thead th {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
     border-bottom: 1px solid var(--color-border);
   }
 
   .dark .communities-table-frame .communities-table-wrap thead,
   .dark .communities-table-frame .communities-table-wrap thead th {
-    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card)) !important;
+    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card));
   }
 
   .communities-table-frame .communities-table-wrap table {
@@ -1890,23 +1979,23 @@
   .as-path-tooltip {
     border: 1px solid color-mix(in srgb, var(--brand-accent-line) 28%, var(--color-border));
     background: color-mix(in srgb, var(--brand) 90%, var(--color-popover));
-    color: var(--brand-on-dark);
+    color: var(--brand-foreground);
     box-shadow: var(--shadow-elevated);
   }
 
   .geoip-dialog-table {
     overflow-x: auto;
     border: 1px solid color-mix(in srgb, var(--brand-accent-line) 16%, var(--color-border));
-    border-radius: 0.75rem;
+    border-radius: var(--radius-md);
     background: var(--color-card);
   }
 
   .geoip-dialog-table__inner {
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    overflow: visible !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    overflow: visible;
   }
 
   .geoip-dialog-table table {
@@ -1955,14 +2044,17 @@
   @media (min-width: 640px) {
   }
 
+  /* The popover surface rather than a brand blend: the text here is the popover's own
+     near-white, and a pale brand behind it left nothing readable. A blend cannot be
+     measured the way a solid fill can, so the brand stays on the border instead. */
   .dark .as-path-tooltip {
     border-color: color-mix(in srgb, var(--brand-accent-line) 34%, var(--color-border));
-    background: color-mix(in srgb, var(--brand) 84%, var(--color-popover));
+    background: var(--color-popover);
     color: var(--color-popover-foreground);
   }
 
   .result-surface.output-terminal {
-    border-radius: 1.5rem;
+    border-radius: var(--radius-xl);
     border: 1px solid var(--color-border);
     overflow: hidden;
   }
@@ -2112,7 +2204,7 @@
 
   .brand-ring:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px color-mix(in srgb, var(--brand) 35%, transparent);
+    box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--brand-accent-ui);
   }
 
   .animate-fade-up {
@@ -2178,7 +2270,7 @@
     -webkit-appearance: none;
     appearance: none;
     height: 0.375rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     background: linear-gradient(
       to right,
       var(--range-fill) 0%,
@@ -2190,25 +2282,25 @@
   }
 
   .settings-range:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--range-fill) 45%, transparent);
+    outline: 2px solid var(--range-fill);
     outline-offset: 3px;
   }
 
   .settings-range::-webkit-slider-runnable-track {
     height: 0.375rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     background: transparent;
   }
 
   .settings-range::-moz-range-track {
     height: 0.375rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     background: var(--color-muted);
   }
 
   .settings-range::-moz-range-progress {
     height: 0.375rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     background: var(--range-fill);
   }
 
@@ -2217,7 +2309,7 @@
     appearance: none;
     width: 1rem;
     height: 1rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     border: 2px solid var(--color-background);
     background: var(--range-fill);
     box-shadow: var(--shadow-soft);
@@ -2228,7 +2320,7 @@
   .settings-range::-moz-range-thumb {
     width: 1rem;
     height: 1rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-full);
     border: 2px solid var(--color-background);
     background: var(--range-fill);
     box-shadow: var(--shadow-soft);
@@ -2396,7 +2488,8 @@
     font-weight: 600;
     line-height: 1.15;
     letter-spacing: -0.01em;
-    color: var(--color-muted-foreground);
+    /* On the brand-tinted brand block, same as .query-header__subtitle. */
+    color: var(--brand-muted, var(--color-muted-foreground));
   }
 
   .admin-sidebar__nav {
@@ -2418,7 +2511,7 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-md);
     border: 1px solid transparent;
     padding: 0.55rem 0.75rem;
     font-size: 0.8125rem;
@@ -2506,7 +2599,7 @@
   }
 
   .admin-sidebar__hopstat-version {
-    border-radius: 0.25rem;
+    border-radius: var(--radius-xs);
     padding: 0 0.3rem;
     font-family: var(--font-mono);
     font-size: 0.5625rem;
@@ -2636,7 +2729,7 @@
 
   .admin-panel {
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
     background: linear-gradient(
       180deg,
@@ -2690,7 +2783,7 @@
 
   .admin-main .rounded-lg.border.border-border.bg-card {
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     border-color: color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
     background: linear-gradient(
       180deg,
@@ -2721,7 +2814,7 @@
     align-items: flex-start;
     gap: 0.65rem;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
     background: linear-gradient(
       180deg,
@@ -2747,7 +2840,7 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    border-radius: 0.7rem;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--brand-accent-line) 12%, var(--color-muted));
     color: color-mix(in srgb, var(--brand-accent-line) 78%, var(--color-foreground));
     box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 45%, transparent);
@@ -2788,7 +2881,7 @@
     flex-direction: column;
     gap: 0.45rem;
     overflow: hidden;
-    border-radius: 1rem;
+    border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
     background: linear-gradient(
       180deg,
@@ -2810,7 +2903,7 @@
   }
 
   .admin-version-card--interactive:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--brand-accent-line) 55%, transparent);
+    outline: 2px solid var(--brand-accent-line);
     outline-offset: 2px;
   }
 
@@ -2859,7 +2952,7 @@
     display: inline-flex;
     max-width: 100%;
     align-items: center;
-    border-radius: 0.45rem;
+    border-radius: var(--radius-xs);
     border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
     background: color-mix(in srgb, var(--brand) 5%, var(--color-muted));
     padding: 0.12rem 0.4rem;
@@ -3062,7 +3155,7 @@
     flex: 1 1 5rem;
     max-width: 8rem;
     height: 0.375rem;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: color-mix(in srgb, var(--color-muted) 85%, transparent);
     overflow: hidden;
   }
@@ -3110,7 +3203,7 @@
     width: 100%;
     max-width: 24rem;
     overflow: hidden;
-    border-radius: 1.25rem;
+    border-radius: var(--radius-xl);
     border: 1px solid color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
     background: color-mix(in srgb, var(--color-card) 94%, transparent);
     box-shadow:
@@ -3140,10 +3233,12 @@
     width: 3rem;
     align-items: center;
     justify-content: center;
-    border-radius: 0.85rem;
+    border-radius: var(--radius-lg);
     margin-bottom: 0.85rem;
-    color: #fff;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
+    /* Filled with the brand inline from login-page.tsx, so the mark has to be the solved
+       on-brand colour — a fixed white one vanished on a pale brand. */
+    color: var(--brand-foreground);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brand-foreground) 22%, transparent);
   }
 
   .admin-login-card__logo-img {
@@ -3357,23 +3452,23 @@
   }
 
   .admin-table-wrap--wide thead .admin-table__sticky-end {
-    background: var(--color-muted) !important;
+    background: var(--color-muted);
   }
 
   .dark .admin-table-wrap--wide thead .admin-table__sticky-end {
-    background: color-mix(in srgb, var(--color-muted) 82%, var(--color-card)) !important;
+    background: color-mix(in srgb, var(--color-muted) 82%, var(--color-card));
   }
 
   .admin-panel .admin-table-wrap--wide tbody tr:hover .admin-table__sticky-end {
-    background: color-mix(in srgb, var(--color-muted) 38%, var(--color-card)) !important;
+    background: color-mix(in srgb, var(--color-muted) 38%, var(--color-card));
   }
 
   .admin-table-wrap > div,
   .admin-table-inner {
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
   }
 
   .admin-table-wrap table {
@@ -3387,16 +3482,16 @@
   }
 
   .admin-panel .admin-table-wrap tbody tr {
-    border-bottom-width: 0 !important;
+    border-bottom-width: 0;
     background: var(--color-card);
   }
 
   .admin-panel .admin-table-wrap tbody tr:hover {
-    background: color-mix(in srgb, var(--color-muted) 38%, var(--color-card)) !important;
+    background: color-mix(in srgb, var(--color-muted) 38%, var(--color-card));
   }
 
   .admin-panel .admin-table-wrap tbody tr:hover td {
-    background: color-mix(in srgb, var(--color-muted) 38%, var(--color-card)) !important;
+    background: color-mix(in srgb, var(--color-muted) 38%, var(--color-card));
   }
 
   .admin-table-wrap tbody td {
@@ -3428,11 +3523,11 @@
   }
 
   .admin-panel .admin-table-wrap thead {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
   }
 
   .admin-panel .admin-table-wrap thead th {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
     border-bottom: 1px solid var(--color-border);
     text-align: center;
   }
@@ -3452,11 +3547,11 @@
   }
 
   .dark .admin-panel .admin-table-wrap thead {
-    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card)) !important;
+    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card));
   }
 
   .dark .admin-panel .admin-table-wrap thead th {
-    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card)) !important;
+    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card));
   }
 
   .admin-panel .admin-table-wrap thead tr {
@@ -3464,14 +3559,14 @@
   }
 
   .admin-panel .admin-table-wrap thead tr:hover {
-    background-color: var(--color-muted) !important;
+    background-color: var(--color-muted);
   }
 
   .dark .admin-panel .admin-table-wrap thead tr:hover {
-    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card)) !important;
+    background-color: color-mix(in srgb, var(--color-muted) 82%, var(--color-card));
   }
 
   .admin-panel .admin-table-wrap thead tr:hover th {
-    background-color: inherit !important;
+    background-color: inherit;
   }
 }

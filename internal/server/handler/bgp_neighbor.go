@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/gin-gonic/gin"
 )
 
 type bgpNeighborRequest struct {
@@ -171,8 +171,8 @@ func ListBGPNeighbors(db *sql.DB, bgpMgr *bgp.SessionManager, bgpCfg config.BGPC
 		defer routeCancel()
 		type neighborWithStatus struct {
 			*domain.BGPNeighbor
-			Status             domain.BGPSessionState `json:"status"`
-			PrefixesReceived   int                    `json:"prefixes_received"`
+			Status           domain.BGPSessionState `json:"status"`
+			PrefixesReceived int                    `json:"prefixes_received"`
 		}
 		result := make([]neighborWithStatus, len(neighbors))
 		for i, n := range neighbors {

@@ -11,8 +11,8 @@ import (
 const indexBootstrapMarker = "<!-- hopstat:bootstrap -->"
 
 var (
-	indexHTMLMarshal      = json.Marshal
-	indexHTMLAllSettings  = sitecache.AllSettings
+	indexHTMLMarshal     = json.Marshal
+	indexHTMLAllSettings = sitecache.AllSettings
 )
 
 func injectIndexHTML(indexHTML []byte) []byte {

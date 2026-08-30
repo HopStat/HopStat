@@ -29,6 +29,7 @@ func TestCollectBGPASPathASNsFromAllRoutes(t *testing.T) {
 func TestEnrichASPathIncludesSecondaryRouteASNs(t *testing.T) {
 	g := testGeoDB(t)
 	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, g, nil, nil, 0)
+	originalLookupASForPath := lookupASForPath
 	lookupASForPath = func(_ *geo.GeoIPDB, _ context.Context, asn uint32) (*domain.ASInfo, error) {
 		return &domain.ASInfo{
 			ASN:         asn,
@@ -37,14 +38,7 @@ func TestEnrichASPathIncludesSecondaryRouteASNs(t *testing.T) {
 			CountryCode: "US",
 		}, nil
 	}
-	t.Cleanup(func() {
-		lookupASForPath = func(gdb *geo.GeoIPDB, ctx context.Context, asn uint32) (*domain.ASInfo, error) {
-			if gdb == nil {
-				return nil, nil
-			}
-			return gdb.LookupASByNumber(ctx, asn)
-		}
-	})
+	t.Cleanup(func() { lookupASForPath = originalLookupASForPath })
 
 	br := &domain.BGPResult{Routes: []domain.BGPRoute{
 		{ASPath: []uint32{43260, 15169}, Best: true},
@@ -60,6 +54,7 @@ func TestEnrichASPathIncludesSecondaryRouteASNs(t *testing.T) {
 func TestEnrichASPathEsenyurtCloudflareSecondaryRoute(t *testing.T) {
 	g := testGeoDB(t)
 	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, g, nil, nil, 0)
+	originalLookupASForPath := lookupASForPath
 	lookupASForPath = func(_ *geo.GeoIPDB, _ context.Context, asn uint32) (*domain.ASInfo, error) {
 		switch asn {
 		case 201178:
@@ -75,14 +70,7 @@ func TestEnrichASPathEsenyurtCloudflareSecondaryRoute(t *testing.T) {
 			return &domain.ASInfo{ASN: asn, OrgName: "Org", ShortName: "Org", CountryCode: "US"}, nil
 		}
 	}
-	t.Cleanup(func() {
-		lookupASForPath = func(gdb *geo.GeoIPDB, ctx context.Context, asn uint32) (*domain.ASInfo, error) {
-			if gdb == nil {
-				return nil, nil
-			}
-			return gdb.LookupASByNumber(ctx, asn)
-		}
-	})
+	t.Cleanup(func() { lookupASForPath = originalLookupASForPath })
 
 	br := &domain.BGPResult{Routes: []domain.BGPRoute{
 		{Prefix: "1.1.1.0/24", ASPath: []uint32{43260, 44901, 13335}, Best: true, NodeName: "ESENYURT"},

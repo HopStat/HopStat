@@ -31,7 +31,7 @@ func containsNoRoute(s string) bool {
 
 func parseBGPLine(line string) *domain.BGPRoute {
 	line = strings.TrimSpace(line)
-	if line == "" || strings.HasPrefix(line, "*") == false && strings.HasPrefix(line, " ") == false {
+	if line == "" || (!strings.HasPrefix(line, "*") && !strings.HasPrefix(line, " ")) {
 		return nil
 	}
 
@@ -43,12 +43,8 @@ func parseBGPLine(line string) *domain.BGPRoute {
 	}
 
 	prefix := fields[0]
-	if strings.HasPrefix(prefix, "*>") {
-		prefix = strings.TrimPrefix(prefix, "*>")
-	}
-	if strings.HasPrefix(prefix, "*") {
-		prefix = strings.TrimPrefix(prefix, "*")
-	}
+	prefix = strings.TrimPrefix(prefix, "*>")
+	prefix = strings.TrimPrefix(prefix, "*")
 	if strings.HasPrefix(prefix, "i") || strings.HasPrefix(prefix, "e") || strings.HasPrefix(prefix, "?") {
 		if len(fields) < 3 {
 			return nil

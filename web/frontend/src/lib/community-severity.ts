@@ -20,9 +20,9 @@ export function communitySeverityBadgeVariant(severity: string) {
 
 const rowAccent: Record<CommunitySeverity, string> = {
   alert: 'border-l-destructive/70 bg-destructive/[0.04]',
-  warning: 'border-l-amber-500/80 bg-amber-500/[0.05]',
-  info: 'border-l-sky-500/80 bg-sky-500/[0.05]',
-  success: 'border-l-emerald-500/80 bg-emerald-500/[0.05]',
+  warning: 'border-l-warning/80 bg-warning/[0.05]',
+  info: 'border-l-info/80 bg-info/[0.05]',
+  success: 'border-l-success/80 bg-success/[0.05]',
 }
 
 export function communityRowAccent(severity: string): string {

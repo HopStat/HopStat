@@ -11,8 +11,8 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ComponentPropsWi
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-input bg-background/90 px-4 py-2 text-sm shadow-sm transition-all duration-200',
-      'focus:outline-none focus:border-brand/50 focus:ring-2 focus:ring-brand/20',
+      'flex h-10 w-full cursor-pointer items-center justify-between rounded-md border border-input bg-background/90 px-3 py-2 text-sm shadow-soft transition-all duration-200',
+      'focus:outline-none focus:border-brand-accent-ui focus:ring-2 focus:ring-brand-accent-ui/35',
       'disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
       className
     )}
@@ -54,7 +54,7 @@ const SelectItem = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutR
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-      <SelectPrimitive.ItemIndicator><Check className="h-4 w-4 text-brand" /></SelectPrimitive.ItemIndicator>
+      <SelectPrimitive.ItemIndicator><Check className="h-4 w-4 text-brand-accent" /></SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>

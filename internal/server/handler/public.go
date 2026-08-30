@@ -21,22 +21,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
 	"github.com/HopStat/HopStat/internal/driver"
 	"github.com/HopStat/HopStat/internal/engine"
 	"github.com/HopStat/HopStat/internal/geo"
-	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/server/middleware"
+	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/querystore"
 	"github.com/HopStat/HopStat/internal/store/repo"
 	"github.com/HopStat/HopStat/internal/target"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var queryStore = querystore.New()
@@ -217,11 +217,11 @@ func (h *Handler) SubmitQuery() gin.HandlerFunc {
 		queryID := uuid.New().String()
 
 		query := &domain.Query{
-			ID:        queryID,
-			NodeID:    req.NodeID,
-			Command:   domain.CommandType(req.Command),
-			Target:    req.Target,
-			SourceIP:  c.ClientIP(),
+			ID:       queryID,
+			NodeID:   req.NodeID,
+			Command:  domain.CommandType(req.Command),
+			Target:   req.Target,
+			SourceIP: c.ClientIP(),
 			Options: domain.QueryOptions{
 				PingCount: req.Options.PingCount,
 				MaxHops:   req.Options.MaxHops,
@@ -370,7 +370,7 @@ func StreamResult(db *sql.DB) gin.HandlerFunc {
 			lines, _ := queryStore.GetLines(queryID)
 			for idx := lastLineIdx; idx < len(lines); idx++ {
 				data, _ := json.Marshal(gin.H{"line": lines[idx]})
-				c.Writer.WriteString("event: output\ndata: " + string(data) + "\n\n")
+				_, _ = c.Writer.WriteString("event: output\ndata: " + string(data) + "\n\n")
 			}
 			if len(lines) > lastLineIdx {
 				lastLineIdx = len(lines)
@@ -380,7 +380,7 @@ func StreamResult(db *sql.DB) gin.HandlerFunc {
 			}
 
 			if !outputDoneSent && queryStore.IsOutputComplete(queryID) {
-				c.Writer.WriteString("event: output_done\ndata: {}\n\n")
+				_, _ = c.Writer.WriteString("event: output_done\ndata: {}\n\n")
 				outputDoneSent = true
 				if canFlush {
 					flusher.Flush()
@@ -402,7 +402,7 @@ func StreamResult(db *sql.DB) gin.HandlerFunc {
 				sig := string(payload)
 				if sig != lastPartialSig {
 					lastPartialSig = sig
-					c.Writer.WriteString("event: partial\ndata: " + sig + "\n\n")
+					_, _ = c.Writer.WriteString("event: partial\ndata: " + sig + "\n\n")
 					if canFlush {
 						flusher.Flush()
 					}
@@ -412,7 +412,7 @@ func StreamResult(db *sql.DB) gin.HandlerFunc {
 			// Check for final result
 			if ok && (result.Status == domain.StatusDone || result.Status == domain.StatusError) {
 				data, _ := json.Marshal(result)
-				c.Writer.WriteString("event: result\ndata: " + string(data) + "\n\n")
+				_, _ = c.Writer.WriteString("event: result\ndata: " + string(data) + "\n\n")
 				if canFlush {
 					flusher.Flush()
 				}
@@ -487,7 +487,7 @@ func Session() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"data": gin.H{
 				"authenticated": true,
-				"expires_at":      expiresAt,
+				"expires_at":    expiresAt,
 			},
 		})
 	}
@@ -920,7 +920,7 @@ func ExportAudit(db *sql.DB) gin.HandlerFunc {
 					}
 				}
 			}
-			writer.Write(fields) //nolint:errcheck — errors surface via writer.Error()
+			writer.Write(fields) //nolint:errcheck // errors surface via writer.Error()
 		}
 
 		writeRow([]string{"ID", "Created At", "Source IP", "User ID", "Node ID", "Node Name", "Command", "Params", "Duration (ms)", "Success", "Error"})
@@ -1296,12 +1296,12 @@ var handlerEngineExecute = func(h *Handler, ctx context.Context, query *domain.Q
 var submitQueryAsyncDone func()
 
 var (
-	uploadLogoMkdirAll = os.MkdirAll
-	uploadLogoCreate   = os.Create
-	uploadLogoCopy     = io.Copy
-	uploadLogoReadFn   = func(r io.Reader, p []byte) (int, error) { return r.Read(p) }
-	uploadLogoSeekFn   = func(s io.Seeker, offset int64, whence int) (int64, error) { return s.Seek(offset, whence) }
-	uploadLogoReadAllFn = func(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
+	uploadLogoMkdirAll     = os.MkdirAll
+	uploadLogoCreate       = os.Create
+	uploadLogoCopy         = io.Copy
+	uploadLogoReadFn       = func(r io.Reader, p []byte) (int, error) { return r.Read(p) }
+	uploadLogoSeekFn       = func(s io.Seeker, offset int64, whence int) (int64, error) { return s.Seek(offset, whence) }
+	uploadLogoReadAllFn    = func(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
 	uploadLogoSetSettingFn = func(db *sql.DB, key, value string) error {
 		return queries.New(db).SetSetting(key, value)
 	}
@@ -1664,7 +1664,9 @@ func uniqueASNsInPath(path []uint32) int {
 	return len(seen)
 }
 
-func enrichLineWithAS(ctx context.Context, geoDB interface{ ResolveASN(context.Context, string) (*domain.ASInfo, error) }, line string) string {
+func enrichLineWithAS(ctx context.Context, geoDB interface {
+	ResolveASN(context.Context, string) (*domain.ASInfo, error)
+}, line string) string {
 	ip := tracerouteLineIP(line)
 	if ip == "" {
 		return line
@@ -1674,7 +1676,9 @@ func enrichLineWithAS(ctx context.Context, geoDB interface{ ResolveASN(context.C
 
 // formatTracerouteLine splits ECMP hops (multiple responder IPs on one hop) into
 // indented sub-lines and attaches AS info per probe instead of one tag at the end.
-func formatTracerouteLine(ctx context.Context, geoDB interface{ ResolveASN(context.Context, string) (*domain.ASInfo, error) }, line string) string {
+func formatTracerouteLine(ctx context.Context, geoDB interface {
+	ResolveASN(context.Context, string) (*domain.ASInfo, error)
+}, line string) string {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" || strings.HasPrefix(trimmed, "traceroute to") || strings.HasPrefix(trimmed, "Start") {
 		return line
@@ -1753,7 +1757,9 @@ func distinctPublicIPs(segments []string) []string {
 	return ips
 }
 
-func enrichProbeSegment(ctx context.Context, geoDB interface{ ResolveASN(context.Context, string) (*domain.ASInfo, error) }, segment string) string {
+func enrichProbeSegment(ctx context.Context, geoDB interface {
+	ResolveASN(context.Context, string) (*domain.ASInfo, error)
+}, segment string) string {
 	ip := tracerouteLineIP(segment)
 	if ip == "" {
 		return segment
@@ -1761,7 +1767,9 @@ func enrichProbeSegment(ctx context.Context, geoDB interface{ ResolveASN(context
 	return segment + asSuffixForIP(ctx, geoDB, ip)
 }
 
-func asSuffixForIP(ctx context.Context, geoDB interface{ ResolveASN(context.Context, string) (*domain.ASInfo, error) }, ip string) string {
+func asSuffixForIP(ctx context.Context, geoDB interface {
+	ResolveASN(context.Context, string) (*domain.ASInfo, error)
+}, ip string) string {
 	parsed := net.ParseIP(ip)
 	if parsed == nil || parsed.IsPrivate() || parsed.IsLoopback() || parsed.IsLinkLocalUnicast() {
 		return ""

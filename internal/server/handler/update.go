@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/updater"
+	"github.com/gin-gonic/gin"
 )
 
 func UpdateStatus(upd *updater.Updater) gin.HandlerFunc {

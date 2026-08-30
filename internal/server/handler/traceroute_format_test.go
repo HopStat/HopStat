@@ -25,7 +25,7 @@ func (s stubGeo) ResolveASN(_ context.Context, ip string) (*domain.ASInfo, error
 func TestFormatTracerouteLineSplitsECMPHop(t *testing.T) {
 	line := " 7  142.250.56.110 (142.250.56.110)  15.640 ms 142.251.227.252 (142.251.227.252)  14.155 ms 209.85.248.178 (209.85.248.178)  16.606 ms"
 	geo := stubGeo{byIP: map[string]*domain.ASInfo{
-		"142.250.56.110": {ASN: 15169, OrgName: "Google LLC"},
+		"142.250.56.110":  {ASN: 15169, OrgName: "Google LLC"},
 		"142.251.227.252": {ASN: 15169, OrgName: "Google LLC"},
 		"209.85.248.178":  {ASN: 15169, OrgName: "Google LLC"},
 	}}

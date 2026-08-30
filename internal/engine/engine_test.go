@@ -28,7 +28,7 @@ func (m *mockNodeRepo) Update(ctx context.Context, n *domain.Node) (*domain.Node
 	return n, nil
 }
 func (m *mockNodeRepo) SetDefault(ctx context.Context, id int64) error { return nil }
-func (m *mockNodeRepo) Delete(ctx context.Context, id int64) error { return nil }
+func (m *mockNodeRepo) Delete(ctx context.Context, id int64) error     { return nil }
 func (m *mockNodeRepo) UpdateEnabledCmds(ctx context.Context, id int64, cmds []domain.CommandType) error {
 	return nil
 }
@@ -46,11 +46,11 @@ func TestExecuteRateLimited(t *testing.T) {
 	}, repo, nil, nil, nil, nil, 0)
 	for i := 0; i < 10; i++ {
 		_, _ = e.Execute(context.Background(), &domain.Query{
-			ID:        "q",
-			NodeID:    1,
-			Command:   domain.CmdPing,
-			Target:    "8.8.8.8",
-			SourceIP:  "1.2.3.4",
+			ID:       "q",
+			NodeID:   1,
+			Command:  domain.CmdPing,
+			Target:   "8.8.8.8",
+			SourceIP: "1.2.3.4",
 		})
 	}
 

@@ -49,17 +49,17 @@ type QueryOptions struct {
 }
 
 type QueryResult struct {
-	ID             string            `json:"id"`
-	Status         QueryStatus       `json:"status"`
-	Raw            string            `json:"raw,omitempty"`
-	Parsed         interface{}       `json:"parsed,omitempty"`
-	DurationMS     int64             `json:"duration_ms"`
-	LastProgress   interface{}       `json:"last_progress,omitempty"`
-	ErrorMsg       string            `json:"error_msg,omitempty"`
-	ErrorCode      string            `json:"error_code,omitempty"`
-	MatchedRules   []*CommunityRule  `json:"matched_rules,omitempty"`
-	ASPath         []uint32          `json:"as_path,omitempty"`
-	ASPathPrefix   string            `json:"as_path_prefix,omitempty"`
-	ASPathEnriched []ASInfo          `json:"as_path_enriched,omitempty"`
-	ASPathNodes    []NodeASPath      `json:"as_path_nodes,omitempty"`
+	ID             string           `json:"id"`
+	Status         QueryStatus      `json:"status"`
+	Raw            string           `json:"raw,omitempty"`
+	Parsed         interface{}      `json:"parsed,omitempty"`
+	DurationMS     int64            `json:"duration_ms"`
+	LastProgress   interface{}      `json:"last_progress,omitempty"`
+	ErrorMsg       string           `json:"error_msg,omitempty"`
+	ErrorCode      string           `json:"error_code,omitempty"`
+	MatchedRules   []*CommunityRule `json:"matched_rules,omitempty"`
+	ASPath         []uint32         `json:"as_path,omitempty"`
+	ASPathPrefix   string           `json:"as_path_prefix,omitempty"`
+	ASPathEnriched []ASInfo         `json:"as_path_enriched,omitempty"`
+	ASPathNodes    []NodeASPath     `json:"as_path_nodes,omitempty"`
 }

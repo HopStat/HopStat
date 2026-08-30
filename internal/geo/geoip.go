@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/oschwald/geoip2-golang"
 	"github.com/HopStat/HopStat/internal/domain"
+	"github.com/oschwald/geoip2-golang"
 )
 
 type GeoIPDB struct {
@@ -96,11 +96,11 @@ func (g *GeoIPDB) BuildInfo() DBBuildInfo {
 	info := DBBuildInfo{}
 	if g.asnDB != nil {
 		info.ASNLoaded = true
-		info.ASNBuild = int64(g.asnDB.Metadata().BuildEpoch)
+		info.ASNBuild = int64(g.asnDB.Metadata().BuildEpoch) //nolint:gosec // G115: a build epoch cannot reach 2^63
 	}
 	if g.cityDB != nil {
 		info.CityLoaded = true
-		info.CityBuild = int64(g.cityDB.Metadata().BuildEpoch)
+		info.CityBuild = int64(g.cityDB.Metadata().BuildEpoch) //nolint:gosec // G115: a build epoch cannot reach 2^63
 	}
 	return info
 }
@@ -234,7 +234,7 @@ func lookupMMDBFromRecord(record *geoip2.ASN, cityDB *geoip2.Reader, ip net.IP) 
 
 	org := record.AutonomousSystemOrganization
 	info := &domain.ASInfo{
-		ASN:       uint32(record.AutonomousSystemNumber),
+		ASN:       uint32(record.AutonomousSystemNumber), //nolint:gosec // G115: AS numbers are 32-bit by definition (RFC 6793)
 		ShortName: shortenOrgName(org),
 		OrgName:   org,
 	}
@@ -506,13 +506,13 @@ func (g *GeoIPDB) reloadASNIndex() {
 }
 
 type GeoCityInfo struct {
-	CountryISO string
-	Country    string
+	CountryISO  string
+	Country     string
 	CountryFlag string
-	City       string
-	Latitude   float64
-	Longitude  float64
-	TimeZone   string
+	City        string
+	Latitude    float64
+	Longitude   float64
+	TimeZone    string
 }
 
 func CountryToFlag(code string) string {

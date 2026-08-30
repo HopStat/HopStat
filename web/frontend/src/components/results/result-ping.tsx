@@ -4,7 +4,6 @@ import type { PingResult } from '@/types/domain'
 
 interface Props {
   result: PingResult
-  loading?: boolean
   running?: boolean
 }
 
@@ -18,16 +17,16 @@ function formatPingRtt(result: PingResult, ms: number | undefined, pending: bool
   return formatRTT(ms)
 }
 
-export function ResultPing({ result, loading = false, running = false }: Props) {
+export function ResultPing({ result, running = false }: Props) {
   const { t } = useI18n()
   const loss = Number.isFinite(result.packet_loss) ? (result.packet_loss as number) : null
   const lossColor = loss == null
     ? ''
     : loss < 5
-      ? 'text-green-600 dark:text-green-400'
+      ? 'text-success-on-surface'
       : loss < 25
-        ? 'text-yellow-600 dark:text-yellow-400'
-        : 'text-red-600 dark:text-red-400'
+        ? 'text-warning-on-surface'
+        : 'text-destructive-on-surface'
   const hasRecv = (result.packets_recv ?? 0) > 0
   const stats = [
     {

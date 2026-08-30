@@ -53,11 +53,8 @@ func TestCircuitBreakerHalfOpenAfterTimeout(t *testing.T) {
 
 	time.Sleep(60 * time.Millisecond)
 
-	// Should now allow one call (half-open)
-	if cb.State() != "half-open" {
-		// State transitions on next call, so it might still report open
-		// depending on implementation
-	}
+	// Not asserted: the breaker only moves to half-open on the next call, so right after
+	// the cool-off it may legitimately still report "open".
 
 	err := cb.Call(func() error { return nil })
 	if err != nil {

@@ -24,7 +24,7 @@ func TestRequireAdmin(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/admin", nil)
-	c, w = newTestContext(req)
+	c, _ = newTestContext(req)
 	c.Set("user_role", "admin")
 	handler(c)
 	if c.IsAborted() {
@@ -222,11 +222,11 @@ func TestOptionalRateLimit(t *testing.T) {
 	}
 
 	enabled := OptionalRateLimit(true, 1)
-	c, w := newTestContext(req)
+	c, _ = newTestContext(req)
 	c.Request.RemoteAddr = "9.9.9.9:1"
 	enabled(c)
 	c.Status(http.StatusOK)
-	c, w = newTestContext(req)
+	c, w := newTestContext(req)
 	c.Request.RemoteAddr = "9.9.9.9:1"
 	enabled(c)
 	if w.Code == 0 {

@@ -6,22 +6,22 @@ type AggregateInfo struct {
 }
 
 type BGPRoute struct {
-	Prefix       string           `json:"prefix"`
-	NextHop      string           `json:"next_hop"`
-	ASPath       []uint32         `json:"as_path"`
-	LocalPref    uint32           `json:"local_pref"`
-	MED          uint32           `json:"med"`
-	Origin       string           `json:"origin"`
-	Communities  []string         `json:"communities"`
-	MatchedRules []*CommunityRule `json:"matched_rules,omitempty"`
-	Status       string           `json:"status,omitempty"`
-	Protocol     string           `json:"protocol,omitempty"`
-	Age          string           `json:"age,omitempty"`
-	ViaDefaultRoute bool          `json:"via_default_route,omitempty"`
-	Best         bool             `json:"best,omitempty"`
-	NodeName     string           `json:"node_name,omitempty"`
-	Aggregate    *AggregateInfo   `json:"aggregate,omitempty"`
-	Rejected     bool             `json:"rejected"`
+	Prefix          string           `json:"prefix"`
+	NextHop         string           `json:"next_hop"`
+	ASPath          []uint32         `json:"as_path"`
+	LocalPref       uint32           `json:"local_pref"`
+	MED             uint32           `json:"med"`
+	Origin          string           `json:"origin"`
+	Communities     []string         `json:"communities"`
+	MatchedRules    []*CommunityRule `json:"matched_rules,omitempty"`
+	Status          string           `json:"status,omitempty"`
+	Protocol        string           `json:"protocol,omitempty"`
+	Age             string           `json:"age,omitempty"`
+	ViaDefaultRoute bool             `json:"via_default_route,omitempty"`
+	Best            bool             `json:"best,omitempty"`
+	NodeName        string           `json:"node_name,omitempty"`
+	Aggregate       *AggregateInfo   `json:"aggregate,omitempty"`
+	Rejected        bool             `json:"rejected"`
 }
 
 // NodeASPath is one path a node holds for a target, used to draw the multi-node
@@ -65,11 +65,11 @@ type ASInfo struct {
 }
 
 type Hop struct {
-	Number int     `json:"number"`
-	IP     string  `json:"ip"`
-	Host   string  `json:"host"`
+	Number int       `json:"number"`
+	IP     string    `json:"ip"`
+	Host   string    `json:"host"`
 	RTT    []float64 `json:"rtt"`
-	ASInfo *ASInfo `json:"as_info,omitempty"`
+	ASInfo *ASInfo   `json:"as_info,omitempty"`
 }
 
 type PingResult struct {

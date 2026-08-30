@@ -37,10 +37,9 @@ function useAnchorPosition(
   } | null>(null)
 
   useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null)
-      return
-    }
+    // No reset when closed: the list renders nothing without `open`, and reopening
+    // recomputes the position in this same layout effect, before the browser paints.
+    if (!open) return
 
     function update() {
       const anchor = anchorRef.current

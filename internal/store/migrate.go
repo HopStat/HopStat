@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -60,11 +61,11 @@ func Migrate(db *sql.DB) error {
 			return fmt.Errorf("begin migration %d: %w", version, err)
 		}
 		if err := applyMigration(tx, version, m); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("apply migration %d: %w", version, err)
 		}
 		if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("record migration %d: %w", version, err)
 		}
 		if err := tx.Commit(); err != nil {
@@ -473,14 +474,14 @@ ORDER BY n.id`)
 	for rows.Next() {
 		var (
 			id, popID, credentialID, active, isDefault sql.NullInt64
-			name, description, nodeType, enabledCmds    string
-			bgpRouterID, bgpPeerAddr, bgpAuthPwd        sql.NullString
-			bgpToolsSourceIP, agentURL, agentToken      string
-			bgpLocalAS, bgpPeerAS, bgpPeerPort          sql.NullInt64
-			bgpPassive                                  int
-			createdAt, updatedAt                        string
-			city, country                               string
-			lat, lon                                    sql.NullFloat64
+			name, description, nodeType, enabledCmds   string
+			bgpRouterID, bgpPeerAddr, bgpAuthPwd       sql.NullString
+			bgpToolsSourceIP, agentURL, agentToken     string
+			bgpLocalAS, bgpPeerAS, bgpPeerPort         sql.NullInt64
+			bgpPassive                                 int
+			createdAt, updatedAt                       string
+			city, country                              string
+			lat, lon                                   sql.NullFloat64
 		)
 		if err := rows.Scan(
 			&id, &name, &description, &nodeType, &popID, &credentialID, &active,
@@ -501,13 +502,13 @@ ORDER BY n.id`)
 		var bgpConfig sql.NullString
 		if bgpRouterID.Valid || bgpLocalAS.Valid || bgpPeerAS.Valid || bgpPeerAddr.Valid {
 			peerPort := uint16(179)
-			if bgpPeerPort.Valid && bgpPeerPort.Int64 > 0 {
+			if bgpPeerPort.Valid && bgpPeerPort.Int64 > 0 && bgpPeerPort.Int64 <= math.MaxUint16 {
 				peerPort = uint16(bgpPeerPort.Int64)
 			}
 			cfg := map[string]any{
 				"router_id":       strings.TrimSpace(bgpRouterID.String),
-				"local_as":        uint32(maxInt64(bgpLocalAS, 0)),
-				"peer_as":         uint32(maxInt64(bgpPeerAS, 0)),
+				"local_as":        asNumber(bgpLocalAS),
+				"peer_as":         asNumber(bgpPeerAS),
 				"peer_addr":       strings.TrimSpace(bgpPeerAddr.String),
 				"peer_port":       peerPort,
 				"passive_mode":    bgpPassive != 0,
@@ -594,11 +595,13 @@ func nullStringArg(v sql.NullString) any {
 	return v.String
 }
 
-func maxInt64(v sql.NullInt64, fallback int64) int64 {
-	if !v.Valid {
-		return fallback
+// asNumber reads a legacy AS number column. Values outside the range a real AS number
+// can occupy would wrap silently on conversion, so they are treated as unset.
+func asNumber(v sql.NullInt64) uint32 {
+	if !v.Valid || v.Int64 < 0 || v.Int64 > math.MaxUint32 {
+		return 0
 	}
-	return v.Int64
+	return uint32(v.Int64)
 }
 
 func SeedAdminPassword(db *sql.DB, password string) (bool, error) {

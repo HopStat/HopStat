@@ -11,7 +11,7 @@ import (
 )
 
 type nodeRepo struct {
-	q            *queries.Queries
+	q             *queries.Queries
 	credentialKey string
 }
 

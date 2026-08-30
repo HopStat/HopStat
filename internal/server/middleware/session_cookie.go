@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/config"
+	"github.com/gin-gonic/gin"
 )
 
 const AuthCookieName = "lg_token"

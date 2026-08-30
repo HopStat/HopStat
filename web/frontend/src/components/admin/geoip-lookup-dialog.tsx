@@ -28,39 +28,37 @@ export function GeoIPLookupDialog({ ip, open, onOpenChange }: GeoIPLookupDialogP
   const { t } = useI18n()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [report, setReport] = useState<GeoIPLookupReport | null>(null)
+  const [fetched, setFetched] = useState<GeoIPLookupReport | null>(null)
+
+  // A cached report is available synchronously, so it is read during render instead of
+  // being copied into state by an effect — copying it cost an extra render and showed the
+  // previous address's report for that frame.
+  const cached = open && ip ? reportCache.get(ip) ?? null : null
+  const report = cached ?? fetched
 
   useEffect(() => {
-    if (!open || !ip) return
-
-    const cached = reportCache.get(ip)
-    if (cached) {
-      setReport(cached)
-      setError(null)
-      setLoading(false)
-      return
-    }
+    if (!open || !ip || reportCache.get(ip)) return
 
     let cancelled = false
-    setLoading(true)
-    setError(null)
-    setReport(null)
-
-    api.get<GeoIPLookupReport>(`/admin/geoip/lookup?ip=${encodeURIComponent(ip)}`)
-      .then(data => {
+    const lookup = async () => {
+      setLoading(true)
+      setError(null)
+      setFetched(null)
+      try {
+        const data = await api.get<GeoIPLookupReport>(`/admin/geoip/lookup?ip=${encodeURIComponent(ip)}`)
         if (cancelled) return
         reportCache.set(ip, data)
-        setReport(data)
-      })
-      .catch(err => {
+        setFetched(data)
+      } catch (err) {
         if (cancelled) return
-        setReport(null)
+        setFetched(null)
         setError(err instanceof Error ? err.message : t('admin.geoip_lookup_failed'))
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
 
+    void lookup()
     return () => { cancelled = true }
   }, [open, ip, t])
 
@@ -170,7 +168,7 @@ export function ClickableIP({ value, onSelect, className }: ClickableIPProps) {
     <button
       type="button"
       className={cn(
-        'font-data text-brand hover:underline cursor-pointer bg-transparent border-0 p-0',
+        'font-data text-brand-accent hover:underline cursor-pointer bg-transparent border-0 p-0',
         className,
       )}
       onClick={() => onSelect(text)}

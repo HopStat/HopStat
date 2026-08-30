@@ -23,7 +23,7 @@ func TestNodeByIDFromCache(t *testing.T) {
 	nodeRepo := repo.NewNodeRepo(db, "")
 	created, err := nodeRepo.Create(context.Background(), &domain.Node{
 		Name: "edge", Type: domain.NodeTypeStandalone, Active: true,
-		AgentToken: "secret-token",
+		AgentToken:  "secret-token",
 		EnabledCmds: domain.DefaultEnabledCmds(),
 	})
 	if err != nil {

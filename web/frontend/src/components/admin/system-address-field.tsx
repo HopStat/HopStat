@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useI18n } from '@/contexts/i18n-context'
@@ -34,13 +34,18 @@ export function SystemAddressField({ value, options, onChange, family = 'ipv4' }
     ? t('admin.bgp_manual_ipv6_placeholder')
     : t('admin.bgp_manual_ipv4_placeholder')
 
-  useEffect(() => {
+  // `manual` is real state — the buttons below toggle it — but it also has to follow the
+  // value and the option list, which arrive asynchronously. Adjusting during render is
+  // React's guidance for exactly that: an effect would paint the wrong control once first.
+  const [seen, setSeen] = useState({ value, optionIPs })
+  if (seen.value !== value || seen.optionIPs !== optionIPs) {
+    setSeen({ value, optionIPs })
     if (value === '') {
       setManual(false)
     } else if (!optionIPs.includes(value)) {
       setManual(true)
     }
-  }, [value, optionIPs])
+  }
 
   if (manual) {
     return (
@@ -54,7 +59,7 @@ export function SystemAddressField({ value, options, onChange, family = 'ipv4' }
         {options.length > 0 ? (
           <button
             type="button"
-            className="text-xs text-brand hover:underline"
+            className="text-xs text-brand-accent hover:underline"
             onClick={() => {
               setManual(false)
               if (!optionIPs.includes(value)) {
@@ -82,7 +87,7 @@ export function SystemAddressField({ value, options, onChange, family = 'ipv4' }
         </p>
         <button
           type="button"
-          className="text-xs text-brand hover:underline"
+          className="text-xs text-brand-accent hover:underline"
           onClick={() => setManual(true)}
         >
           {t('admin.bgp_enter_manually')}

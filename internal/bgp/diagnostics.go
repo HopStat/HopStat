@@ -303,10 +303,10 @@ func (m *SessionManager) watchStuckSessions(ctx context.Context) {
 func (m *SessionManager) logStuckSessions(ctx context.Context, lastLogged map[int64]time.Time) {
 	m.mu.RLock()
 	type stuck struct {
-		id      int64
-		entry   *neighborEntry
-		state   domain.BGPSessionState
-		since   time.Time
+		id    int64
+		entry *neighborEntry
+		state domain.BGPSessionState
+		since time.Time
 	}
 	var peers []stuck
 	for id, entry := range m.neighbors {

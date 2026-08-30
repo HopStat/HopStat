@@ -9,7 +9,7 @@ import type { UpdateStatus } from '@/types/domain'
 import { waitForHealth } from '@/lib/wait-for-health'
 import { getLastSeenVersion, setLastSeenVersion } from '@/lib/version-seen'
 import { WhatsNewDialog } from '@/components/admin/whats-new-dialog'
-import { formatReleaseVersion } from '@/lib/release-notes'
+import { formatReleaseVersion } from '@/lib/release-notes-format'
 
 type UpdateState = 'idle' | 'applying' | 'restarting'
 

@@ -205,7 +205,6 @@ func TestCiscoBGPWithASPath(t *testing.T) {
 	}
 }
 
-
 func TestGenericParsePingMikrotikLoss(t *testing.T) {
 	raw := `seq=1 host=8.8.8.8 time=1.0 loss=50%`
 	got, err := parsePingGeneric(raw)
@@ -224,7 +223,6 @@ func TestParseTracerouteLineMSStar(t *testing.T) {
 	}
 }
 
-
 func TestBirdParseEmptyAndSkipLines(t *testing.T) {
 	p := &BirdParser{}
 	raw := `
@@ -235,7 +233,6 @@ garbage-line`
 		t.Fatalf("routes = %+v err=%v", got.Routes, err)
 	}
 }
-
 
 func TestGenericParsePingPacketLossBranch(t *testing.T) {
 	raw := `1 packets transmitted, 0 packets received, 100% packet loss`

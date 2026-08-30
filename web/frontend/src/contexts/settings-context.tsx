@@ -1,5 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { cachedSiteSettings } from '@/lib/appearance-cache'
+import { createContext, useContext } from 'react'
 
 export interface SiteSettings {
   site_name: string
@@ -17,7 +16,7 @@ export interface SiteSettings {
   max_hops: string
 }
 
-const defaults: SiteSettings = {
+export const settingsDefaults: SiteSettings = {
   site_name: 'Looking Glass',
   site_description: 'Network Diagnostic Platform',
   logo_path: '',
@@ -33,38 +32,17 @@ const defaults: SiteSettings = {
   max_hops: '30',
 }
 
-interface SettingsContextType {
+export interface SettingsContextType {
   settings: SiteSettings
   loading: boolean
   reload: () => void
 }
 
-const SettingsContext = createContext<SettingsContextType>({
-  settings: defaults,
+export const SettingsContext = createContext<SettingsContextType>({
+  settings: settingsDefaults,
   loading: true,
   reload: () => {},
 })
-
-export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<SiteSettings>(() => ({
-    ...defaults,
-    ...cachedSiteSettings(),
-  }))
-  const [loading, setLoading] = useState(true)
-
-  const load = () => {
-    fetch('/api/v1/settings')
-      .then(r => r.json())
-      .then(json => {
-        if (json.data) setSettings({ ...defaults, ...json.data, active_languages: json.data.active_languages || defaults.active_languages })
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [])
-  return <SettingsContext.Provider value={{ settings, loading, reload: load }}>{children}</SettingsContext.Provider>
-}
 
 export function useSettings() {
   return useContext(SettingsContext)

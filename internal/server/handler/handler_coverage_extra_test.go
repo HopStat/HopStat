@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
@@ -26,6 +25,7 @@ import (
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/repo"
 	"github.com/HopStat/HopStat/internal/updater"
+	"github.com/gin-gonic/gin"
 )
 
 func TestHoststatsCollectorSnapshot(t *testing.T) {
