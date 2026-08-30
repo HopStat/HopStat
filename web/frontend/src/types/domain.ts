@@ -272,6 +272,10 @@ export interface SystemAddresses {
 export interface GeoIPStatus {
   configured: boolean
   enabled: boolean
+  /** The account id is shown back; the licence key never leaves the server, so the panel
+   *  is told only whether one is stored. */
+  account_id: string
+  license_key_set: boolean
   update_interval: string
   asn_last_download: string
   city_last_download: string

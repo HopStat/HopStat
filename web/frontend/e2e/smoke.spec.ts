@@ -50,6 +50,21 @@ test('admin pages render without console errors', async ({ page }) => {
   expect(errors, errors.join('\n')).toEqual([])
 })
 
+test('the MaxMind settings are reachable from the settings page', async ({ page }) => {
+  await mockApi(page, { authenticated: true })
+  await bootAs(page, '#1e293b', 'light')
+  await page.goto('/admin/settings')
+  await page.waitForLoadState('networkidle')
+
+  // The credentials used to be config-file only; this is the panel that replaced that.
+  await expect(page.getByText('MaxMind GeoIP')).toBeVisible()
+  await expect(page.getByPlaceholder('123456')).toBeVisible()
+  await expect(page.getByPlaceholder('72h')).toBeVisible()
+  // The stored key is never sent to the browser.
+  const body = await page.content()
+  expect(body).not.toContain('license_key"')
+})
+
 test('the brand colour reaches the document', async ({ page }) => {
   await mockApi(page, { authenticated: false, brand: '#e0edd4' })
   await bootAs(page, '#e0edd4', 'light')

@@ -152,6 +152,12 @@ func (u *Updater) needsDownload(edition, targetPath string) (bool, time.Time, ti
 }
 
 func (u *Updater) updateAll(ctx context.Context) {
+	// Checked per cycle rather than once at startup: credentials can be entered in the
+	// admin panel while the process is running, and that must not need a restart.
+	if key, account := u.resolveCredentials(); key == "" || account == "" {
+		return
+	}
+
 	// Both editions are attempted every time, so these must not be folded into a single
 	// short-circuiting expression.
 	needsReload := u.tryDownloadEdition(ctx, "GeoLite2-ASN", u.asnPath)

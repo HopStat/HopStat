@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type CSSProperties } from 'react'
-import { Save, Upload, User } from 'lucide-react'
+import { Globe2, Save, Upload, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +11,7 @@ import { useI18n, getLocaleLabelKey } from '@/contexts/i18n-context'
 import { useSettings } from '@/contexts/settings-context'
 import { HeaderColorPreview } from '@/components/admin/header-color-preview'
 import { SUPPORTED_LOCALES, parseActiveLanguages, type Locale } from '@/i18n/index'
+import type { GeoIPStatus } from '@/types/domain'
 
 interface Settings {
   site_name: string
@@ -105,6 +106,13 @@ export function SettingsPage() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // MaxMind credentials live in the database, not the config file, so they can be changed
+  // here. The stored licence key is never sent back — only whether one exists.
+  const [geoip, setGeoip] = useState<GeoIPStatus | null>(null)
+  const [geoipForm, setGeoipForm] = useState({ accountId: '', licenseKey: '', interval: '' })
+  const [geoipSaved, setGeoipSaved] = useState(false)
+  const [geoipError, setGeoipError] = useState('')
+
   useEffect(() => {
     api.get<Settings>('/admin/settings').then(s => {
       if (s) setSettings({ ...s, active_languages: s.active_languages || 'en,tr' })
@@ -112,7 +120,32 @@ export function SettingsPage() {
     api.get<Account>('/admin/account').then(a => {
       if (a?.email) setAccount(prev => ({ ...prev, email: a.email }))
     }).catch(() => {})
+    api.get<GeoIPStatus>('/admin/geoip/status').then(applyGeoipStatus).catch(() => {})
   }, [])
+
+  function applyGeoipStatus(status: GeoIPStatus | null) {
+    if (!status) return
+    setGeoip(status)
+    setGeoipForm({ accountId: status.account_id, licenseKey: '', interval: status.update_interval })
+  }
+
+  const handleGeoipSave = async (clear = false) => {
+    setGeoipError('')
+    try {
+      const status = await api.put<GeoIPStatus>('/admin/geoip/config', clear
+        ? { clear_credentials: true }
+        : {
+            account_id: geoipForm.accountId,
+            license_key: geoipForm.licenseKey,
+            update_interval: geoipForm.interval,
+          })
+      applyGeoipStatus(status)
+      setGeoipSaved(true)
+      setTimeout(() => setGeoipSaved(false), 2000)
+    } catch (err) {
+      setGeoipError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   const handleSave = async () => {
     try {
@@ -344,6 +377,81 @@ export function SettingsPage() {
         <Save className="w-4 h-4 mr-1" />
         {saved ? t('admin.saved') : t('admin.save_settings')}
       </Button>
+
+      <Card>
+        <CardHeader><CardTitle>{t('admin.geoip_maxmind')}</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('admin.geoip_maxmind_hint')}</p>
+
+          {geoip && (
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                {geoip.configured
+                  ? t('admin.geoip_status_configured')
+                  : t('admin.geoip_status_not_configured')}
+              </span>
+              <span>
+                {t('admin.geoip_databases_loaded')}:{' '}
+                {geoip.asn_loaded && geoip.city_loaded ? 'ASN + City' : geoip.asn_loaded ? 'ASN' : geoip.city_loaded ? 'City' : '—'}
+              </span>
+              <span>
+                {t('admin.geoip_last_download')}:{' '}
+                {geoip.last_download ? new Date(geoip.last_download).toLocaleString() : t('admin.geoip_never')}
+              </span>
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t('admin.geoip_account_id')}</Label>
+              <Input
+                inputMode="numeric"
+                placeholder="123456"
+                value={geoipForm.accountId}
+                onChange={e => setGeoipForm(g => ({ ...g, accountId: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admin.geoip_license_key')}</Label>
+              <Input
+                type="password"
+                autoComplete="off"
+                value={geoipForm.licenseKey}
+                onChange={e => setGeoipForm(g => ({ ...g, licenseKey: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                {geoip?.license_key_set
+                  ? t('admin.geoip_license_key_stored')
+                  : t('admin.geoip_license_key_none')}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t('admin.geoip_update_interval')}</Label>
+            <Input
+              placeholder="72h"
+              value={geoipForm.interval}
+              onChange={e => setGeoipForm(g => ({ ...g, interval: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">{t('admin.geoip_update_interval_hint')}</p>
+          </div>
+
+          {geoipError && <QueryErrorAlert message={geoipError} />}
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => handleGeoipSave()} disabled={geoipSaved}>
+              <Globe2 className="w-4 h-4 mr-1" />
+              {geoipSaved ? t('admin.saved') : t('admin.geoip_save')}
+            </Button>
+            {geoip?.license_key_set && (
+              <Button variant="outline" onClick={() => handleGeoipSave(true)}>
+                {t('admin.geoip_clear')}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>{t('admin.account')}</CardTitle></CardHeader>

@@ -164,6 +164,7 @@ func (s *Server) setupRoutes() {
 		admin.PATCH("/quick-queries/:id/toggle", handler.ToggleQuickQuery(s.db))
 
 		admin.GET("/geoip/status", handler.GeoIPStatus(s.db, s.cfg, s.geoDB))
+		admin.PUT("/geoip/config", handler.UpdateGeoIPConfig(s.db, s.cfg, s.geoDB))
 		admin.GET("/geoip/lookup", handler.GeoIPLookup(s.geoDB))
 		admin.GET("/system/status", handler.SystemStatus())
 		admin.GET("/system/addresses", handler.SystemAddresses())

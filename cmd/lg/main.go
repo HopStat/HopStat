@@ -162,8 +162,9 @@ func main() {
 			slog.Warn("failed to sync geoip settings", "error", err)
 		}
 
-		settings, _ := q.GetSettings()
-		if settings[geo.SettingLicenseKey] != "" && settings[geo.SettingAccountID] != "" {
+		// Started unconditionally: credentials can be entered in the admin panel later, and
+		// the updater checks for them on every cycle rather than only at startup.
+		{
 			geoUpdater := geo.NewUpdater(cfg.GeoIP, geoDB)
 			geoUpdater.SetLastDownload(func(edition string) time.Time {
 				current, err := q.GetSettings()

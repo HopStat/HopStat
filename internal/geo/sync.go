@@ -5,8 +5,8 @@ import (
 	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
-// SyncSettings copies geoip credentials from config into the settings table when
-// the DB keys are still empty (first-run / legacy config.yaml setups).
+// SyncSettings copies geoip credentials from config into the settings table on first run,
+// so a legacy config.yaml keeps working now that the admin panel owns these values.
 func SyncSettings(q *queries.Queries, cfg config.GeoIPConfig) error {
 	settings, err := q.GetSettings()
 	if err != nil {
@@ -14,15 +14,20 @@ func SyncSettings(q *queries.Queries, cfg config.GeoIPConfig) error {
 	}
 
 	toSet := map[string]string{}
-	if settings[SettingLicenseKey] == "" && cfg.LicenseKey != "" {
-		toSet[SettingLicenseKey] = cfg.LicenseKey
+	seed := func(key, fromConfig string) {
+		if settings[key] != "" || fromConfig == "" {
+			return
+		}
+		toSet[key] = fromConfig
 	}
-	if settings[SettingAccountID] == "" && cfg.AccountID != "" {
-		toSet[SettingAccountID] = cfg.AccountID
+
+	// Credentials removed in the admin panel stay removed. Without this the next restart
+	// would seed them straight back out of config.yaml and the clear would look ignored.
+	if settings[SettingCredentialsCleared] != "1" {
+		seed(SettingLicenseKey, cfg.LicenseKey)
+		seed(SettingAccountID, cfg.AccountID)
 	}
-	if settings[SettingUpdateInterval] == "" && cfg.UpdateInterval != "" {
-		toSet[SettingUpdateInterval] = cfg.UpdateInterval
-	}
+	seed(SettingUpdateInterval, cfg.UpdateInterval)
 	if len(toSet) == 0 {
 		return nil
 	}

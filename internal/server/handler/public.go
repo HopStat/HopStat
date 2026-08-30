@@ -1398,6 +1398,10 @@ func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig) gin.HandlerFunc {
 	}
 }
 
+// secretSettingKeys never leave the server. The admin panel is told whether one is stored
+// through a dedicated status endpoint instead — the same treatment node agent tokens get.
+var secretSettingKeys = []string{geo.SettingLicenseKey}
+
 func GetAdminSettings(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		q := queries.New(db)
@@ -1407,6 +1411,9 @@ func GetAdminSettings(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		enrichSettingsLogoPath(settings)
+		for _, key := range secretSettingKeys {
+			delete(settings, key)
+		}
 		c.JSON(http.StatusOK, gin.H{"data": settings})
 	}
 }

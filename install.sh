@@ -490,6 +490,84 @@ ok "Binary installed: ${INSTALL_DIR}/${BINARY}"
 INSTALLED_VERSION=$("${INSTALL_DIR}/${BINARY}" --version 2>&1 | head -1 || echo "unknown")
 ok "${INSTALLED_VERSION}"
 
+# ── Probe tools ───────────────────────────────────────────────────────────────
+# A standalone or agent node shells out to these. Missing, they do not fail here —
+# they fail later, once per query, as an exec error the operator has to go and read.
+detect_pkg_manager() {
+  local pm
+  for pm in apt-get dnf yum apk pacman zypper; do
+    if command -v "$pm" &>/dev/null; then echo "$pm"; return 0; fi
+  done
+  return 1
+}
+
+package_for() { # $1 = tool, $2 = package manager
+  case "$1" in
+    traceroute) echo "traceroute" ;;
+    ping)       [[ "$2" == "apt-get" ]] && echo "iputils-ping" || echo "iputils" ;;
+  esac
+}
+
+# Package managers are chatty even when told to be quiet, and their output does not belong
+# in the middle of the installer's. It is kept and shown only if the install fails.
+install_packages() { # $1 = package manager, rest = packages
+  local pm=$1; shift
+  local log status=0
+  log=$(mktemp)
+  case "$pm" in
+    apt-get)
+      { DEBIAN_FRONTEND=noninteractive apt-get update -qq \
+          && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@"; } >"$log" 2>&1 || status=$?
+      ;;
+    dnf)    dnf install -y -q "$@"            >"$log" 2>&1 || status=$? ;;
+    yum)    yum install -y -q "$@"            >"$log" 2>&1 || status=$? ;;
+    apk)    apk add --no-cache -q "$@"        >"$log" 2>&1 || status=$? ;;
+    pacman) pacman -Sy --noconfirm --needed "$@" >"$log" 2>&1 || status=$? ;;
+    zypper) zypper --non-interactive install "$@" >"$log" 2>&1 || status=$? ;;
+    *)      rm -f "$log"; return 1 ;;
+  esac
+  if [[ $status -ne 0 ]]; then
+    warn "${pm} failed (exit ${status}):"
+    tail -n 15 "$log" | sed 's/^/       /'
+  fi
+  rm -f "$log"
+  return $status
+}
+
+MISSING_TOOLS=()
+for TOOL in ping traceroute; do
+  command -v "$TOOL" &>/dev/null || MISSING_TOOLS+=("$TOOL")
+done
+
+if [[ ${#MISSING_TOOLS[@]} -eq 0 ]]; then
+  ok "Probe tools present: ping, traceroute"
+else
+  warn "Missing probe tools: ${MISSING_TOOLS[*]}"
+  if PKG_MANAGER=$(detect_pkg_manager); then
+    PACKAGES=()
+    for TOOL in "${MISSING_TOOLS[@]}"; do
+      PACKAGES+=("$(package_for "$TOOL" "$PKG_MANAGER")")
+    done
+    info "Installing with ${PKG_MANAGER}: ${PACKAGES[*]}"
+    install_packages "$PKG_MANAGER" "${PACKAGES[@]}" \
+      || warn "Package install returned an error — checking anyway"
+
+    STILL_MISSING=()
+    for TOOL in "${MISSING_TOOLS[@]}"; do
+      command -v "$TOOL" &>/dev/null || STILL_MISSING+=("$TOOL")
+    done
+    if [[ ${#STILL_MISSING[@]} -eq 0 ]]; then
+      ok "Probe tools installed: ${MISSING_TOOLS[*]}"
+    else
+      warn "Could not install: ${STILL_MISSING[*]}"
+      warn "Queries using them will fail on this node until they are installed by hand."
+    fi
+  else
+    warn "No supported package manager found (apt-get, dnf, yum, apk, pacman, zypper)."
+    warn "Install ${MISSING_TOOLS[*]} by hand, or queries using them will fail on this node."
+  fi
+fi
+
 # ── Create directories ────────────────────────────────────────────────────────
 mkdir -p "$CONFIG_DIR" "$DATA_DIR"
 ok "Directories ready: ${CONFIG_DIR}, ${DATA_DIR}"

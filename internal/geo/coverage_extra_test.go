@@ -474,7 +474,8 @@ bad-row
 func TestUpdateAllNoReloadWhenNothingDownloaded(t *testing.T) {
 	dir := t.TempDir()
 	asnPath := writeASNEditionFiles(t, dir)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	// Credentials are needed to get past the configured check and reach the reload logic.
+	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h", LicenseKey: "k", AccountID: "42"}, New("", ""))
 	u.asnPath = asnPath
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	u.SetLastDownload(func(string) time.Time { return time.Now().UTC() })
