@@ -214,6 +214,8 @@
   "admin.traceroute_timeout_sec_hint": "Traceroutes get their own, longer budget.",
   "admin.self_update_enabled": "Allow self-update",
   "admin.self_update_enabled_hint": "When on, HopStat can replace its own binary from a GitHub release. Turn it off to update only through your own tooling.",
+  "admin.audit_retention_days": "Audit log retention (days)",
+  "admin.audit_retention_days_hint": "Entries older than this are deleted automatically. Set 0 to keep everything — the log will then grow without limit.",
   "admin.default_route_as": "Default Route AS",
   "admin.default_route_as_short": "Default",
   "admin.default_route_as_hint": "Upstream AS used when no specific BGP route exists. AS path shows local AS → this AS.",

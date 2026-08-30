@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/HopStat/HopStat/internal/audit"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
@@ -1427,6 +1428,7 @@ var allowedSettingKeys = map[string]bool{
 	engine.SettingQueryTimeoutSec:      true,
 	engine.SettingTracerouteTimeoutSec: true,
 	updater.SettingSelfUpdateEnabled:   true,
+	audit.SettingRetentionDays:         true,
 }
 
 func UpdateSettings(db *sql.DB) gin.HandlerFunc {
@@ -1442,7 +1444,7 @@ func UpdateSettings(db *sql.DB) gin.HandlerFunc {
 				filtered[k] = v
 			}
 		}
-		if err := validateTimeoutSettings(filtered); err != nil {
+		if err := validateNumericSettings(filtered); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -1467,18 +1469,23 @@ func UpdateSettings(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// validateTimeoutSettings rejects a timeout the engine would silently ignore, so the panel
-// cannot show a value that has no effect.
-func validateTimeoutSettings(filtered map[string]string) error {
-	for _, key := range []string{engine.SettingQueryTimeoutSec, engine.SettingTracerouteTimeoutSec} {
+// numericSettingBounds are the values a stored number may take. A value outside them would
+// be ignored by the code that reads it, so the panel must not be able to store one.
+var numericSettingBounds = map[string][2]int{
+	engine.SettingQueryTimeoutSec:      {engine.MinTimeoutSec, engine.MaxTimeoutSec},
+	engine.SettingTracerouteTimeoutSec: {engine.MinTimeoutSec, engine.MaxTimeoutSec},
+	audit.SettingRetentionDays:         {audit.KeepForever, audit.MaxRetentionDays},
+}
+
+func validateNumericSettings(filtered map[string]string) error {
+	for key, bounds := range numericSettingBounds {
 		raw, ok := filtered[key]
 		if !ok {
 			continue
 		}
 		n, err := strconv.Atoi(strings.TrimSpace(raw))
-		if err != nil || n < engine.MinTimeoutSec || n > engine.MaxTimeoutSec {
-			return fmt.Errorf("%s must be a whole number of seconds between %d and %d",
-				key, engine.MinTimeoutSec, engine.MaxTimeoutSec)
+		if err != nil || n < bounds[0] || n > bounds[1] {
+			return fmt.Errorf("%s must be a whole number between %d and %d", key, bounds[0], bounds[1])
 		}
 	}
 	return nil

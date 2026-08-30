@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"strconv"
 
+	"github.com/HopStat/HopStat/internal/audit"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/engine"
 	"github.com/HopStat/HopStat/internal/store/queries"
@@ -35,6 +36,9 @@ func SeedSettingsFromConfig(q *queries.Queries, cfg *config.Config) error {
 		seed(engine.SettingTracerouteTimeoutSec, strconv.Itoa(cfg.Query.TracerouteTimeoutSec))
 	}
 	seed(updater.SettingSelfUpdateEnabled, strconv.FormatBool(cfg.Update.Enabled))
+	if cfg.Audit.RetentionDays > 0 {
+		seed(audit.SettingRetentionDays, strconv.Itoa(cfg.Audit.RetentionDays))
+	}
 
 	if len(toSet) == 0 {
 		return nil

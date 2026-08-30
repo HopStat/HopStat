@@ -31,6 +31,7 @@ interface Settings {
   query_timeout_sec: string
   traceroute_timeout_sec: string
   self_update_enabled: string
+  audit_retention_days: string
 }
 
 interface Account {
@@ -103,6 +104,7 @@ export function SettingsPage() {
     url_website: '', url_peeringdb: '', url_contact: '', url_terms: '', url_privacy: '',
     ping_count: '5', max_hops: '30', traceroute_max_timeouts: '5', active_languages: 'en,tr',
     query_timeout_sec: '30', traceroute_timeout_sec: '60', self_update_enabled: 'true',
+    audit_retention_days: '90',
   })
   const [account, setAccount] = useState({ email: '', currentPassword: '', newPassword: '', confirmPassword: '' })
   const [saved, setSaved] = useState(false)
@@ -379,6 +381,17 @@ export function SettingsPage() {
               onChange={v => setSettings(s => ({ ...s, traceroute_timeout_sec: String(v) }))}
               fillColor={headerColor}
             />
+          </div>
+          <div className="mt-4 space-y-2 rounded-lg border border-border bg-muted/20 px-4 py-3">
+            <Label htmlFor="audit-retention">{t('admin.audit_retention_days')}</Label>
+            <Input
+              id="audit-retention"
+              inputMode="numeric"
+              className="max-w-40"
+              value={settings.audit_retention_days}
+              onChange={e => setSettings(s => ({ ...s, audit_retention_days: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">{t('admin.audit_retention_days_hint')}</p>
           </div>
           <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
             <input

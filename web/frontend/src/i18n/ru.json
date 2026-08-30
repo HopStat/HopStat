@@ -214,6 +214,8 @@
   "admin.traceroute_timeout_sec_hint": "У traceroute свой, более длинный лимит.",
   "admin.self_update_enabled": "Разрешить самообновление",
   "admin.self_update_enabled_hint": "Когда включено, HopStat может заменить свой бинарник из релиза GitHub. Отключите, чтобы обновлять только своими средствами.",
+  "admin.audit_retention_days": "Хранение журнала аудита (дней)",
+  "admin.audit_retention_days_hint": "Записи старше указанного срока удаляются автоматически. 0 — хранить всё; тогда журнал растёт без ограничений.",
   "admin.default_route_as": "AS маршрута по умолч.",
   "admin.default_route_as_short": "Умолч.",
   "admin.default_route_as_hint": "Upstream AS без конкретного BGP route. AS Path: local AS → этот AS.",

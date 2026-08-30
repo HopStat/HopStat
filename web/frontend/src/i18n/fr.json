@@ -214,6 +214,8 @@
   "admin.traceroute_timeout_sec_hint": "Les traceroutes disposent de leur propre délai, plus long.",
   "admin.self_update_enabled": "Autoriser la mise à jour automatique",
   "admin.self_update_enabled_hint": "Activé, HopStat peut remplacer son propre binaire depuis une release GitHub. Désactivez-le pour ne mettre à jour qu'avec vos propres outils.",
+  "admin.audit_retention_days": "Rétention du journal d'audit (jours)",
+  "admin.audit_retention_days_hint": "Les entrées plus anciennes sont supprimées automatiquement. 0 conserve tout — le journal grandit alors sans limite.",
   "admin.default_route_as": "AS route par défaut",
   "admin.default_route_as_short": "Défaut",
   "admin.default_route_as_hint": "AS upstream sans route BGP spécifique. AS Path : AS local → cet AS.",

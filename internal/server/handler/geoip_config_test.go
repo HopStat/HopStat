@@ -189,6 +189,32 @@ func TestUpdateSettings_RejectsAnUnusableTimeout(t *testing.T) {
 	}
 }
 
+func TestUpdateSettings_RejectsAnUnusableRetention(t *testing.T) {
+	for _, raw := range []string{"forever", "-1", "3651"} {
+		db := setupDB(t)
+		c, w := setupAdminContext(db, http.MethodPut, "/admin/settings",
+			`{"audit_retention_days":"`+raw+`"}`, 1)
+
+		UpdateSettings(db)(c)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("audit_retention_days=%q gave %d, want 400", raw, w.Code)
+		}
+	}
+}
+
+func TestUpdateSettings_AcceptsKeepForever(t *testing.T) {
+	db := setupDB(t)
+	c, w := setupAdminContext(db, http.MethodPut, "/admin/settings",
+		`{"audit_retention_days":"0"}`, 1)
+
+	UpdateSettings(db)(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d — zero must be accepted as keep-forever, body %s", w.Code, w.Body.String())
+	}
+}
+
 func TestUpdateSettings_AcceptsAValidTimeout(t *testing.T) {
 	db := setupDB(t)
 	c, w := setupAdminContext(db, http.MethodPut, "/admin/settings",

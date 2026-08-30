@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/HopStat/HopStat/internal/audit"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/engine"
 	"github.com/HopStat/HopStat/internal/store/queries"
@@ -26,6 +27,7 @@ func seedConfig() *config.Config {
 	cfg.Query.DefaultTimeoutSec = 30
 	cfg.Query.TracerouteTimeoutSec = 60
 	cfg.Update.Enabled = true
+	cfg.Audit.RetentionDays = 90
 	return cfg
 }
 
@@ -49,6 +51,9 @@ func TestSeedSettingsFromConfig_FirstRun(t *testing.T) {
 	}
 	if stored[updater.SettingSelfUpdateEnabled] != "true" {
 		t.Fatalf("self update = %q", stored[updater.SettingSelfUpdateEnabled])
+	}
+	if stored[audit.SettingRetentionDays] != "90" {
+		t.Fatalf("audit retention = %q", stored[audit.SettingRetentionDays])
 	}
 }
 
@@ -108,6 +113,9 @@ func TestSeedSettingsFromConfig_SkipsUnsetTimeouts(t *testing.T) {
 	}
 	if _, ok := stored[engine.SettingQueryTimeoutSec]; ok {
 		t.Fatal("seeded a timeout the config never set")
+	}
+	if _, ok := stored[audit.SettingRetentionDays]; ok {
+		t.Fatal("seeded a retention the config never set")
 	}
 	if stored[updater.SettingSelfUpdateEnabled] != "false" {
 		t.Fatalf("self update = %q, want the config's false", stored[updater.SettingSelfUpdateEnabled])

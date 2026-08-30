@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/HopStat/HopStat/internal/agent"
+	"github.com/HopStat/HopStat/internal/audit"
 	"github.com/HopStat/HopStat/internal/bgp"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/geo"
@@ -164,6 +165,17 @@ func main() {
 		if err := server.SeedSettingsFromConfig(q, cfg); err != nil {
 			slog.Warn("failed to seed settings from config", "error", err)
 		}
+
+		// Without this the audit log grows for the life of the deployment.
+		auditPruner := audit.NewPruner(repo.NewAuditRepo(db))
+		auditPruner.SetRetention(func() int {
+			current, err := q.GetSettings()
+			if err != nil {
+				return cfg.Audit.RetentionDays
+			}
+			return audit.RetentionFromSettings(current, cfg.Audit.RetentionDays)
+		})
+		go auditPruner.Run(ctx, audit.PruneInterval())
 
 		// Started unconditionally: credentials can be entered in the admin panel later, and
 		// the updater checks for them on every cycle rather than only at startup.

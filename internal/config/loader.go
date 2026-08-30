@@ -109,6 +109,7 @@ flood_control:
   brute_force_ban_min: 15
 
 audit:
+  # Seeds the audit log retention in Admin -> Settings on first run. 0 keeps everything.
   retention_days: 90
   async_write: true
 
