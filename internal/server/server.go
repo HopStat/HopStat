@@ -65,6 +65,8 @@ func New(cfg *config.Config, db *sql.DB, geoDB *geo.GeoIPDB, distFS fs.FS, bgpMg
 		version:      version,
 	}
 	srv.updater = updater.New("HopStat/HopStat", version, cfg.Update.Enabled)
+	// Read per call, so switching self-update off in the admin panel takes effect at once.
+	srv.updater.SetEnabledSource(selfUpdateSettingSource(db))
 
 	srv.setupRoutes()
 	return srv

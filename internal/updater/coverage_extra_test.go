@@ -331,7 +331,7 @@ func TestBuildStatusFromEmbeddedNoEmbeddedVersions(t *testing.T) {
 	if st.Latest != "v1.5.0" {
 		t.Fatalf("expected current version as fallback, got %q", st.Latest)
 	}
-	if st.SelfUpdateReason != "disabled in config (update.enabled: false)" {
+	if st.SelfUpdateReason != selfUpdateDisabledReason {
 		t.Fatalf("reason = %q", st.SelfUpdateReason)
 	}
 }

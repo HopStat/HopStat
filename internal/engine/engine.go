@@ -155,13 +155,7 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 		}, err
 	}
 
-	timeout := time.Duration(e.cfg.DefaultTimeoutSec) * time.Second
-	switch query.Command {
-	case domain.CmdTraceroute:
-		timeout = time.Duration(e.cfg.TracerouteTimeoutSec) * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, e.timeoutFor(ctx, query.Command))
 	defer cancel()
 
 	if opt.OnLine != nil {

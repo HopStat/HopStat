@@ -29,7 +29,9 @@ func New() *Store {
 		expiry:  5 * time.Minute,
 		stopCh:  make(chan struct{}),
 	}
-	go s.cleanup()
+	// Interval read here rather than on the background goroutine: it is a package-level
+	// test seam, and reading it there races with any test that swaps it.
+	go s.cleanup(cleanupTickInterval)
 	return s
 }
 
@@ -196,8 +198,8 @@ func (s *Store) Stop() {
 
 var cleanupTickInterval = time.Minute
 
-func (s *Store) cleanup() {
-	ticker := time.NewTicker(cleanupTickInterval)
+func (s *Store) cleanup(interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {

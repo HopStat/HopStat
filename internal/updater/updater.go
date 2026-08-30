@@ -57,10 +57,19 @@ type Status struct {
 	SelfUpdateReason  string   `json:"self_update_reason,omitempty"`
 }
 
+// SettingSelfUpdateEnabled is the settings key the admin panel writes. Stored as "true" or
+// "false"; absent means the config value still decides.
+const SettingSelfUpdateEnabled = "self_update_enabled"
+
+// The switch now lives in two places — config.yaml seeds it, the admin panel owns it — so
+// the reason names neither.
+const selfUpdateDisabledReason = "self-update is disabled"
+
 type Updater struct {
 	repo          string
 	current       string
 	enabled       bool
+	enabledLive   func() (bool, bool)
 	releaseAPIURL string
 	apiClient     *http.Client
 	dlClient      *http.Client
@@ -85,6 +94,23 @@ func New(repo, currentVersion string, enabled bool) *Updater {
 		apiClient: &http.Client{Timeout: 15 * time.Second},
 		dlClient:  &http.Client{Timeout: 10 * time.Minute},
 	}
+}
+
+// SetEnabledSource supplies a live answer for whether self-update is allowed, so the
+// switch in the admin panel applies without a restart. The callback's second return says
+// whether it has an answer; when it does not, the config value stands.
+func (u *Updater) SetEnabledSource(fn func() (bool, bool)) {
+	u.enabledLive = fn
+}
+
+// selfUpdateAllowed resolves the live setting first, then the config value.
+func (u *Updater) selfUpdateAllowed() bool {
+	if u.enabledLive != nil {
+		if enabled, ok := u.enabledLive(); ok {
+			return enabled
+		}
+	}
+	return u.enabled
 }
 
 // SetReleaseAPIURL overrides the GitHub releases/latest URL (for tests).
@@ -139,11 +165,12 @@ func (u *Updater) buildStatus(ctx context.Context, since string) (*Status, error
 		slog.Warn("github release check failed, using embedded release notes", "error", err)
 		return u.buildStatusFromEmbedded(ctx, since), nil
 	}
+	allowed := u.selfUpdateAllowed()
 	supported, reason := SelfUpdateSupported()
-	selfUpdateEnabled := u.enabled && supported
+	selfUpdateEnabled := allowed && supported
 	selfUpdateReason := reason
-	if !u.enabled {
-		selfUpdateReason = "disabled in config (update.enabled: false)"
+	if !allowed {
+		selfUpdateReason = selfUpdateDisabledReason
 	} else if supported {
 		selfUpdateReason = ""
 	}
@@ -197,11 +224,12 @@ func (u *Updater) buildStatusFromEmbedded(ctx context.Context, since string) *St
 		releaseNotes = note
 	}
 
+	allowed := u.selfUpdateAllowed()
 	supported, reason := SelfUpdateSupported()
-	selfUpdateEnabled := u.enabled && supported
+	selfUpdateEnabled := allowed && supported
 	selfUpdateReason := reason
-	if !u.enabled {
-		selfUpdateReason = "disabled in config (update.enabled: false)"
+	if !allowed {
+		selfUpdateReason = selfUpdateDisabledReason
 	} else if supported {
 		selfUpdateReason = ""
 	}
@@ -234,8 +262,8 @@ func setGitHubRequestHeaders(req *http.Request) {
 // Apply downloads the latest binary, replaces the executable, and execs the new process.
 // On success syscall.Exec never returns — the current process is replaced.
 func (u *Updater) Apply(ctx context.Context) error {
-	if !u.enabled {
-		return fmt.Errorf("self-update is disabled in config")
+	if !u.selfUpdateAllowed() {
+		return fmt.Errorf("self-update is disabled")
 	}
 	if supported, reason := SelfUpdateSupported(); !supported {
 		return fmt.Errorf("self-update not supported: %s", reason)

@@ -14,7 +14,8 @@ type JTIDenyList struct {
 
 func NewJTIDenyList() *JTIDenyList {
 	dl := &JTIDenyList{entries: make(map[string]time.Time)}
-	go dl.purgeLoop()
+	// Interval read here, not on the background goroutine — see BruteForceGuard.
+	go dl.purgeLoop(denyListPurgeInterval)
 	return dl
 }
 
@@ -55,8 +56,8 @@ func (d *JTIDenyList) IsRevoked(jti string) bool {
 
 var denyListPurgeInterval = 10 * time.Minute
 
-func (d *JTIDenyList) purgeLoop() {
-	ticker := time.NewTicker(denyListPurgeInterval)
+func (d *JTIDenyList) purgeLoop(interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for range ticker.C {
 		now := time.Now()

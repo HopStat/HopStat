@@ -114,18 +114,21 @@ audit:
 
 query:
   max_concurrent: 50
+  # Seeds Admin -> Settings on first run; change them there afterwards, not here.
   default_timeout_sec: 30
   traceroute_timeout_sec: 60
 
 geoip:
   asn_db_path: ""
   city_db_path: ""
+  # Seed Admin -> Settings on first run; change them there afterwards, not here.
   license_key: ""
   account_id: ""
   update_interval: "72h"
   db_dir: "./data/geoip"
 
 update:
+  # Seeds the self-update switch in Admin -> Settings on first run.
   enabled: true
 
 bgp:

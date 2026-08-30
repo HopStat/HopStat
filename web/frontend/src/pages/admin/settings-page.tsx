@@ -27,6 +27,10 @@ interface Settings {
   max_hops: string
   traceroute_max_timeouts: string
   active_languages: string
+  // Moved out of config.yaml; read live by the engine and the self-updater.
+  query_timeout_sec: string
+  traceroute_timeout_sec: string
+  self_update_enabled: string
 }
 
 interface Account {
@@ -98,6 +102,7 @@ export function SettingsPage() {
     site_name: '', site_description: '', logo_path: '', header_color: '#1e293b',
     url_website: '', url_peeringdb: '', url_contact: '', url_terms: '', url_privacy: '',
     ping_count: '5', max_hops: '30', traceroute_max_timeouts: '5', active_languages: 'en,tr',
+    query_timeout_sec: '30', traceroute_timeout_sec: '60', self_update_enabled: 'true',
   })
   const [account, setAccount] = useState({ email: '', currentPassword: '', newPassword: '', confirmPassword: '' })
   const [saved, setSaved] = useState(false)
@@ -115,7 +120,9 @@ export function SettingsPage() {
 
   useEffect(() => {
     api.get<Settings>('/admin/settings').then(s => {
-      if (s) setSettings({ ...s, active_languages: s.active_languages || 'en,tr' })
+      // Merged onto the defaults rather than replacing them: a database written before a
+      // setting existed simply does not carry its key.
+      if (s) setSettings(prev => ({ ...prev, ...s, active_languages: s.active_languages || 'en,tr' }))
     }).catch(() => {})
     api.get<Account>('/admin/account').then(a => {
       if (a?.email) setAccount(prev => ({ ...prev, email: a.email }))
@@ -228,6 +235,8 @@ export function SettingsPage() {
   const tracerouteMaxTimeouts = clampSetting(settings.traceroute_max_timeouts, 1, 20, 5)
   const pingCount = clampSetting(settings.ping_count, 1, 50, 5)
   const maxHops = clampSetting(settings.max_hops, 1, 64, 30)
+  const queryTimeoutSec = clampSetting(settings.query_timeout_sec, 1, 600, 30)
+  const tracerouteTimeoutSec = clampSetting(settings.traceroute_timeout_sec, 1, 600, 60)
   const headerColor = settings.header_color || '#1e293b'
 
   return (
@@ -352,7 +361,37 @@ export function SettingsPage() {
               onChange={v => setSettings(s => ({ ...s, traceroute_max_timeouts: String(v) }))}
               fillColor={headerColor}
             />
+            <QueryDefaultSlider
+              label={t('admin.query_timeout_sec')}
+              hint={t('admin.query_timeout_sec_hint')}
+              min={1}
+              max={600}
+              value={queryTimeoutSec}
+              onChange={v => setSettings(s => ({ ...s, query_timeout_sec: String(v) }))}
+              fillColor={headerColor}
+            />
+            <QueryDefaultSlider
+              label={t('admin.traceroute_timeout_sec')}
+              hint={t('admin.traceroute_timeout_sec_hint')}
+              min={1}
+              max={600}
+              value={tracerouteTimeoutSec}
+              onChange={v => setSettings(s => ({ ...s, traceroute_timeout_sec: String(v) }))}
+              fillColor={headerColor}
+            />
           </div>
+          <label className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-muted/20 px-4 py-3">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={settings.self_update_enabled !== 'false'}
+              onChange={e => setSettings(s => ({ ...s, self_update_enabled: e.target.checked ? 'true' : 'false' }))}
+            />
+            <span className="space-y-1">
+              <span className="block text-sm font-medium">{t('admin.self_update_enabled')}</span>
+              <span className="block text-xs text-muted-foreground">{t('admin.self_update_enabled_hint')}</span>
+            </span>
+          </label>
         </CardContent>
       </Card>
 

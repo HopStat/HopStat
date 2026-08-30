@@ -173,3 +173,57 @@ func TestGetAdminSettings_DoesNotReturnTheLicenceKey(t *testing.T) {
 		t.Fatalf("account id missing from admin settings: %s", body)
 	}
 }
+
+func TestUpdateSettings_RejectsAnUnusableTimeout(t *testing.T) {
+	for _, raw := range []string{"soon", "0", "601"} {
+		db := setupDB(t)
+		c, w := setupAdminContext(db, http.MethodPut, "/admin/settings",
+			`{"query_timeout_sec":"`+raw+`"}`, 1)
+
+		UpdateSettings(db)(c)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("query_timeout_sec=%q gave %d, want 400 — a stored value the engine "+
+				"ignores would show in the panel as though it applied", raw, w.Code)
+		}
+	}
+}
+
+func TestUpdateSettings_AcceptsAValidTimeout(t *testing.T) {
+	db := setupDB(t)
+	c, w := setupAdminContext(db, http.MethodPut, "/admin/settings",
+		`{"query_timeout_sec":"45","traceroute_timeout_sec":"120","self_update_enabled":"false"}`, 1)
+
+	UpdateSettings(db)(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", w.Code, w.Body.String())
+	}
+	stored, err := queries.New(db).GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored["query_timeout_sec"] != "45" || stored["traceroute_timeout_sec"] != "120" {
+		t.Fatalf("timeouts not stored: %+v", stored)
+	}
+	if stored["self_update_enabled"] != "false" {
+		t.Fatalf("self_update_enabled = %q", stored["self_update_enabled"])
+	}
+}
+
+func TestUpdateSettings_ResponseDoesNotCarryTheLicenceKey(t *testing.T) {
+	db := setupDB(t)
+	if err := queries.New(db).SetSettings(map[string]string{geo.SettingLicenseKey: "secret-key"}); err != nil {
+		t.Fatal(err)
+	}
+	c, w := setupAdminContext(db, http.MethodPut, "/admin/settings", `{"site_name":"LG"}`, 1)
+
+	UpdateSettings(db)(c)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if strings.Contains(w.Body.String(), "secret-key") {
+		t.Fatalf("settings update response leaked the licence key: %s", w.Body.String())
+	}
+}

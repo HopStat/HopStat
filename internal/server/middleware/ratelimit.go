@@ -23,7 +23,7 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 		window:   window,
 		stopCh:   make(chan struct{}),
 	}
-	go rl.cleanup()
+	go rl.cleanup(rateLimitCleanupInterval)
 	return rl
 }
 
@@ -67,8 +67,8 @@ func (rl *RateLimiter) Stop() {
 
 var rateLimitCleanupInterval = time.Minute
 
-func (rl *RateLimiter) cleanup() {
-	ticker := time.NewTicker(rateLimitCleanupInterval)
+func (rl *RateLimiter) cleanup(interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {

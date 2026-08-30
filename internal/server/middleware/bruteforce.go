@@ -29,7 +29,9 @@ func NewBruteForceGuard(max int, banMinutes int) *BruteForceGuard {
 		banDur:   time.Duration(banMinutes) * time.Minute,
 		stopCh:   make(chan struct{}),
 	}
-	go g.cleanup()
+	// Read here rather than inside the goroutine: the interval is a package-level test
+	// seam, and reading it on the background goroutine races with any test that swaps it.
+	go g.cleanup(bruteForceCleanupInterval)
 	return g
 }
 
@@ -40,8 +42,8 @@ func (g *BruteForceGuard) Stop() {
 
 var bruteForceCleanupInterval = time.Minute
 
-func (g *BruteForceGuard) cleanup() {
-	ticker := time.NewTicker(bruteForceCleanupInterval)
+func (g *BruteForceGuard) cleanup(interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {

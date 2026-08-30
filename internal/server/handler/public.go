@@ -33,6 +33,7 @@ import (
 	"github.com/HopStat/HopStat/internal/store/querystore"
 	"github.com/HopStat/HopStat/internal/store/repo"
 	"github.com/HopStat/HopStat/internal/target"
+	"github.com/HopStat/HopStat/internal/updater"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -1422,6 +1423,10 @@ var allowedSettingKeys = map[string]bool{
 	"site_name": true, "site_description": true, "logo_path": true, "header_color": true,
 	"url_website": true, "url_peeringdb": true, "url_contact": true, "url_terms": true, "url_privacy": true,
 	"ping_count": true, "max_hops": true, "traceroute_max_timeouts": true, "active_languages": true,
+	// Moved out of config.yaml: read live, so changing them here takes effect at once.
+	engine.SettingQueryTimeoutSec:      true,
+	engine.SettingTracerouteTimeoutSec: true,
+	updater.SettingSelfUpdateEnabled:   true,
 }
 
 func UpdateSettings(db *sql.DB) gin.HandlerFunc {
@@ -1437,6 +1442,10 @@ func UpdateSettings(db *sql.DB) gin.HandlerFunc {
 				filtered[k] = v
 			}
 		}
+		if err := validateTimeoutSettings(filtered); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		if logoPath, ok := filtered["logo_path"]; ok && strings.TrimSpace(logoPath) == "" {
 			removeLogoFiles()
 		}
@@ -1451,8 +1460,28 @@ func UpdateSettings(db *sql.DB) gin.HandlerFunc {
 		}
 		settings := sitecache.AllSettings()
 		enrichSettingsLogoPath(settings)
+		for _, key := range secretSettingKeys {
+			delete(settings, key)
+		}
 		c.JSON(http.StatusOK, gin.H{"data": settings})
 	}
+}
+
+// validateTimeoutSettings rejects a timeout the engine would silently ignore, so the panel
+// cannot show a value that has no effect.
+func validateTimeoutSettings(filtered map[string]string) error {
+	for _, key := range []string{engine.SettingQueryTimeoutSec, engine.SettingTracerouteTimeoutSec} {
+		raw, ok := filtered[key]
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(raw))
+		if err != nil || n < engine.MinTimeoutSec || n > engine.MaxTimeoutSec {
+			return fmt.Errorf("%s must be a whole number of seconds between %d and %d",
+				key, engine.MinTimeoutSec, engine.MaxTimeoutSec)
+		}
+	}
+	return nil
 }
 
 func UploadLogo(db *sql.DB) gin.HandlerFunc {

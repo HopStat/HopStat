@@ -161,6 +161,9 @@ func main() {
 		if err := geo.SyncSettings(q, cfg.GeoIP); err != nil {
 			slog.Warn("failed to sync geoip settings", "error", err)
 		}
+		if err := server.SeedSettingsFromConfig(q, cfg); err != nil {
+			slog.Warn("failed to seed settings from config", "error", err)
+		}
 
 		// Started unconditionally: credentials can be entered in the admin panel later, and
 		// the updater checks for them on every cycle rather than only at startup.

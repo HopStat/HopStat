@@ -193,7 +193,7 @@ func TestStatusDisabledInConfig(t *testing.T) {
 	if st.SelfUpdateEnabled {
 		t.Fatal("expected disabled")
 	}
-	if st.SelfUpdateReason != "disabled in config (update.enabled: false)" {
+	if st.SelfUpdateReason != selfUpdateDisabledReason {
 		t.Fatalf("reason = %q", st.SelfUpdateReason)
 	}
 }

@@ -202,6 +202,7 @@ func TestAuth_AcceptsValidToken(t *testing.T) {
 
 func TestBruteForceGuard_AllowsNormalRequests(t *testing.T) {
 	guard := NewBruteForceGuard(3, 5)
+	defer guard.Stop()
 
 	handler := guard.Middleware()
 
@@ -222,6 +223,7 @@ func TestBruteForceGuard_AllowsNormalRequests(t *testing.T) {
 
 func TestBruteForceGuard_BlocksAfterMaxFailures(t *testing.T) {
 	guard := NewBruteForceGuard(3, 5)
+	defer guard.Stop()
 
 	unauthorizedHandler := func(c *gin.Context) {
 		c.Status(http.StatusUnauthorized)
