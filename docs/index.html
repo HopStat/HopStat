@@ -25,7 +25,9 @@
   --red:      #f87171;
   --text:     #e2e8f0;
   --text2:    #8baabf;
-  --text3:    #3d5a78;
+  /* Solved against every surface on the page: the old #3d5a78 read at 2.1:1, well under
+     the 4.5:1 body-text minimum, and it carries most of the secondary copy here. */
+  --text3:    #7194b7;
   --mono: 'SF Mono','JetBrains Mono','Fira Code',Menlo,Consolas,'Courier New',monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -82,6 +84,7 @@ nav {
 .nav-links a {
   color:var(--text2); text-decoration:none; font-size:12.5px;
   transition:color .18s; letter-spacing:0.02em;
+  white-space:nowrap;
 }
 .nav-links a:hover { color:var(--cyan); }
 .nav-actions { display:flex; gap:9px; align-items:center; }
@@ -290,6 +293,9 @@ hr.div--narrow {
 .feat-icon { font-size:20px; margin-bottom:.65rem; display:block; }
 .feat-name { font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:.35rem; }
 .feat-desc { font-size:11.5px; color:var(--text3); line-height:1.65; }
+/* Inline code only — <pre> blocks scroll instead. An env var or a config key is one long
+   unbreakable token, and without this it runs past its card on narrow screens. */
+code { overflow-wrap:anywhere; }
 
 /* ─── VENDORS ─────────────────────────────────────── */
 .vendor-row { display:flex; flex-wrap:wrap; gap:.8rem; }
@@ -428,6 +434,13 @@ footer {
 .fi.v { opacity:1; transform:translateY(0); }
 
 /* ─── RESPONSIVE ──────────────────────────────────── */
+/* Between the full-width layout and the point where the links are hidden, eight items no
+   longer fit at the wide gap and pushed the page sideways. */
+@media(max-width:1220px){
+  .nav-links{ gap:1.25rem; }
+  .nav-links a{ font-size:12px; }
+}
+
 @media(max-width:900px){
   .what-grid,.arch-cards{ grid-template-columns:1fr; gap:1.5rem; }
   .hero-inner{
@@ -444,6 +457,11 @@ footer {
     max-width:420px;
     width:100%;
   }
+}
+
+/* Eight items stop fitting alongside the buttons well before the layout breakpoint, and a
+   half-hidden link reads worse than none. */
+@media(max-width:1075px){
   .nav-links{ display:none; }
 }
 @media(max-width:600px){
@@ -473,6 +491,7 @@ footer {
     <li><a href="#how">Architecture</a></li>
     <li><a href="#bgp">BGP ADD-PATH</a></li>
     <li><a href="#communities">Communities</a></li>
+    <li><a href="#quality">Quality</a></li>
     <li><a href="#install">Install</a></li>
   </ul>
   <div class="nav-actions">
@@ -542,7 +561,7 @@ footer {
 <pre class="code-body install-oneliner"><span class="cm">curl -sSL </span><span class="chl">https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh</span><span class="cm"> | sudo bash</span></pre>
     </div>
     <p class="install-hint fi">
-      Pin a release: <code>… | sudo bash -s -- --version v2.1.8</code>
+      Pin a release: <code>… | sudo bash -s -- --version v2.2.1</code>
       · <a href="#docker">Docker, agent mode &amp; options ↓</a>
     </p>
 
@@ -571,7 +590,7 @@ footer {
 <span class="cm">[INFO] Downloading hopstat-linux-amd64...</span>
 <span class="cm">[ OK ] Checksum verified</span>
 <span class="cm">[ OK ] Binary installed: /usr/local/bin/hopstat</span>
-<span class="cm">[ OK ] hopstat v2.0.0</span>
+<span class="cm">[ OK ] hopstat v2.2.1</span>
 <span class="cm">[ OK ] Service file written: /etc/systemd/system/hopstat.service</span>
 <span class="cm">[ OK ] Service started</span>
 
@@ -869,7 +888,12 @@ footer {
     <div class="feat-card fi">
       <span class="feat-icon">📱</span>
       <div class="feat-name">Responsive Public UI</div>
-      <div class="feat-desc">Mobile-friendly query page with collapsible header controls, fixed-height stat cards and a footer with PeeringDB, contact links and an internal <strong>Communities</strong> catalogue. Site name, AS number and footer URLs are configured in Admin → Settings.</div>
+      <div class="feat-desc">Mobile-friendly query page with collapsible header controls, fixed-height stat cards and a footer with PeeringDB, contact links and an internal <strong>Communities</strong> catalogue. Light and dark are designed together, not one inverted from the other. Site name, AS number and footer URLs are configured in Admin → Settings.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🎨</span>
+      <div class="feat-name">Your Brand Colour</div>
+      <div class="feat-desc">Set one hex value in <strong>Admin → Settings</strong> and the whole interface follows it. The colour is used exactly as entered — never lightened or shifted to make text fit. Everything derived from it is instead <strong>measured</strong> against the surface it lands on and solved until it clears the WCAG AA minimum, so a pale green and a near-black both stay readable.</div>
     </div>
     <div class="feat-card fi">
       <span class="feat-icon">🌍</span>
@@ -1259,6 +1283,44 @@ footer {
     <li>Configure footer links (website, contact, PeeringDB, etc.) in <strong>Admin → Settings</strong> — the Communities link is built-in and does not need a URL</li>
     <li>Inactive rules are hidden from the public page and API but remain editable in the admin panel</li>
     <li>Descriptions are stored as plain text; write them in the language your peers expect</li>
+  </ul>
+</div>
+
+<hr class="div">
+
+<!-- ────────────────────────── QUALITY -->
+<div class="section-wrap anchor" id="quality">
+  <span class="section-tag fi">// verification</span>
+  <h2 class="fi">Checked before it ships.</h2>
+  <p class="sec-desc fi">A looking glass sits on the outside of your network, reachable by people you have never met. Four gates have to pass before a release is tagged, and every one of them runs in CI on the same commit.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card fi">
+      <span class="feat-icon">🧪</span>
+      <div class="feat-name">Every statement covered</div>
+      <div class="feat-desc">1,474 Go tests hold <strong>6,905 of 6,905 statements</strong> — not a rounded 100%, but a gate that names any statement no test reaches and fails the build. Tests run in <strong>randomised order</strong>, so a test that only passes because of what ran before it fails here instead of later.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🚦</span>
+      <div class="feat-name">Smoke tests on the real binary</div>
+      <div class="feat-desc">16 tests build the binary, bootstrap it, start the server and drive it: login and session, node management, and a full query through Server-Sent Events to its stored result. The compiled artefact, not a mock of it.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">👁️</span>
+      <div class="feat-name">Contrast measured in a browser</div>
+      <div class="feat-desc">24 browser tests render the production bundle and read back the <strong>actual painted colour</strong> of every run of text — every page, both themes, across brand colours. The scanner is itself tested against text planted to fail, so a scan that stopped measuring cannot report a clean page.</div>
+    </div>
+    <div class="feat-card fi">
+      <span class="feat-icon">🔎</span>
+      <div class="feat-name">Lint with nothing switched off</div>
+      <div class="feat-desc">The strict Go configuration — errcheck, staticcheck, gosec, ineffassign, unused, gofmt — plus the frontend linter at zero warnings. Where a finding is a false positive it carries a written reason at the line, rather than being excluded wholesale.</div>
+    </div>
+  </div>
+
+  <ul class="fi" style="font-size:12.5px;color:var(--text2);line-height:1.85;margin-top:1rem;padding-left:1.2rem;">
+    <li>178 frontend unit tests cover the logic layer, held to a coverage floor that cannot slide</li>
+    <li>Release builds run the same gates as CI — a tag cannot ship past a red test</li>
+    <li>All of it is in the repository: <code style="color:var(--cyan)">make gate</code> runs the four gates locally, exactly as CI does</li>
   </ul>
 </div>
 
