@@ -17,6 +17,22 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      // The logic layer only. Components and pages are covered by the browser suite in
+      // e2e/, which exercises them as rendered pages rather than in isolation.
+      include: ['src/lib/**', 'src/hooks/**'],
+      exclude: ['**/*.test.{ts,tsx}'],
+      reporter: ['text-summary'],
+      // A ratchet, not a target: set just under the measured baseline so coverage cannot
+      // slide, without demanding low-value tests to reach a round number.
+      thresholds: {
+        statements: 62,
+        branches: 50,
+        functions: 56,
+        lines: 63,
+      },
+    },
   },
   build: {
     outDir: '../dist',

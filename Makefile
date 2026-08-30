@@ -38,7 +38,7 @@ lint:
 frontend:
 	cd web/frontend && npx tsc -b
 	cd web/frontend && npx eslint . --max-warnings=0
-	cd web/frontend && npx vitest run
+	cd web/frontend && npm run test:cover
 	cd web/frontend && npm run build
 
 # Drives the production bundle in a real browser: pages render, and every run of text on

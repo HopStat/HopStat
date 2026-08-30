@@ -46,7 +46,7 @@ jobs:
       - name: Frontend unit tests
         run: |
           cd web/frontend
-          npm test
+          npm run test:cover
 
       - name: Build frontend
         run: |

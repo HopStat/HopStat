@@ -74,3 +74,4 @@ web/frontend/SQLite
 web/frontend/test-results/
 web/frontend/playwright-report/
 web/frontend/blob-report/
+web/frontend/coverage/
