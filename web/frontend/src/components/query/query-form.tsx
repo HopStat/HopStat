@@ -412,6 +412,16 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     setNodeId(value)
   }
 
+  function handleCommandChange(value: string) {
+    if (!value) return
+    setCommand(value)
+    // Radix keeps focus on the trigger after pick — defer blur so it wins over their refocus.
+    window.setTimeout(() => {
+      commandSelectRef.current?.blur()
+      targetInputRef.current?.focus({ preventScroll: true })
+    }, 0)
+  }
+
   function blurFocusedField() {
     blurActiveFieldPreservingScroll()
   }
@@ -429,15 +439,18 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   const showNode = showNodeSelect && nodes.length > 0
   showNodeRef.current = showNode
 
-  const selectFieldClass = 'h-10 py-0 flex items-center rounded-md'
-  const inputFieldClass = 'h-10 py-0 px-3 leading-[2.5rem] rounded-md'
+  const selectFieldClass = 'h-full min-h-10 py-0 flex items-center self-stretch'
+  const selectRoundedClass = `${selectFieldClass} rounded-md`
+  const querySelectFocusClass =
+    'shadow-none focus:shadow-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus-visible:outline-none'
+  const inputFieldClass = 'h-full min-h-10 py-0 px-3 leading-[2.5rem] rounded-md self-stretch'
   const submitDisabled = !selectedNodeId || !command || !target.trim() || loading
 
   const commandSelect = (
-    <Select value={command} onValueChange={setCommand}>
+    <Select value={command} onValueChange={handleCommandChange}>
       <SelectTrigger
         ref={commandSelectRef}
-        className={`query-form-field__command w-[4.75rem] sm:w-[5.25rem] shrink-0 rounded-none sm:rounded-none border-0 sm:border-0 ${selectFieldClass} text-base sm:text-xs font-semibold justify-center`}
+        className={`query-form-field__command w-[4.75rem] sm:w-[5.25rem] shrink-0 rounded-l-md rounded-r-none border-0 sm:border-0 bg-transparent ${selectFieldClass} text-base sm:text-xs font-semibold justify-center ${querySelectFocusClass}`}
       >
         <SelectValue placeholder={t('query.select_command')} />
       </SelectTrigger>
@@ -473,7 +486,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
         autoCorrect="off"
         spellCheck={false}
         enterKeyHint="go"
-        className={`query-form-field__target w-full rounded-none sm:rounded-none border-0 sm:border-0 bg-transparent ${inputFieldClass} text-[16px] sm:text-sm sm:font-data focus-visible:ring-0 focus-visible:ring-offset-0`}
+        className={`query-form-field__target w-full rounded-none sm:rounded-none border-0 sm:border-0 bg-transparent shadow-none ${inputFieldClass} text-[16px] sm:text-sm sm:font-data focus-visible:ring-0 focus-visible:ring-offset-0`}
       />
     </div>
   )
@@ -496,7 +509,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       type="submit"
       disabled={submitDisabled}
       aria-label={t('query.submit')}
-      className="h-10 w-10 shrink-0 rounded-md p-0 sm:w-[4.75rem] sm:px-2 flex items-center justify-center text-brand-foreground text-xs font-semibold bg-brand hover:bg-brand/90 disabled:opacity-45"
+      className="query-form-submit h-10 w-10 shrink-0 rounded-md p-0 sm:w-[4.75rem] sm:px-2 flex items-center justify-center text-xs font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-100"
     >
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin" />
@@ -519,7 +532,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
                 <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
                   <SelectTrigger
                     ref={nodeSelectRef}
-                    className={`query-form-select query-form-select__node w-full bg-transparent ${selectFieldClass} text-sm [&>span]:truncate`}
+                    className={`query-form-select query-form-select__node w-full ${selectRoundedClass} text-sm [&>span]:truncate`}
                   >
                     <SelectValue placeholder={t('query.select_node')} />
                   </SelectTrigger>
@@ -532,10 +545,10 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
               </div>
             )}
             <div className="shrink-0">
-              <Select value={command} onValueChange={setCommand}>
+              <Select value={command} onValueChange={handleCommandChange}>
                 <SelectTrigger
                   ref={commandSelectRef}
-                  className={`query-form-select query-form-command-mobile w-auto max-w-none ${selectFieldClass} text-sm font-semibold [&>span]:line-clamp-none [&>span]:whitespace-nowrap`}
+                  className={`query-form-select query-form-command-mobile w-auto max-w-none ${selectRoundedClass} text-sm font-semibold [&>span]:line-clamp-none [&>span]:whitespace-nowrap ${querySelectFocusClass}`}
                 >
                   <SelectValue placeholder={t('query.select_command')} />
                 </SelectTrigger>
@@ -561,7 +574,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
             <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
               <SelectTrigger
                 ref={nodeSelectRef}
-                className={`query-form-select query-form-select__node w-36 shrink-0 bg-transparent ${selectFieldClass} text-sm`}
+                className={`query-form-select query-form-select__node w-36 shrink-0 ${selectRoundedClass} text-sm`}
               >
                 <SelectValue placeholder={t('query.select_node')} />
               </SelectTrigger>
@@ -573,7 +586,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
             </Select>
           )}
 
-          <div className="query-form-field flex flex-1 min-w-0 flex-row items-center relative">
+          <div className="query-form-field flex flex-1 min-w-0 flex-row items-stretch relative">
             {commandSelect}
             {targetField}
           </div>

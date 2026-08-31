@@ -328,7 +328,7 @@
 
   @media (min-width: 640px) {
     .query-header {
-      padding: 1rem 1.5rem 0.85rem;
+      padding: 1rem 1.5rem 0.95rem;
     }
   }
 
@@ -418,12 +418,12 @@
   @media (min-width: 640px) {
     .query-header__title {
       font-size: 1.5rem;
-      margin-bottom: -0.625rem;
+      margin-bottom: -0.5rem;
     }
 
     .query-header__subtitle,
     .query-header__subtitle-spacer {
-      margin-top: -0.625rem;
+      margin-top: -0.5rem;
     }
   }
 
@@ -609,12 +609,15 @@
   .query-header__subtitle .query-header__home {
     display: inline;
     width: auto;
+    line-height: inherit;
   }
 
   .query-header__subtitle {
     max-width: 42rem;
     font-size: 0.6875rem;
-    line-height: 1.1;
+    line-height: 1.4;
+    /* truncate clips to the line box — keep enough height for g, y, p descenders */
+    padding-bottom: 0.125rem;
     /* Sits on the brand-tinted band, which a dark brand darkens well below the card, so
        the fixed muted token is not dark enough here. */
     color: var(--brand-muted, var(--color-muted-foreground));
@@ -949,6 +952,7 @@
 
   .query-form-select {
     border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--color-border));
+    border-radius: var(--radius-md);
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--brand) 12%, var(--color-background)) 0%,
@@ -960,7 +964,7 @@
   }
 
   .query-form-field {
-    overflow: visible;
+    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--color-border));
     border-radius: var(--radius-md);
     background: linear-gradient(
@@ -990,9 +994,9 @@
     position: relative;
     justify-content: center;
     padding-inline: 0.25rem 1.125rem;
-    border-right: 1px solid color-mix(in srgb, var(--brand) 18%, var(--color-border));
-    background: color-mix(in srgb, var(--brand) 10%, transparent);
-    box-shadow: none;
+    border-radius: calc(var(--radius-md) - 1px) 0 0 calc(var(--radius-md) - 1px);
+    background: transparent !important;
+    box-shadow: none !important;
     color: color-mix(in srgb, var(--brand) 55%, var(--color-foreground));
   }
 
@@ -1010,9 +1014,15 @@
     pointer-events: none;
   }
 
+  .query-form-field__command:focus,
+  .query-form-field__command:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
   .query-form-field__target {
     border: 0;
-    box-shadow: none;
+    box-shadow: none !important;
     background: transparent;
   }
 
@@ -1021,7 +1031,7 @@
   }
 
   .query-form-field:focus-within .query-form-field__command {
-    background: color-mix(in srgb, var(--brand) 14%, transparent);
+    background: transparent;
   }
 
   .query-form-select__node {
@@ -1095,12 +1105,12 @@
   }
 
   .dark .query-form-field__command {
-    background: color-mix(in srgb, var(--brand) 14%, transparent);
+    background: transparent;
     color: color-mix(in srgb, var(--brand-accent-line) 70%, var(--color-foreground));
   }
 
   .dark .query-form-field:focus-within .query-form-field__command {
-    background: color-mix(in srgb, var(--brand) 18%, transparent);
+    background: transparent;
   }
 
   .dark .query-form-field__target {
@@ -1159,12 +1169,12 @@
   }
 
   html[data-brand-dark="true"]:not(.dark) .query-form-field__command {
-    background: color-mix(in srgb, var(--brand) 7%, transparent);
+    background: transparent;
     color: color-mix(in srgb, var(--brand) 65%, var(--color-foreground));
   }
 
   html[data-brand-dark="true"]:not(.dark) .query-form-field:focus-within .query-form-field__command {
-    background: color-mix(in srgb, var(--brand) 10%, transparent);
+    background: transparent;
   }
 
   html[data-brand-dark="true"]:not(.dark) .query-form-field__target {
@@ -1205,6 +1215,14 @@
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 16%, transparent),
       var(--shadow-soft);
+  }
+
+  /* Whole-button opacity on disabled made label text semi-transparent too, so it
+     composited with the form band and read as the wrong colour. Fade the fill only. */
+  .query-form-submit:disabled {
+    opacity: 1;
+    background: color-mix(in srgb, var(--brand) 46%, var(--color-card));
+    color: var(--brand-foreground);
   }
 
   .dark .corporate-background {
@@ -1335,8 +1353,9 @@
   /* Locale select — inside header band: use theme-aware card/brand mix colors */
   .query-header-band .locale-switcher__select {
     border-color: color-mix(in srgb, var(--brand-accent-line) 28%, var(--color-border));
-    background: color-mix(in srgb, var(--color-card) 88%, var(--brand) 12%);
+    background: color-mix(in srgb, var(--color-card) 88%, var(--brand) 12%) !important;
     color: var(--color-foreground);
+    box-shadow: none;
   }
   .query-header-band .locale-switcher__select:hover {
     background: color-mix(in srgb, var(--color-card) 78%, var(--brand) 22%);
@@ -1345,11 +1364,35 @@
     color: var(--color-muted-foreground);
   }
 
+  .locale-switcher__content {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 28%, var(--color-border)) !important;
+    background: color-mix(in srgb, var(--color-card) 88%, var(--brand) 12%) !important;
+    color: var(--color-foreground);
+  }
+
+  .locale-switcher__item {
+    min-height: 1.75rem;
+    border-radius: calc(var(--radius-md) - 2px);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .locale-switcher__item[data-highlighted] {
+    background: color-mix(in srgb, var(--color-card) 78%, var(--brand) 22%);
+    color: var(--color-foreground);
+  }
+
+  .locale-switcher__item[data-state='checked'] {
+    color: var(--color-foreground);
+  }
+
   /* Locale select — standalone header (brand-color background): use on-dark contrast */
   .locale-switcher__select {
     border-color: color-mix(in srgb, var(--brand-foreground) 24%, transparent);
     background: color-mix(in srgb, var(--brand-foreground) 10%, transparent);
     color: var(--brand-foreground);
+    box-shadow: none;
   }
   .locale-switcher__select:hover {
     background: color-mix(in srgb, var(--brand-foreground) 18%, transparent);
