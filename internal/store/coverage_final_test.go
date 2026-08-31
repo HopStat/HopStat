@@ -415,6 +415,79 @@ func TestMigrationHelpersErrors(t *testing.T) {
 		tx.Rollback()
 	})
 
+	t.Run("migrateBGPNeighborPassiveMode table exists error", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT name FROM sqlite_master").WillReturnError(errors.New("exists failed"))
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := migrateBGPNeighborPassiveMode(tx); err == nil {
+			t.Fatal("expected table exists error")
+		}
+	})
+
+	t.Run("migrateBGPNeighborPassiveMode column check error", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT name FROM sqlite_master").WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("bgp_neighbors"))
+		mock.ExpectQuery("PRAGMA table_info").WillReturnError(errors.New("pragma failed"))
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := migrateBGPNeighborPassiveMode(tx); err == nil {
+			t.Fatal("expected column check error")
+		}
+	})
+
+	t.Run("migrateBGPNeighborPassiveMode already has column", func(t *testing.T) {
+		db, err := sql.Open("sqlite", ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		if _, err := db.Exec(`CREATE TABLE bgp_neighbors (id INTEGER PRIMARY KEY, passive_mode INTEGER NOT NULL DEFAULT 0)`); err != nil {
+			t.Fatal(err)
+		}
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := migrateBGPNeighborPassiveMode(tx); err != nil {
+			t.Fatal(err)
+		}
+		tx.Rollback()
+	})
+
+	t.Run("migrateBGPNeighborPassiveMode alter error", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT name FROM sqlite_master").WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("bgp_neighbors"))
+		mock.ExpectQuery("PRAGMA table_info").WillReturnRows(sqlmock.NewRows([]string{"cid", "name", "type", "notnull", "dflt_value", "pk"}))
+		mock.ExpectExec("ALTER TABLE bgp_neighbors ADD COLUMN passive_mode").WillReturnError(errors.New("alter failed"))
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := migrateBGPNeighborPassiveMode(tx); err == nil {
+			t.Fatal("expected alter error")
+		}
+	})
+
 	t.Run("migrateQuickQueryNodeID already has column", func(t *testing.T) {
 		db := openTestDB(t)
 		tx, err := db.Begin()
