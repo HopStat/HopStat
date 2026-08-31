@@ -37,7 +37,12 @@ func formatNeighborConfig(n *domain.BGPNeighbor, localAS uint32, localAddr, neig
 			parts = append(parts, "multihop=off")
 		}
 	}
-	parts = append(parts, "mode=outbound", "timers=10/90/30")
+	if n.PassiveMode {
+		parts = append(parts, "mode=passive")
+	} else {
+		parts = append(parts, "mode=outbound")
+	}
+	parts = append(parts, "timers=10/90/30")
 	return strings.Join(parts, " ")
 }
 

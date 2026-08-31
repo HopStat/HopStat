@@ -97,6 +97,7 @@ func migrationsList() []string {
 		migrationV17,
 		migrationV18,
 		migrationV19,
+		migrationV20,
 	}
 }
 
@@ -109,6 +110,9 @@ func applyMigration(tx *sql.Tx, version int, sql string) error {
 	}
 	if version == 19 {
 		return migrateQuickQueryNodeID(tx)
+	}
+	if version == 20 {
+		return migrateBGPNeighborPassiveMode(tx)
 	}
 	_, err := tx.Exec(sql)
 	return err
@@ -394,6 +398,30 @@ UPDATE bgp_neighbors SET peer_type = 'internal' WHERE remote_as = local_as AND l
 `
 
 const migrationV19 = `SELECT 1`
+
+const migrationV20 = `SELECT 1`
+
+func migrateBGPNeighborPassiveMode(tx *sql.Tx) error {
+	exists, err := tableExistsTx(tx, "bgp_neighbors")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	hasCol, err := tableHasColumnTx(tx, "bgp_neighbors", "passive_mode")
+	if err != nil {
+		return err
+	}
+	if hasCol {
+		return nil
+	}
+	if _, err := tx.Exec(`ALTER TABLE bgp_neighbors ADD COLUMN passive_mode INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return err
+	}
+	_, err = tx.Exec(`UPDATE bgp_neighbors SET passive_mode = 1 WHERE remote_as = local_as AND local_as > 0`)
+	return err
+}
 
 func migrateQuickQueryNodeID(tx *sql.Tx) error {
 	exists, err := tableExistsTx(tx, "quick_queries")

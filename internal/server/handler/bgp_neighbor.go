@@ -26,6 +26,7 @@ type bgpNeighborRequest struct {
 	IPv6PeeringIP  string `json:"ipv6_peering_ip"`
 	IPv6NeighborIP string `json:"ipv6_neighbor_ip"`
 	Multihop       bool   `json:"multihop"`
+	PassiveMode    *bool  `json:"passive_mode"`
 	DefaultRouteAS uint32 `json:"default_route_as"`
 }
 
@@ -83,6 +84,30 @@ func (r *bgpNeighborRequest) Validate() string {
 		}
 	}
 	return ""
+}
+
+func resolveBGPNeighborPassiveMode(cfg config.BGPConfig, req *bgpNeighborRequest) bool {
+	if req.PassiveMode != nil {
+		return *req.PassiveMode
+	}
+	return domain.DefaultPassiveMode(cfg.LocalAS, req.RemoteAS)
+}
+
+func bgpNeighborFromRequest(id int64, cfg config.BGPConfig, req *bgpNeighborRequest) *domain.BGPNeighbor {
+	return &domain.BGPNeighbor{
+		ID:             id,
+		NodeID:         req.NodeID,
+		LocalAS:        cfg.LocalAS,
+		RemoteAS:       req.RemoteAS,
+		PeeringIP:      req.PeeringIP,
+		NeighborIP:     req.NeighborIP,
+		IPv6PeeringIP:  req.IPv6PeeringIP,
+		IPv6NeighborIP: req.IPv6NeighborIP,
+		Multihop:       req.Multihop,
+		PassiveMode:    resolveBGPNeighborPassiveMode(cfg, req),
+		PeerType:       domain.PeerTypeFor(cfg.LocalAS, req.RemoteAS),
+		DefaultRouteAS: req.DefaultRouteAS,
+	}
 }
 
 func bgpStatuses(mgr *bgp.SessionManager) map[int64]domain.BGPSessionState {
@@ -208,18 +233,7 @@ func CreateBGPNeighbor(db *sql.DB, bgpMgr *bgp.SessionManager, bgpCfg config.BGP
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
-		neighbor := &domain.BGPNeighbor{
-			NodeID:         req.NodeID,
-			LocalAS:        bgpCfg.LocalAS,
-			RemoteAS:       req.RemoteAS,
-			PeeringIP:      req.PeeringIP,
-			NeighborIP:     req.NeighborIP,
-			IPv6PeeringIP:  req.IPv6PeeringIP,
-			IPv6NeighborIP: req.IPv6NeighborIP,
-			Multihop:       req.Multihop,
-			PeerType:       domain.PeerTypeFor(bgpCfg.LocalAS, req.RemoteAS),
-			DefaultRouteAS: req.DefaultRouteAS,
-		}
+		neighbor := bgpNeighborFromRequest(0, bgpCfg, &req)
 		r := repo.NewBGPNeighborRepo(db)
 		created, err := r.Create(c.Request.Context(), neighbor)
 		if err != nil {
@@ -258,19 +272,7 @@ func UpdateBGPNeighbor(db *sql.DB, bgpMgr *bgp.SessionManager, bgpCfg config.BGP
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
-		neighbor := &domain.BGPNeighbor{
-			ID:             id,
-			NodeID:         req.NodeID,
-			LocalAS:        bgpCfg.LocalAS,
-			RemoteAS:       req.RemoteAS,
-			PeeringIP:      req.PeeringIP,
-			NeighborIP:     req.NeighborIP,
-			IPv6PeeringIP:  req.IPv6PeeringIP,
-			IPv6NeighborIP: req.IPv6NeighborIP,
-			Multihop:       req.Multihop,
-			PeerType:       domain.PeerTypeFor(bgpCfg.LocalAS, req.RemoteAS),
-			DefaultRouteAS: req.DefaultRouteAS,
-		}
+		neighbor := bgpNeighborFromRequest(id, bgpCfg, &req)
 		r := repo.NewBGPNeighborRepo(db)
 		updated, err := r.Update(c.Request.Context(), neighbor)
 		if err != nil {

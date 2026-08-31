@@ -61,6 +61,7 @@ func (r *bgpNeighborRepo) Create(ctx context.Context, neighbor *domain.BGPNeighb
 		IPv6PeeringIP:  neighbor.IPv6PeeringIP,
 		IPv6NeighborIP: neighbor.IPv6NeighborIP,
 		Multihop:       boolToInt(neighbor.Multihop),
+		PassiveMode:    boolToInt(neighbor.PassiveMode),
 		PeerType:       string(domain.PeerTypeFor(neighbor.LocalAS, neighbor.RemoteAS)),
 		DefaultRouteAS: neighbor.DefaultRouteAS,
 	})
@@ -81,6 +82,7 @@ func (r *bgpNeighborRepo) Update(ctx context.Context, neighbor *domain.BGPNeighb
 		IPv6PeeringIP:  neighbor.IPv6PeeringIP,
 		IPv6NeighborIP: neighbor.IPv6NeighborIP,
 		Multihop:       boolToInt(neighbor.Multihop),
+		PassiveMode:    boolToInt(neighbor.PassiveMode),
 		PeerType:       string(domain.PeerTypeFor(neighbor.LocalAS, neighbor.RemoteAS)),
 		DefaultRouteAS: neighbor.DefaultRouteAS,
 	})
@@ -105,6 +107,7 @@ func mapBGPNeighbor(n *queries.BGPNeighbor) *domain.BGPNeighbor {
 		IPv6PeeringIP:  n.IPv6PeeringIP,
 		IPv6NeighborIP: n.IPv6NeighborIP,
 		Multihop:       n.Multihop == 1,
+		PassiveMode:    n.PassiveMode == 1,
 		PeerType:       domain.PeerTypeFor(n.LocalAS, n.RemoteAS),
 		DefaultRouteAS: n.DefaultRouteAS,
 	}

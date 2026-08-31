@@ -283,3 +283,49 @@ VALUES (1, 65001, 65001, '10.0.0.1', '10.0.0.2', 0, 0, CURRENT_TIMESTAMP, CURREN
 		t.Fatalf("peer_type = %q, want internal", peerType)
 	}
 }
+
+func TestMigrateBGPNeighborPassiveMode(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	if _, err := db.Exec(`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	for v := 1; v <= 19; v++ {
+		if _, err := db.Exec(`INSERT INTO schema_migrations (version) VALUES (?)`, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`
+CREATE TABLE bgp_neighbors (
+	id INTEGER PRIMARY KEY, node_id INTEGER, local_as INTEGER, remote_as INTEGER,
+	peering_ip TEXT, neighbor_ip TEXT, ipv6_peering_ip TEXT, ipv6_neighbor_ip TEXT,
+	multihop INTEGER, peer_type TEXT, default_route_as INTEGER, created_at TEXT, updated_at TEXT
+);
+INSERT INTO bgp_neighbors (node_id, local_as, remote_as, peering_ip, neighbor_ip, multihop, peer_type, default_route_as, created_at, updated_at)
+VALUES (1, 43260, 43260, '10.4.4.56', '10.4.4.221', 0, 'internal', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO bgp_neighbors (node_id, local_as, remote_as, peering_ip, neighbor_ip, multihop, peer_type, default_route_as, created_at, updated_at)
+VALUES (2, 43260, 174, '10.4.4.56', '203.0.113.1', 0, 'external', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := Migrate(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	var internalPassive, externalPassive int
+	if err := db.QueryRow(`SELECT passive_mode FROM bgp_neighbors WHERE id = 1`).Scan(&internalPassive); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT passive_mode FROM bgp_neighbors WHERE id = 2`).Scan(&externalPassive); err != nil {
+		t.Fatal(err)
+	}
+	if internalPassive != 1 {
+		t.Fatalf("internal passive_mode = %d, want 1", internalPassive)
+	}
+	if externalPassive != 0 {
+		t.Fatalf("external passive_mode = %d, want 0", externalPassive)
+	}
+}

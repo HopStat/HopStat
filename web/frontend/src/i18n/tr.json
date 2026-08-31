@@ -287,6 +287,8 @@
   "admin.bgp_multihop": "Multihop",
   "admin.bgp_multihop_hint": "Komşu kaydında saklanır. GoBGP yalnızca eBGP oturumlarında ebgp-multihop uygular.",
   "admin.bgp_multihop_internal_hint": "Multihop yalnızca remote AS, local AS'ten farklı olduğunda (eBGP) geçerlidir.",
+  "admin.bgp_passive": "Pasif (peer beklesin)",
+  "admin.bgp_passive_hint": "Açıkken HopStat dinler ve TCP/179'a bağlanmaz. Router'ınız HopStat'a iBGP ile bağlanıyorsa kullanın — çift active oturum flap'lerini önler.",
   "admin.bgp_routes": "Rotalar",
   "admin.bgp_routes_received": "Peer'den alınan prefix'ler (Adj-RIB-In)",
   "admin.bgp_stop": "Durdur",

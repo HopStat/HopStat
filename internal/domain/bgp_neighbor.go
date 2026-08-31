@@ -22,6 +22,11 @@ func (p BGPPeerType) IsInternal() bool {
 	return p == BGPPeerInternal
 }
 
+// DefaultPassiveMode is true for iBGP (router dials HopStat) and false for eBGP (HopStat dials out).
+func DefaultPassiveMode(localAS, remoteAS uint32) bool {
+	return PeerTypeFor(localAS, remoteAS).IsInternal()
+}
+
 type BGPNeighbor struct {
 	ID             int64       `json:"id"`
 	NodeID         int64       `json:"node_id"`
@@ -32,6 +37,7 @@ type BGPNeighbor struct {
 	IPv6PeeringIP  string      `json:"ipv6_peering_ip"`
 	IPv6NeighborIP string      `json:"ipv6_neighbor_ip"`
 	Multihop       bool        `json:"multihop"`
+	PassiveMode    bool        `json:"passive_mode"`
 	PeerType       BGPPeerType `json:"peer_type"`
 	DefaultRouteAS uint32      `json:"default_route_as,omitempty"`
 	CreatedAt      time.Time   `json:"created_at"`

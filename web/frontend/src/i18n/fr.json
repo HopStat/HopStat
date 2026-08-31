@@ -287,6 +287,8 @@
   "admin.bgp_multihop": "Multisaut",
   "admin.bgp_multihop_hint": "Enregistré sur le voisin. GoBGP n'applique ebgp-multihop que pour les sessions eBGP.",
   "admin.bgp_multihop_internal_hint": "Multihop s'applique uniquement lorsque l'AS distante diffère de l'AS locale (eBGP).",
+  "admin.bgp_passive": "Passif (attendre le pair)",
+  "admin.bgp_passive_hint": "Si activé, HopStat écoute sans composer TCP/179. À utiliser en iBGP quand votre routeur se connecte à HopStat — évite les flaps dual-active.",
   "admin.bgp_routes": "Routes",
   "admin.bgp_routes_received": "Prefixes reçus du peer (Adj-RIB-In)",
   "admin.bgp_stop": "Arrêter",

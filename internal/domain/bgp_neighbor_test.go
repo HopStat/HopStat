@@ -22,3 +22,12 @@ func TestBGPPeerTypeIsInternal(t *testing.T) {
 		t.Fatal("external peer should report IsInternal false")
 	}
 }
+
+func TestDefaultPassiveMode(t *testing.T) {
+	if !DefaultPassiveMode(43260, 43260) {
+		t.Fatal("iBGP should default to passive")
+	}
+	if DefaultPassiveMode(43260, 174) {
+		t.Fatal("eBGP should default to outbound")
+	}
+}

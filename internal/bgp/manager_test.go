@@ -126,6 +126,20 @@ func TestBuildPeerConfigPeerTypes(t *testing.T) {
 	}
 }
 
+func TestBuildPeerConfigPassiveMode(t *testing.T) {
+	mgr := NewSessionManager(config.BGPConfig{LocalAS: 65000})
+
+	outbound := mgr.buildPeerConfig(&domain.BGPNeighbor{RemoteAS: 65000}, "10.0.0.1", "10.0.0.2")
+	if outbound.Transport.PassiveMode {
+		t.Fatal("expected outbound (non-passive) by default")
+	}
+
+	passive := mgr.buildPeerConfig(&domain.BGPNeighbor{RemoteAS: 65000, PassiveMode: true}, "10.0.0.1", "10.0.0.2")
+	if !passive.Transport.PassiveMode {
+		t.Fatal("expected passive mode when configured")
+	}
+}
+
 func TestBuildPeerConfigEnablesAddPathReceive(t *testing.T) {
 	mgr := NewSessionManager(config.BGPConfig{LocalAS: 65000, AddPathReceive: true})
 	peer := mgr.buildPeerConfig(&domain.BGPNeighbor{RemoteAS: 174}, "10.0.0.1", "10.0.0.2")

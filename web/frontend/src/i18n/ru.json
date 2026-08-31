@@ -287,6 +287,8 @@
   "admin.bgp_multihop": "Мультихоп",
   "admin.bgp_multihop_hint": "Хранится в записи соседа. GoBGP применяет ebgp-multihop только для eBGP-сессий.",
   "admin.bgp_multihop_internal_hint": "Multihop применяется только когда remote AS отличается от local AS (eBGP).",
+  "admin.bgp_passive": "Пассивный (ждать peer)",
+  "admin.bgp_passive_hint": "Если включено, HopStat слушает и не инициирует TCP/179. Для iBGP, когда маршрутизатор подключается к HopStat — предотвращает dual-active flaps.",
   "admin.bgp_routes": "Маршруты",
   "admin.bgp_routes_received": "Prefixes от peer (Adj-RIB-In)",
   "admin.bgp_stop": "Стоп",

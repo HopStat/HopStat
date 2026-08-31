@@ -205,6 +205,7 @@ export interface BGPNeighbor {
   ipv6_peering_ip: string
   ipv6_neighbor_ip: string
   multihop: boolean
+  passive_mode?: boolean
   peer_type?: 'internal' | 'external'
   default_route_as?: number
   status: string

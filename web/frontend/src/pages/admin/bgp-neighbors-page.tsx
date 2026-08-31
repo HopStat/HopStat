@@ -61,6 +61,12 @@ function isInternalPeer(n: BGPNeighbor, localAS: number): boolean {
   return localAS > 0 && n.remote_as === localAS
 }
 
+function defaultPassiveMode(remoteAS: string, localAS: number): boolean {
+  const remote = Number(remoteAS)
+  if (!remote || !localAS) return true
+  return remote === localAS
+}
+
 function AddressStack({ lines }: { lines: Array<string | undefined | null> }) {
   const values = lines.map(v => v?.trim()).filter(Boolean) as string[]
   if (values.length === 0) return <span className="text-muted-foreground">—</span>
@@ -103,6 +109,7 @@ export function BGPNeighborsPage() {
     ipv6_peering_ip: '',
     ipv6_neighbor_ip: '',
     multihop: false,
+    passive_mode: true,
     default_route_as: '',
   })
 
@@ -153,6 +160,7 @@ export function BGPNeighborsPage() {
       ipv6_peering_ip: '',
       ipv6_neighbor_ip: '',
       multihop: false,
+      passive_mode: defaultPassiveMode('', localAS),
       default_route_as: '',
     })
     setDialogOpen(true)
@@ -169,6 +177,7 @@ export function BGPNeighborsPage() {
       ipv6_peering_ip: n.ipv6_peering_ip ?? '',
       ipv6_neighbor_ip: n.ipv6_neighbor_ip ?? '',
       multihop: n.multihop,
+      passive_mode: n.passive_mode ?? defaultPassiveMode(String(n.remote_as), localAS),
       default_route_as: n.default_route_as ? String(n.default_route_as) : '',
     })
     setDialogOpen(true)
@@ -207,6 +216,7 @@ export function BGPNeighborsPage() {
         ipv6_peering_ip: form.ipv6_peering_ip.trim(),
         ipv6_neighbor_ip: form.ipv6_neighbor_ip.trim(),
         multihop: form.multihop,
+        passive_mode: form.passive_mode,
         default_route_as: form.default_route_as.trim() ? Number(form.default_route_as) : 0,
       }
       if (editItem) await api.put(`/admin/bgp-neighbors/${editItem.id}`, body)
@@ -430,6 +440,14 @@ export function BGPNeighborsPage() {
               <Label>{t('admin.bgp_multihop')}</Label>
             </div>
             <p className="text-xs text-muted-foreground">{t('admin.bgp_multihop_hint')}</p>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={form.passive_mode}
+                onCheckedChange={passive_mode => setForm({ ...form, passive_mode })}
+              />
+              <Label>{t('admin.bgp_passive')}</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('admin.bgp_passive_hint')}</p>
           </div>
           <DialogFooter className="flex-col items-stretch gap-2 sm:flex-col">
             {saveError && <QueryErrorAlert message={saveError} />}

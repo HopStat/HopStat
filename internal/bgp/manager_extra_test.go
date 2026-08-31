@@ -328,6 +328,7 @@ func TestUpdateNeighborRebuildsWhenSessionParamsChange(t *testing.T) {
 		{"neighbor ip", func(n *domain.BGPNeighbor) { n.NeighborIP = "10.0.0.31" }},
 		{"peering ip", func(n *domain.BGPNeighbor) { n.PeeringIP = "127.0.0.2" }},
 		{"multihop", func(n *domain.BGPNeighbor) { n.Multihop = true }},
+		{"passive mode", func(n *domain.BGPNeighbor) { n.PassiveMode = true }},
 		{"ipv6 neighbor ip", func(n *domain.BGPNeighbor) { n.IPv6NeighborIP = "2001:db8::31" }},
 		{"ipv6 peering ip", func(n *domain.BGPNeighbor) { n.IPv6PeeringIP = "2001:db8::1" }},
 	} {

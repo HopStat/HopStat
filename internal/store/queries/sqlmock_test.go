@@ -198,7 +198,7 @@ func TestQueries_AllListRowsErr(t *testing.T) {
 	ctx := context.Background()
 	nodeCols := []string{"id", "name", "description", "type", "city", "country", "lat", "lon", "credential_id", "active", "is_default", "enabled_cmds", "bgp_config", "agent_url", "agent_token", "created_at", "updated_at"}
 	ruleCols := []string{"id", "community", "severity", "message_i18n", "scope", "node_id", "active", "created_at", "updated_at"}
-	bgpCols := []string{"id", "node_id", "local_as", "remote_as", "peering_ip", "neighbor_ip", "ipv6_peering_ip", "ipv6_neighbor_ip", "multihop", "default_route_as", "peer_type", "created_at", "updated_at"}
+	bgpCols := []string{"id", "node_id", "local_as", "remote_as", "peering_ip", "neighbor_ip", "ipv6_peering_ip", "ipv6_neighbor_ip", "multihop", "passive_mode", "peer_type", "default_route_as", "created_at", "updated_at"}
 	type listCase struct {
 		name string
 		cols []string

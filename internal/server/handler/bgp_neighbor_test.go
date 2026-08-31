@@ -59,6 +59,24 @@ func TestPeerTypeFor(t *testing.T) {
 	}
 }
 
+func TestResolveBGPNeighborPassiveMode(t *testing.T) {
+	cfg := config.BGPConfig{LocalAS: 43260}
+	internalPassive := true
+	if got := resolveBGPNeighborPassiveMode(cfg, &bgpNeighborRequest{RemoteAS: 43260}); !got {
+		t.Fatal("expected iBGP default passive=true")
+	}
+	if got := resolveBGPNeighborPassiveMode(cfg, &bgpNeighborRequest{RemoteAS: 43260, PassiveMode: &internalPassive}); !got {
+		t.Fatal("expected explicit passive=true")
+	}
+	outbound := false
+	if got := resolveBGPNeighborPassiveMode(cfg, &bgpNeighborRequest{RemoteAS: 43260, PassiveMode: &outbound}); got {
+		t.Fatal("expected explicit passive=false")
+	}
+	if got := resolveBGPNeighborPassiveMode(cfg, &bgpNeighborRequest{RemoteAS: 174}); got {
+		t.Fatal("expected eBGP default passive=false")
+	}
+}
+
 func TestCreateBGPNeighbor_NilBGPManager(t *testing.T) {
 	db := setupDB(t)
 	adminID := seedAdminPassword(t, db, "testpassword123")

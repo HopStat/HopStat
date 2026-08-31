@@ -15,18 +15,19 @@ type BGPNeighbor struct {
 	IPv6PeeringIP  string
 	IPv6NeighborIP string
 	Multihop       int
+	PassiveMode    int
 	PeerType       string
 	DefaultRouteAS uint32
 	CreatedAt      string
 	UpdatedAt      string
 }
 
-const selectCols = `id, node_id, local_as, remote_as, peering_ip, neighbor_ip, ipv6_peering_ip, ipv6_neighbor_ip, multihop, peer_type, default_route_as, created_at, updated_at`
+const selectCols = `id, node_id, local_as, remote_as, peering_ip, neighbor_ip, ipv6_peering_ip, ipv6_neighbor_ip, multihop, passive_mode, peer_type, default_route_as, created_at, updated_at`
 
 func scanNeighbor(rows interface {
 	Scan(...any) error
 }, n *BGPNeighbor) error {
-	return rows.Scan(&n.ID, &n.NodeID, &n.LocalAS, &n.RemoteAS, &n.PeeringIP, &n.NeighborIP, &n.IPv6PeeringIP, &n.IPv6NeighborIP, &n.Multihop, &n.PeerType, &n.DefaultRouteAS, &n.CreatedAt, &n.UpdatedAt)
+	return rows.Scan(&n.ID, &n.NodeID, &n.LocalAS, &n.RemoteAS, &n.PeeringIP, &n.NeighborIP, &n.IPv6PeeringIP, &n.IPv6NeighborIP, &n.Multihop, &n.PassiveMode, &n.PeerType, &n.DefaultRouteAS, &n.CreatedAt, &n.UpdatedAt)
 }
 
 func (q *Queries) GetAllBGPNeighbors(ctx context.Context) ([]BGPNeighbor, error) {
@@ -86,9 +87,9 @@ func (q *Queries) GetBGPNeighborByID(ctx context.Context, id int64) (*BGPNeighbo
 
 func (q *Queries) CreateBGPNeighbor(ctx context.Context, arg *BGPNeighbor) (*BGPNeighbor, error) {
 	result, err := q.db.ExecContext(ctx, `
-		INSERT INTO bgp_neighbors (node_id, local_as, remote_as, peering_ip, neighbor_ip, ipv6_peering_ip, ipv6_neighbor_ip, multihop, peer_type, default_route_as, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	`, arg.NodeID, arg.LocalAS, arg.RemoteAS, arg.PeeringIP, arg.NeighborIP, arg.IPv6PeeringIP, arg.IPv6NeighborIP, arg.Multihop, arg.PeerType, arg.DefaultRouteAS)
+		INSERT INTO bgp_neighbors (node_id, local_as, remote_as, peering_ip, neighbor_ip, ipv6_peering_ip, ipv6_neighbor_ip, multihop, passive_mode, peer_type, default_route_as, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, arg.NodeID, arg.LocalAS, arg.RemoteAS, arg.PeeringIP, arg.NeighborIP, arg.IPv6PeeringIP, arg.IPv6NeighborIP, arg.Multihop, arg.PassiveMode, arg.PeerType, arg.DefaultRouteAS)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +103,9 @@ func (q *Queries) CreateBGPNeighbor(ctx context.Context, arg *BGPNeighbor) (*BGP
 func (q *Queries) UpdateBGPNeighbor(ctx context.Context, arg *BGPNeighbor) (*BGPNeighbor, error) {
 	_, err := q.db.ExecContext(ctx, `
 		UPDATE bgp_neighbors SET node_id = ?, local_as = ?, remote_as = ?, peering_ip = ?, neighbor_ip = ?,
-		ipv6_peering_ip = ?, ipv6_neighbor_ip = ?, multihop = ?, peer_type = ?, default_route_as = ?, updated_at = CURRENT_TIMESTAMP
+		ipv6_peering_ip = ?, ipv6_neighbor_ip = ?, multihop = ?, passive_mode = ?, peer_type = ?, default_route_as = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, arg.NodeID, arg.LocalAS, arg.RemoteAS, arg.PeeringIP, arg.NeighborIP, arg.IPv6PeeringIP, arg.IPv6NeighborIP, arg.Multihop, arg.PeerType, arg.DefaultRouteAS, arg.ID)
+	`, arg.NodeID, arg.LocalAS, arg.RemoteAS, arg.PeeringIP, arg.NeighborIP, arg.IPv6PeeringIP, arg.IPv6NeighborIP, arg.Multihop, arg.PassiveMode, arg.PeerType, arg.DefaultRouteAS, arg.ID)
 	if err != nil {
 		return nil, err
 	}

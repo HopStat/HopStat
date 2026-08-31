@@ -362,7 +362,8 @@ func sessionParamsEqual(a, b *domain.BGPNeighbor) bool {
 		strings.TrimSpace(a.IPv6NeighborIP) == strings.TrimSpace(b.IPv6NeighborIP) &&
 		strings.TrimSpace(a.IPv6PeeringIP) == strings.TrimSpace(b.IPv6PeeringIP) &&
 		a.RemoteAS == b.RemoteAS &&
-		a.Multihop == b.Multihop
+		a.Multihop == b.Multihop &&
+		a.PassiveMode == b.PassiveMode
 }
 
 func (m *SessionManager) UpdateNeighbor(n *domain.BGPNeighbor) error {
@@ -661,7 +662,7 @@ func (m *SessionManager) buildPeerConfig(n *domain.BGPNeighbor, localAddr, neigh
 		},
 		Transport: &api.Transport{
 			LocalAddress: localAddr,
-			PassiveMode:  false,
+			PassiveMode:  n.PassiveMode,
 		},
 		Timers: &api.Timers{
 			Config: &api.TimersConfig{

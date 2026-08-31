@@ -287,6 +287,8 @@
   "admin.bgp_multihop": "Multihop",
   "admin.bgp_multihop_hint": "Wird im Nachbarn gespeichert. GoBGP wendet ebgp-multihop nur bei eBGP-Sitzungen an.",
   "admin.bgp_multihop_internal_hint": "Multihop gilt nur, wenn die Remote-AS von der lokalen AS abweicht (eBGP).",
+  "admin.bgp_passive": "Passiv (auf Peer warten)",
+  "admin.bgp_passive_hint": "Wenn aktiv, lauscht HopStat und wählt TCP/179 nicht an. Für iBGP, wenn Ihr Router zu HopStat verbindet — vermeidet Dual-Active-Flaps.",
   "admin.bgp_routes": "Routen",
   "admin.bgp_routes_received": "Vom Peer empfangene Prefixes (Adj-RIB-In)",
   "admin.bgp_stop": "Stoppen",

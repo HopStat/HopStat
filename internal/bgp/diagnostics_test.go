@@ -49,6 +49,15 @@ func TestFormatNeighborConfig(t *testing.T) {
 	if !strings.Contains(got, "type=iBGP") {
 		t.Fatalf("config = %q, want iBGP", got)
 	}
+	if !strings.Contains(got, "mode=outbound") {
+		t.Fatalf("config = %q, want outbound by default", got)
+	}
+
+	n.PassiveMode = true
+	got = formatNeighborConfig(n, 65001, "10.0.0.1", "10.0.0.2")
+	if !strings.Contains(got, "mode=passive") {
+		t.Fatalf("config = %q, want passive mode", got)
+	}
 }
 
 func TestFormatPeerSnapshot(t *testing.T) {
