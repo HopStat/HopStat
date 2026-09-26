@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type CSSProperties } from 'react'
-import { Globe2, Save, Upload, User } from 'lucide-react'
+import { Globe2, Save, ShieldCheck, Upload, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +11,7 @@ import { useI18n, getLocaleLabelKey } from '@/contexts/i18n-context'
 import { useSettings } from '@/contexts/settings-context'
 import { HeaderColorPreview } from '@/components/admin/header-color-preview'
 import { SUPPORTED_LOCALES, parseActiveLanguages, type Locale } from '@/i18n/index'
-import type { GeoIPStatus } from '@/types/domain'
+import type { GeoIPStatus, TurnstileStatus } from '@/types/domain'
 
 interface Settings {
   site_name: string
@@ -119,6 +119,10 @@ export function SettingsPage() {
   const [geoipForm, setGeoipForm] = useState({ accountId: '', licenseKey: '', interval: '' })
   const [geoipSaved, setGeoipSaved] = useState(false)
   const [geoipError, setGeoipError] = useState('')
+  const [turnstile, setTurnstile] = useState<TurnstileStatus | null>(null)
+  const [turnstileForm, setTurnstileForm] = useState({ siteKey: '', secret: '', hostnames: '' })
+  const [turnstileSaved, setTurnstileSaved] = useState(false)
+  const [turnstileError, setTurnstileError] = useState('')
 
   useEffect(() => {
     api.get<Settings>('/admin/settings').then(s => {
@@ -130,7 +134,37 @@ export function SettingsPage() {
       if (a?.email) setAccount(prev => ({ ...prev, email: a.email }))
     }).catch(() => {})
     api.get<GeoIPStatus>('/admin/geoip/status').then(applyGeoipStatus).catch(() => {})
+    api.get<TurnstileStatus>('/admin/turnstile').then(applyTurnstileStatus).catch(() => {})
   }, [])
+
+  function applyTurnstileStatus(status: TurnstileStatus | null) {
+    if (!status) return
+    setTurnstile(status)
+    setTurnstileForm({
+      siteKey: status.site_key,
+      secret: '',
+      hostnames: (status.hostnames || []).join('\n'),
+    })
+  }
+
+  const handleTurnstileSave = async (clear = false) => {
+    setTurnstileError('')
+    try {
+      const status = await api.put<TurnstileStatus>('/admin/turnstile', clear
+        ? { clear: true }
+        : {
+            site_key: turnstileForm.siteKey,
+            secret: turnstileForm.secret,
+            hostnames: turnstileForm.hostnames,
+          })
+      applyTurnstileStatus(status)
+      reloadSiteSettings()
+      setTurnstileSaved(true)
+      setTimeout(() => setTurnstileSaved(false), 2000)
+    } catch (err) {
+      setTurnstileError(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   function applyGeoipStatus(status: GeoIPStatus | null) {
     if (!status) return
@@ -429,6 +463,67 @@ export function SettingsPage() {
         <Save className="w-4 h-4 mr-1" />
         {saved ? t('admin.saved') : t('admin.save_settings')}
       </Button>
+
+      <Card>
+        <CardHeader><CardTitle>{t('admin.turnstile')}</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('admin.turnstile_hint')}</p>
+          {turnstile && (
+            <p className="text-xs text-muted-foreground">
+              {turnstile.configured
+                ? t('admin.turnstile_status_on')
+                : t('admin.turnstile_status_off')}
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t('admin.turnstile_site_key')}</Label>
+              <Input
+                autoComplete="off"
+                value={turnstileForm.siteKey}
+                onChange={e => setTurnstileForm(s => ({ ...s, siteKey: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('admin.turnstile_secret')}</Label>
+              <Input
+                type="password"
+                autoComplete="off"
+                value={turnstileForm.secret}
+                onChange={e => setTurnstileForm(s => ({ ...s, secret: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                {turnstile?.secret_set
+                  ? t('admin.turnstile_secret_stored')
+                  : t('admin.turnstile_secret_none')}
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>{t('admin.turnstile_hostnames')}</Label>
+            <textarea
+              rows={3}
+              placeholder={'lg.example.net'}
+              value={turnstileForm.hostnames}
+              onChange={e => setTurnstileForm(s => ({ ...s, hostnames: e.target.value }))}
+              className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">{t('admin.turnstile_hostnames_hint')}</p>
+          </div>
+          {turnstileError && <QueryErrorAlert message={turnstileError} />}
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => handleTurnstileSave()} disabled={turnstileSaved}>
+              <ShieldCheck className="w-4 h-4 mr-1" />
+              {turnstileSaved ? t('admin.saved') : t('admin.turnstile_save')}
+            </Button>
+            {turnstile?.configured && (
+              <Button variant="outline" onClick={() => handleTurnstileSave(true)}>
+                {t('admin.turnstile_clear')}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>{t('admin.geoip_maxmind')}</CardTitle></CardHeader>

@@ -24,6 +24,7 @@ import (
 	"github.com/HopStat/HopStat/internal/store"
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/repo"
+	"github.com/HopStat/HopStat/internal/turnstile"
 	"github.com/HopStat/HopStat/web"
 )
 
@@ -161,6 +162,9 @@ func main() {
 		q := queries.New(db)
 		if err := geo.SyncSettings(q, cfg.GeoIP); err != nil {
 			slog.Warn("failed to sync geoip settings", "error", err)
+		}
+		if err := turnstile.SyncSettings(q, cfg.Turnstile); err != nil {
+			slog.Warn("failed to sync turnstile settings", "error", err)
 		}
 		if err := server.SeedSettingsFromConfig(q, cfg); err != nil {
 			slog.Warn("failed to seed settings from config", "error", err)

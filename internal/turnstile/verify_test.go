@@ -12,6 +12,29 @@ import (
 	"github.com/HopStat/HopStat/internal/config"
 )
 
+func TestVerifierWithKeepsClient(t *testing.T) {
+	var unset *Verifier
+	got := unset.With(config.TurnstileConfig{Secret: "s", SiteKey: "k", Hostnames: []string{"h"}})
+	if !got.Enabled() || got.httpClient == nil {
+		t.Fatal("nil source should still build a verifier")
+	}
+
+	base := New(config.TurnstileConfig{})
+	base.endpoint = "http://example.test/siteverify"
+	base.httpClient = nil
+	kept := base.With(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	if kept.endpoint != base.endpoint || kept.httpClient == nil {
+		t.Fatalf("endpoint = %s client set = %v", kept.endpoint, kept.httpClient != nil)
+	}
+
+	client := &http.Client{}
+	base.httpClient = client
+	kept = base.With(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	if kept.httpClient != client || kept.secret != "secret" {
+		t.Fatal("expected the existing siteverify client and the new secret")
+	}
+}
+
 func TestVerifierDisabled(t *testing.T) {
 	var unset *Verifier
 	if unset.Enabled() {

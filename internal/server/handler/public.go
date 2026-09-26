@@ -73,6 +73,10 @@ func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB, bgpMgr *bgp.Session
 	return h
 }
 
+func (h *Handler) activeTurnstile() *turnstile.Verifier {
+	return h.turnstile.With(turnstile.Effective(sitecache.AllSettings(), h.cfg.Turnstile))
+}
+
 func sanitizeError(err error) string {
 	slog.Error("handler error", "error", err)
 	return "internal error"
@@ -173,8 +177,8 @@ func (h *Handler) SubmitQuery() gin.HandlerFunc {
 			return
 		}
 
-		if h.turnstile.Enabled() {
-			if err := h.turnstile.Verify(c.Request.Context(), req.TurnstileResponse, c.ClientIP()); err != nil {
+		if active := h.activeTurnstile(); active.Enabled() {
+			if err := active.Verify(c.Request.Context(), req.TurnstileResponse, c.ClientIP()); err != nil {
 				c.JSON(http.StatusForbidden, gin.H{
 					"error":      "security check failed",
 					"error_code": "TURNSTILE",
@@ -1406,12 +1410,12 @@ func settingInt(settings map[string]string, key string, defaultVal, min, max int
 	return n
 }
 
-func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig, turnstileSiteKey string) gin.HandlerFunc {
+func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig, turnstileCfg config.TurnstileConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_ = db
 		_ = bgpCfg
 		data := sitecache.PublicSettings()
-		if key := strings.TrimSpace(turnstileSiteKey); key != "" {
+		if key := turnstile.Effective(sitecache.AllSettings(), turnstileCfg).SiteKey; key != "" {
 			data["turnstile_site_key"] = key
 		}
 		c.JSON(http.StatusOK, gin.H{"data": data})
@@ -1420,7 +1424,7 @@ func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig, turnstileSiteKey str
 
 // secretSettingKeys never leave the server. The admin panel is told whether one is stored
 // through a dedicated status endpoint instead — the same treatment node agent tokens get.
-var secretSettingKeys = []string{geo.SettingLicenseKey}
+var secretSettingKeys = []string{geo.SettingLicenseKey, turnstile.SettingSecret}
 
 func GetAdminSettings(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

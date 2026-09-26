@@ -53,6 +53,7 @@ bgp:
   add_path_receive: true
 
 # Cloudflare Turnstile for the public query form and POST /api/v1/query.
+# These values are copied into Admin -> Settings on first start. Change them there afterwards.
 # Leave all three empty to keep that API open. Node agent calls on /agent/v1
 # use the node key and never require a Turnstile token.
 # hostnames: public site names the widget runs on. Do not list localhost in production.

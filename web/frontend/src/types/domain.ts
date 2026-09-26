@@ -287,6 +287,13 @@ export interface GeoIPStatus {
   city_loaded: boolean
 }
 
+export interface TurnstileStatus {
+  configured: boolean
+  site_key: string
+  secret_set: boolean
+  hostnames: string[]
+}
+
 export type GeoIPResolveSource = 'none' | 'blocks' | 'mmdb' | 'dns'
 
 export interface GeoIPSourceCandidate {

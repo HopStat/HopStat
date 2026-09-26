@@ -100,7 +100,7 @@ func (s *Server) setupRoutes() {
 		public.GET("/query/:id", handler.GetResult(s.db))
 		public.GET("/query/:id/stream", handler.StreamResult(s.db))
 		public.GET("/myip", handler.MyIP(s.geoDB))
-		public.GET("/settings", handler.GetPublicSettings(s.db, s.cfg.BGP, s.cfg.Turnstile.SiteKey))
+		public.GET("/settings", handler.GetPublicSettings(s.db, s.cfg.BGP, s.cfg.Turnstile))
 		public.GET("/communities", handler.ListPublicCommunities(s.db))
 		public.GET("/quick-queries", handler.ListPublicQuickQueries())
 	}
@@ -167,6 +167,8 @@ func (s *Server) setupRoutes() {
 
 		admin.GET("/geoip/status", handler.GeoIPStatus(s.db, s.cfg, s.geoDB))
 		admin.PUT("/geoip/config", handler.UpdateGeoIPConfig(s.db, s.cfg, s.geoDB))
+		admin.GET("/turnstile", handler.TurnstileStatus(s.db, s.cfg))
+		admin.PUT("/turnstile", handler.UpdateTurnstile(s.db, s.cfg))
 		admin.GET("/geoip/lookup", handler.GeoIPLookup(s.geoDB))
 		admin.GET("/system/status", handler.SystemStatus())
 		admin.GET("/system/addresses", handler.SystemAddresses())

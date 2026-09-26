@@ -60,6 +60,19 @@ func (v *Verifier) Enabled() bool {
 	return v != nil && v.secret != ""
 }
 
+// With returns a verifier for cfg that keeps this verifier's siteverify client.
+func (v *Verifier) With(cfg config.TurnstileConfig) *Verifier {
+	next := New(cfg)
+	if v == nil {
+		return next
+	}
+	next.endpoint = v.endpoint
+	if v.httpClient != nil {
+		next.httpClient = v.httpClient
+	}
+	return next
+}
+
 // UseHTTPClient replaces the siteverify client. Tests use it to avoid the network.
 func (v *Verifier) UseHTTPClient(client *http.Client) {
 	if client == nil {
