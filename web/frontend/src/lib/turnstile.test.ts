@@ -39,6 +39,8 @@ describe('loadTurnstileScript', () => {
     const again = loadTurnstileScript()
     const script = document.head.querySelector('script[data-turnstile]') as HTMLScriptElement
     expect(script.src).toContain(TURNSTILE_SCRIPT_SRC)
+    expect(script.async).toBe(false)
+    expect(script.defer).toBe(false)
     script.dispatchEvent(new Event('error'))
     await expect(first).rejects.toThrow('turnstile script failed')
     await expect(again).rejects.toThrow('turnstile script failed')
@@ -84,6 +86,16 @@ describe('whenTurnstileReady', () => {
       },
     })
     await expect(whenTurnstileReady(1000, async () => {})).rejects.toThrow('turnstile script failed')
+  })
+
+  it('uses the client when ready rejects an async script tag', async () => {
+    const api = client({
+      ready: () => {
+        throw new Error('Remove async/defer from the Turnstile api.js script tag')
+      },
+    })
+    window.turnstile = api
+    await expect(whenTurnstileReady(1000, async () => {})).resolves.toBe(api)
   })
 })
 

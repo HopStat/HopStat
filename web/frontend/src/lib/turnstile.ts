@@ -46,13 +46,8 @@ export function whenTurnstileReady(
     const start = Date.now()
     for (;;) {
       const api = window.turnstile
-      if (api?.ready) {
-        return await new Promise<TurnstileClient>((resolve, reject) => {
-          api.ready(() => {
-            if (window.turnstile) resolve(window.turnstile)
-            else reject(new Error('turnstile script failed'))
-          })
-        })
+      if (api?.render) {
+        return openTurnstileClient(api)
       }
       if (Date.now() - start > timeoutMs) {
         throw new Error('turnstile script failed')
@@ -62,14 +57,31 @@ export function whenTurnstileReady(
   })
 }
 
+/**
+ * turnstile.ready() throws when the api.js tag is async or defer. A renderable client
+ * is already usable, so that throw should not leave the query box empty.
+ */
+function openTurnstileClient(api: TurnstileClient): Promise<TurnstileClient> {
+  return new Promise((resolve, reject) => {
+    try {
+      api.ready(() => {
+        if (window.turnstile?.render) resolve(window.turnstile)
+        else reject(new Error('turnstile script failed'))
+      })
+    } catch {
+      resolve(api)
+    }
+  })
+}
+
 export function loadTurnstileScript(): Promise<void> {
   if (window.turnstile) return Promise.resolve()
   if (scriptPromise) return scriptPromise
   scriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')
+    // Cloudflare refuses turnstile.ready() when this tag is async or defer.
+    script.async = false
     script.src = TURNSTILE_SCRIPT_SRC
-    script.async = true
-    script.defer = true
     script.dataset.turnstile = '1'
     script.onload = () => resolve()
     script.onerror = () => {
