@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -9,6 +9,7 @@ import { ClickableIP, GeoIPLookupDialog } from '@/components/admin/geoip-lookup-
 import { exportAuditCSV } from '@/lib/api-client'
 import { useI18n } from '@/contexts/i18n-context'
 import type { AuditEntry } from '@/types/domain'
+import { auditPageWindow } from '@/lib/audit-pages'
 import { commandBadgeLabel, extractAuditTarget } from '@/lib/audit-params'
 
 export function AuditPage() {
@@ -85,10 +86,34 @@ export function AuditPage() {
         </div>
       </AdminPanel>
       {totalPages > 1 && (
-        <div className="flex justify-center gap-1">
-          {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => (
-            <Button key={i + 1} variant={page === i + 1 ? 'default' : 'outline'} size="sm" onClick={() => setPage(i + 1)}>{i + 1}</Button>
+        <div className="flex flex-wrap items-center justify-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-2"
+            aria-label={t('admin.audit_prev')}
+            disabled={page <= 1}
+            onClick={() => setPage(current => Math.max(1, current - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {auditPageWindow(page, totalPages).map((item, index) => (
+            item === 'gap' ? (
+              <span key={`gap-${index}`} className="px-1 text-sm text-muted-foreground" aria-hidden>…</span>
+            ) : (
+              <Button key={item} variant={page === item ? 'default' : 'outline'} size="sm" onClick={() => setPage(item)}>{item}</Button>
+            )
           ))}
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-2"
+            aria-label={t('admin.audit_next')}
+            disabled={page >= totalPages}
+            onClick={() => setPage(current => Math.min(totalPages, current + 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>

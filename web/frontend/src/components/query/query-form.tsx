@@ -14,7 +14,7 @@ import { listQueryHistory, deleteQueryHistory, type QueryHistoryRecord } from '@
 import { rankQueryHistory, type RankedQueryHistoryRecord } from '@/lib/query-history-search'
 import { blurActiveFieldPreservingScroll } from '@/lib/mobile-viewport'
 import { QueryErrorAlert } from '@/components/results/query-error-alert'
-import { TurnstileSession, whenTurnstileReady } from '@/lib/turnstile'
+import { TurnstileSession, watchTurnstileBox, whenTurnstileReady } from '@/lib/turnstile'
 const commands = [
   { value: 'ping', labelKey: 'cmd.ping' },
   { value: 'traceroute', labelKey: 'cmd.traceroute' },
@@ -116,20 +116,23 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   const turnstileSessionRef = useRef<TurnstileSession | null>(null)
 
   useEffect(() => {
-    if (!turnstileSiteKey || !turnstileBoxRef.current) return
+    const box = turnstileBoxRef.current
+    if (!turnstileSiteKey || !box) return
+    const stopWatch = watchTurnstileBox(box)
     const session = new TurnstileSession()
     turnstileSessionRef.current = session
     let cancelled = false
     whenTurnstileReady()
       .then(api => {
         if (cancelled || !turnstileBoxRef.current) return
-        session.mount(api, turnstileBoxRef.current, turnstileSiteKey)
+        session.mount(api, box, turnstileSiteKey)
       })
       .catch(() => {
         session.deliver(null)
       })
     return () => {
       cancelled = true
+      stopWatch()
       session.remove(window.turnstile)
       if (turnstileSessionRef.current === session) turnstileSessionRef.current = null
     }

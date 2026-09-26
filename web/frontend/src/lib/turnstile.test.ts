@@ -5,6 +5,8 @@ import {
   TurnstileSession,
   loadTurnstileScript,
   resetTurnstileScriptForTests,
+  turnstileWidgetShown,
+  watchTurnstileBox,
   whenTurnstileReady,
   type TurnstileClient,
 } from './turnstile'
@@ -176,5 +178,68 @@ describe('TurnstileSession', () => {
     session.remove(api)
     expect(remove).toHaveBeenCalledWith('widget-1')
     await expect(pending).rejects.toThrow('turnstile failed')
+  })
+})
+
+function size(el: HTMLElement, width: number, height: number) {
+  el.getBoundingClientRect = () => ({
+    width,
+    height,
+    top: 0,
+    left: 0,
+    right: width,
+    bottom: height,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  })
+}
+
+describe('turnstileWidgetShown', () => {
+  it('opens the form space only for a painted checkbox', () => {
+    const box = document.createElement('div')
+    document.body.appendChild(box)
+    expect(turnstileWidgetShown(box)).toBe(false)
+
+    const shell = document.createElement('div')
+    const frame = document.createElement('iframe')
+    shell.appendChild(frame)
+    box.appendChild(shell)
+    size(shell, 0, 0)
+    size(frame, 300, 65)
+    expect(turnstileWidgetShown(box)).toBe(false)
+
+    frame.style.display = 'none'
+    size(shell, 300, 65)
+    expect(turnstileWidgetShown(box)).toBe(false)
+
+    frame.style.display = 'block'
+    frame.style.visibility = 'hidden'
+    expect(turnstileWidgetShown(box)).toBe(false)
+
+    frame.style.visibility = 'visible'
+    expect(turnstileWidgetShown(box)).toBe(true)
+    box.remove()
+  })
+
+  it('drops the reserved band when the widget is hidden', async () => {
+    const box = document.createElement('div')
+    box.className = 'query-form-turnstile'
+    document.body.appendChild(box)
+    const stop = watchTurnstileBox(box)
+    expect(box.classList.contains('query-form-turnstile--shown')).toBe(false)
+
+    const frame = document.createElement('iframe')
+    frame.style.display = 'none'
+    size(frame, 300, 65)
+    box.appendChild(frame)
+    await vi.waitFor(() => expect(box.classList.contains('query-form-turnstile--shown')).toBe(false))
+
+    frame.style.display = 'block'
+    size(frame, 300, 65)
+    frame.dispatchEvent(new Event('load'))
+    await vi.waitFor(() => expect(box.classList.contains('query-form-turnstile--shown')).toBe(true))
+    stop()
+    box.remove()
   })
 })

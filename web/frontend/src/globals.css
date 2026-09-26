@@ -1211,6 +1211,11 @@
   }
 
   .query-form-turnstile {
+    min-height: 0;
+  }
+
+  /* The checkbox is about 65px. A hidden widget must not keep that band under the search field. */
+  .query-form-turnstile--shown {
     margin-top: 0.75rem;
     min-height: 65px;
   }

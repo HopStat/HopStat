@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Globe2, Network, Mail, FileText, Shield, Tags } from 'lucide-react'
+import { Globe2, Network, Mail, FileText, Shield, ShieldCheck, Tags } from 'lucide-react'
 import { useI18n } from '@/contexts/i18n-context'
 import { useSettings } from '@/contexts/settings-context'
 import { api } from '@/lib/api-client'
@@ -8,6 +8,7 @@ import { HopStatDocsLink, hopstatIconLinkClass } from '@/components/layout/hopst
 import type { CommunityRule } from '@/types/domain'
 
 const footerIconLinkClass = hopstatIconLinkClass
+const TURNSTILE_PRIVACY_URL = 'https://www.cloudflare.com/en-gb/turnstile-privacy-policy/'
 
 export function SiteFooter() {
   const { t } = useI18n()
@@ -28,7 +29,8 @@ export function SiteFooter() {
     { url: settings.url_peeringdb, icon: Network, label: t('footer.peeringdb') },
   ].filter(l => l.url)
 
-  const hasLeftLinks = hasCommunities || externalLinks.length > 0
+  const turnstileActive = (settings.turnstile_site_key || '').trim() !== ''
+  const hasLeftLinks = hasCommunities || externalLinks.length > 0 || turnstileActive
 
   return (
     <footer className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
@@ -58,6 +60,19 @@ export function SiteFooter() {
               <span className="hidden min-[420px]:inline whitespace-nowrap">{l.label}</span>
             </a>
           ))}
+
+          {turnstileActive && (
+            <a
+              href={TURNSTILE_PRIVACY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t('footer.turnstile')}
+              className={footerIconLinkClass}
+            >
+              <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span className="hidden min-[420px]:inline whitespace-nowrap">{t('footer.turnstile')}</span>
+            </a>
+          )}
 
           {!hasLeftLinks && (
             <span aria-hidden className="shrink-0" />

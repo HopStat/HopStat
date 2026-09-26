@@ -93,6 +93,48 @@ export function loadTurnstileScript(): Promise<void> {
   return scriptPromise
 }
 
+/** Invisible Turnstile widgets stay in the DOM but do not draw a checkbox. */
+export function turnstileWidgetShown(box: HTMLElement): boolean {
+  const frame = box.querySelector('iframe')
+  if (!(frame instanceof HTMLElement) || !painted(frame)) return false
+  const shell = frame.parentElement
+  if (shell && shell !== box && !painted(shell)) return false
+  return true
+}
+
+function painted(el: HTMLElement): boolean {
+  const style = getComputedStyle(el)
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false
+  const rect = el.getBoundingClientRect()
+  return rect.width >= 8 && rect.height >= 8
+}
+
+/** Collapse the query box while Cloudflare's widget is hidden, and open it when the checkbox appears. */
+export function watchTurnstileBox(box: HTMLElement): () => void {
+  let frame: HTMLElement | null = null
+  const sync = () => {
+    const next = box.querySelector('iframe')
+    if (resize && next instanceof HTMLElement && next !== frame) {
+      if (frame) resize.unobserve(frame)
+      frame = next
+      resize.observe(frame)
+    }
+    box.classList.toggle('query-form-turnstile--shown', turnstileWidgetShown(box))
+  }
+  const observer = new MutationObserver(sync)
+  observer.observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] })
+  let resize: ResizeObserver | undefined
+  if (typeof ResizeObserver !== 'undefined') {
+    resize = new ResizeObserver(sync)
+    resize.observe(box)
+  }
+  sync()
+  return () => {
+    observer.disconnect()
+    resize?.disconnect()
+  }
+}
+
 type Waiter = (token: string | null) => void
 
 /** Explicit widget. The page stays up after a query, so each attempt resets the widget. */
