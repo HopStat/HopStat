@@ -2,8 +2,6 @@ package geo
 
 import (
 	"time"
-
-	"github.com/HopStat/HopStat/internal/config"
 )
 
 func ParseUpdateInterval(raw string, fallback time.Duration) time.Duration {
@@ -17,12 +15,8 @@ func ParseUpdateInterval(raw string, fallback time.Duration) time.Duration {
 	return d
 }
 
-func ResolveUpdateInterval(settings map[string]string, cfg config.GeoIPConfig) time.Duration {
-	raw := settings[SettingUpdateInterval]
-	if raw == "" {
-		raw = cfg.UpdateInterval
-	}
-	return ParseUpdateInterval(raw, 72*time.Hour)
+func ResolveUpdateInterval(settings map[string]string) time.Duration {
+	return ParseUpdateInterval(settings[SettingUpdateInterval], 72*time.Hour)
 }
 
 func LastDownloadFromSettings(settings map[string]string, edition string) time.Time {

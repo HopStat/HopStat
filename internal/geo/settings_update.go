@@ -66,7 +66,7 @@ func SettingsFromUpdate(req CredentialUpdate, current map[string]string) (map[st
 		return nil, nil
 	}
 
-	// Storing credentials again lifts the clear, so a later restart may seed from config.
+	// Storing credentials again clears the removed mark.
 	if out[SettingLicenseKey] != "" || out[SettingAccountID] != "" {
 		out[SettingCredentialsCleared] = ""
 	}

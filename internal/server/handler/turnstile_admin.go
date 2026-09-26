@@ -5,26 +5,25 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/turnstile"
 	"github.com/gin-gonic/gin"
 )
 
-func TurnstileStatus(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
+func TurnstileStatus(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		settings, err := queries.New(db).GetSettings()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load settings"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"data": turnstile.StatusFrom(settings, cfg.Turnstile)})
+		c.JSON(http.StatusOK, gin.H{"data": turnstile.StatusFrom(settings)})
 	}
 }
 
 // UpdateTurnstile stores the public query check so it can be changed in the admin panel.
 // An empty secret keeps the stored one. The secret is not included in the response.
-func UpdateTurnstile(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
+func UpdateTurnstile(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req turnstile.Update
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -52,6 +51,6 @@ func UpdateTurnstile(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 		if err := refreshSettingsCacheFn(db, 0); err != nil {
 			slog.Warn("failed to refresh settings cache", "error", err)
 		}
-		c.JSON(http.StatusOK, gin.H{"data": turnstile.StatusFrom(settings, cfg.Turnstile)})
+		c.JSON(http.StatusOK, gin.H{"data": turnstile.StatusFrom(settings)})
 	}
 }

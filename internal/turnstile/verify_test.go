@@ -8,28 +8,26 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/HopStat/HopStat/internal/config"
 )
 
 func TestVerifierWithKeepsClient(t *testing.T) {
 	var unset *Verifier
-	got := unset.With(config.TurnstileConfig{Secret: "s", SiteKey: "k", Hostnames: []string{"h"}})
+	got := unset.With(Config{Secret: "s", SiteKey: "k", Hostnames: []string{"h"}})
 	if !got.Enabled() || got.httpClient == nil {
 		t.Fatal("nil source should still build a verifier")
 	}
 
-	base := New(config.TurnstileConfig{})
+	base := New(Config{})
 	base.endpoint = "http://example.test/siteverify"
 	base.httpClient = nil
-	kept := base.With(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	kept := base.With(Config{Secret: "secret", Hostnames: []string{"lg.example"}})
 	if kept.endpoint != base.endpoint || kept.httpClient == nil {
 		t.Fatalf("endpoint = %s client set = %v", kept.endpoint, kept.httpClient != nil)
 	}
 
 	client := &http.Client{}
 	base.httpClient = client
-	kept = base.With(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	kept = base.With(Config{Secret: "secret", Hostnames: []string{"lg.example"}})
 	if kept.httpClient != client || kept.secret != "secret" {
 		t.Fatal("expected the existing siteverify client and the new secret")
 	}
@@ -40,7 +38,7 @@ func TestVerifierDisabled(t *testing.T) {
 	if unset.Enabled() {
 		t.Fatal("nil verifier should be disabled")
 	}
-	v := New(config.TurnstileConfig{})
+	v := New(Config{})
 	if v.Enabled() {
 		t.Fatal("empty secret should be disabled")
 	}
@@ -51,7 +49,7 @@ func TestVerifierDisabled(t *testing.T) {
 }
 
 func TestNewDropsBlankHostnames(t *testing.T) {
-	v := New(config.TurnstileConfig{
+	v := New(Config{
 		Secret:    " secret ",
 		SiteKey:   "site",
 		Hostnames: []string{" ", "lg.example"},
@@ -65,21 +63,21 @@ func TestNewDropsBlankHostnames(t *testing.T) {
 }
 
 func TestVerifyRejectsTokenShape(t *testing.T) {
-	v := New(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	v := New(Config{Secret: "secret", Hostnames: []string{"lg.example"}})
 	if err := v.Verify(context.Background(), "  ", "203.0.113.5"); err == nil {
 		t.Fatal("expected empty token rejection")
 	}
 	if err := v.Verify(context.Background(), strings.Repeat("a", maxTokenLen+1), "203.0.113.5"); err == nil {
 		t.Fatal("expected long token rejection")
 	}
-	open := New(config.TurnstileConfig{Secret: "secret"})
+	open := New(Config{Secret: "secret"})
 	if err := open.Verify(context.Background(), "token", "203.0.113.5"); err == nil {
 		t.Fatal("expected missing hostname rejection")
 	}
 }
 
 func TestVerifyRequestBuildFailure(t *testing.T) {
-	v := New(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	v := New(Config{Secret: "secret", Hostnames: []string{"lg.example"}})
 	v.endpoint = "http://["
 	if err := v.Verify(context.Background(), "token", "203.0.113.5"); err == nil {
 		t.Fatal("expected request build failure")
@@ -92,7 +90,7 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { retu
 
 func verifierWith(t *testing.T, rt roundTripFunc) *Verifier {
 	t.Helper()
-	v := New(config.TurnstileConfig{Secret: "secret", Hostnames: []string{"lg.example"}})
+	v := New(Config{Secret: "secret", Hostnames: []string{"lg.example"}})
 	v.UseHTTPClient(&http.Client{Transport: rt})
 	return v
 }

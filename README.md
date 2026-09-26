@@ -118,9 +118,7 @@ All config keys can be overridden with `LG_` + the key path (dots → underscore
 | `flood_control.enabled` | `LG_FLOOD_CONTROL_ENABLED` |
 | `flood_control.http_rate_limit_per_min` | `LG_FLOOD_CONTROL_HTTP_RATE_LIMIT_PER_MIN` |
 | `flood_control.query_rate_limit_per_min` | `LG_FLOOD_CONTROL_QUERY_RATE_LIMIT_PER_MIN` |
-| `geoip.license_key` | `LG_GEOIP_LICENSE_KEY` |
-| `geoip.account_id` | `LG_GEOIP_ACCOUNT_ID` |
-| `geoip.update_interval` | `LG_GEOIP_UPDATE_INTERVAL` |
+| `geoip.db_dir` | `LG_GEOIP_DB_DIR` |
 | `update.enabled` | `LG_UPDATE_ENABLED` |
 | `query.max_concurrent` | `LG_QUERY_MAX_CONCURRENT` |
 
@@ -167,12 +165,7 @@ query:
   traceroute_timeout_sec: 60
 
 geoip:
-  asn_db_path: ""
-  city_db_path: ""
-  license_key: ""             # MaxMind account (free tier)
-  account_id: ""
-  db_dir: "./data/geoip"
-  update_interval: "72h"      # downloads skipped until interval elapsed
+  db_dir: "/var/lib/hopstat/geoip"
 
 update:
   enabled: true
@@ -304,17 +297,14 @@ Or set `LG_SERVER_BEHIND_CLOUDFLARE=true`. HopStat trusts Cloudflare proxy CIDRs
 
 ## GeoIP Enrichment
 
-Obtain a [MaxMind](https://www.maxmind.com/) account and set in `config.yaml`:
+Add the MaxMind account ID and licence key in **Admin → Settings**. Those values are stored in the settings database. `config.yaml` only says where the GeoLite2 files live:
 
 ```yaml
 geoip:
-  license_key: "..."
-  account_id: "..."
-  db_dir: "./data/geoip"
-  update_interval: "72h"
+  db_dir: "/var/lib/hopstat/geoip"
 ```
 
-Databases are downloaded automatically. Last-download timestamps are stored in SQLite so restarts within the interval do not trigger a new download.
+Databases are downloaded automatically. Last-download timestamps are stored in SQLite so restarts within the interval do not trigger a new download. The default interval is 72h; change it in Admin → Settings (minimum 1h).
 
 HopStat prefers **MaxMind** for per-hop ASN and country enrichment (traceroute, AS path map). When databases are unavailable, **Team Cymru DNS** (`origin.asn.cymru.com` TXT lookups) is used as fallback.
 

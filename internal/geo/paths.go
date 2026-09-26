@@ -9,17 +9,7 @@ import (
 func ResolvePaths(cfg config.GeoIPConfig) (asnPath, cityPath string) {
 	dbDir := cfg.DBDir
 	if dbDir == "" {
-		dbDir = "./data/geoip"
+		dbDir = "/var/lib/hopstat/geoip"
 	}
-	if cfg.ASNDBPath != "" {
-		asnPath = cfg.ASNDBPath
-	} else {
-		asnPath = filepath.Join(dbDir, "GeoLite2-ASN.mmdb")
-	}
-	if cfg.CityDBPath != "" {
-		cityPath = cfg.CityDBPath
-	} else {
-		cityPath = filepath.Join(dbDir, "GeoLite2-City.mmdb")
-	}
-	return asnPath, cityPath
+	return filepath.Join(dbDir, "GeoLite2-ASN.mmdb"), filepath.Join(dbDir, "GeoLite2-City.mmdb")
 }

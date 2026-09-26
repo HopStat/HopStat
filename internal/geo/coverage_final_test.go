@@ -2,7 +2,6 @@ package geo
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net"
 	"os"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
-	"github.com/HopStat/HopStat/internal/store"
-	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
 func TestBuildASNNetworkBlocksIPv6AndMissingFiles(t *testing.T) {
@@ -60,7 +57,7 @@ func TestNeedsDownloadZeroLast(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	_ = os.WriteFile(path, []byte("db"), 0644)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	should, _, _ := u.needsDownload("GeoLite2-ASN", path)
 	if !should {
 		t.Fatal("expected download when last is zero")
@@ -96,7 +93,7 @@ func TestCollectStatusFileModFallback(t *testing.T) {
 	cityPath := filepath.Join(dir, "GeoLite2-City.mmdb")
 	_ = os.WriteFile(cityPath, readTestFile(t, testCityPath(t)), 0644)
 	settings := map[string]string{SettingLicenseKey: "k", SettingAccountID: "a"}
-	st := CollectStatus(settings, config.GeoIPConfig{CityDBPath: cityPath}, testGeoDB(t))
+	st := CollectStatus(settings, config.GeoIPConfig{DBDir: dir}, testGeoDB(t))
 	if st.CityLastDownload == "" {
 		t.Fatalf("status=%+v", st)
 	}
@@ -176,36 +173,6 @@ func TestCountryFromOrgSuffix(t *testing.T) {
 	}
 }
 
-func TestSyncSettingsEmptyConfig(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if err := store.Migrate(db); err != nil {
-		t.Fatal(err)
-	}
-	if err := SyncSettings(queries.New(db), config.GeoIPConfig{}); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSyncSettingsPopulatesEmpty(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if err := store.Migrate(db); err != nil {
-		t.Fatal(err)
-	}
-	if err := SyncSettings(queries.New(db), config.GeoIPConfig{
-		LicenseKey: "key", AccountID: "acct", UpdateInterval: "24h",
-	}); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestWriteArchiveFileCloseAndRenameErrors(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "file.csv")
@@ -265,7 +232,8 @@ func TestLookupLongestASNBlockNetworkMiss(t *testing.T) {
 func TestRunUpdaterSuccessTick(t *testing.T) {
 	dir := t.TempDir()
 	asnPath := writeASNEditionFiles(t, dir)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "1ms"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
+	u.SetUpdateInterval(func() time.Duration { return time.Millisecond })
 	u.asnPath = asnPath
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	ctx, cancel := context.WithCancel(context.Background())

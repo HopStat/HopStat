@@ -5,6 +5,7 @@ import {
   TurnstileSession,
   loadTurnstileScript,
   resetTurnstileScriptForTests,
+  whenTurnstileReady,
   type TurnstileClient,
 } from './turnstile'
 
@@ -20,6 +21,7 @@ function client(partial: Partial<TurnstileClient> = {}): TurnstileClient {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   resetTurnstileScriptForTests()
   delete window.turnstile
   document.head.querySelectorAll('script[data-turnstile]').forEach(node => node.remove())
@@ -46,6 +48,42 @@ describe('loadTurnstileScript', () => {
     const next = scripts[scripts.length - 1] as HTMLScriptElement
     next.dispatchEvent(new Event('load'))
     await expect(retry).resolves.toBeUndefined()
+  })
+})
+
+describe('whenTurnstileReady', () => {
+  it('waits until the client appears after the script load event', async () => {
+    let polls = 0
+    const pending = whenTurnstileReady(1000, async () => {
+      polls += 1
+      if (polls === 2) window.turnstile = client()
+    })
+    const script = document.head.querySelector('script[data-turnstile]') as HTMLScriptElement
+    script.dispatchEvent(new Event('load'))
+    const api = await pending
+    expect(polls).toBe(2)
+    expect(api.render).toBeTypeOf('function')
+  })
+
+  it('times out when the client never appears', async () => {
+    let now = 0
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const pending = whenTurnstileReady(10, async () => {
+      now += 20
+    })
+    const script = document.head.querySelector('script[data-turnstile]') as HTMLScriptElement
+    script.dispatchEvent(new Event('load'))
+    await expect(pending).rejects.toThrow('turnstile script failed')
+  })
+
+  it('rejects when the client disappears inside ready', async () => {
+    window.turnstile = client({
+      ready: callback => {
+        delete window.turnstile
+        callback()
+      },
+    })
+    await expect(whenTurnstileReady(1000, async () => {})).rejects.toThrow('turnstile script failed')
   })
 })
 

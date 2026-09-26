@@ -60,7 +60,7 @@ func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB, bgpMgr *bgp.Session
 		cfg:       cfg,
 		geoDB:     geoDB,
 		nodeRepo:  sitecache.NewCachedNodeRepo(db, credKey),
-		turnstile: turnstile.New(cfg.Turnstile),
+		turnstile: turnstile.New(turnstile.Config{}),
 	}
 	h.engine = engine.New(&engine.QueryConfig{
 		MaxConcurrent:        cfg.Query.MaxConcurrent,
@@ -74,7 +74,7 @@ func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB, bgpMgr *bgp.Session
 }
 
 func (h *Handler) activeTurnstile() *turnstile.Verifier {
-	return h.turnstile.With(turnstile.Effective(sitecache.AllSettings(), h.cfg.Turnstile))
+	return h.turnstile.With(turnstile.Effective(sitecache.AllSettings()))
 }
 
 func sanitizeError(err error) string {
@@ -1410,12 +1410,12 @@ func settingInt(settings map[string]string, key string, defaultVal, min, max int
 	return n
 }
 
-func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig, turnstileCfg config.TurnstileConfig) gin.HandlerFunc {
+func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_ = db
 		_ = bgpCfg
 		data := sitecache.PublicSettings()
-		if key := turnstile.Effective(sitecache.AllSettings(), turnstileCfg).SiteKey; key != "" {
+		if key := turnstile.Effective(sitecache.AllSettings()).SiteKey; key != "" {
 			data["turnstile_site_key"] = key
 		}
 		c.JSON(http.StatusOK, gin.H{"data": data})

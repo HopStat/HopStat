@@ -24,7 +24,6 @@ import (
 	"github.com/HopStat/HopStat/internal/store"
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/repo"
-	"github.com/HopStat/HopStat/internal/turnstile"
 	"github.com/HopStat/HopStat/web"
 )
 
@@ -156,16 +155,10 @@ func main() {
 		if geoDB.Enabled() {
 			slog.Info("geoip enabled", "asn_db", asnPath, "city_db", cityPath)
 		} else {
-			slog.Warn("geoip disabled — set geoip.license_key and geoip.account_id to enable")
+			slog.Warn("geoip disabled — add the MaxMind account in Admin settings")
 		}
 
 		q := queries.New(db)
-		if err := geo.SyncSettings(q, cfg.GeoIP); err != nil {
-			slog.Warn("failed to sync geoip settings", "error", err)
-		}
-		if err := turnstile.SyncSettings(q, cfg.Turnstile); err != nil {
-			slog.Warn("failed to sync turnstile settings", "error", err)
-		}
 		if err := server.SeedSettingsFromConfig(q, cfg); err != nil {
 			slog.Warn("failed to seed settings from config", "error", err)
 		}
@@ -195,14 +188,14 @@ func main() {
 			geoUpdater.SetUpdateInterval(func() time.Duration {
 				current, err := q.GetSettings()
 				if err != nil {
-					return geo.ParseUpdateInterval(cfg.GeoIP.UpdateInterval, 72*time.Hour)
+					return 72 * time.Hour
 				}
-				return geo.ResolveUpdateInterval(current, cfg.GeoIP)
+				return geo.ResolveUpdateInterval(current)
 			})
 			geoUpdater.SetCredentials(func() (string, string) {
 				current, err := q.GetSettings()
 				if err != nil {
-					return cfg.GeoIP.LicenseKey, cfg.GeoIP.AccountID
+					return "", ""
 				}
 				return current[geo.SettingLicenseKey], current[geo.SettingAccountID]
 			})
@@ -371,9 +364,6 @@ func runInstallService(cfgPath, mode string) error {
 		// Point database to a persistent data dir
 		if err := replaceInFile(cfgDest, `path: "./lg.db"`, `path: "/var/lib/hopstat/lg.db"`); err != nil {
 			slog.Warn("failed to update database path in config", "err", err)
-		}
-		if err := replaceInFile(cfgDest, `db_dir: "./data/geoip"`, `db_dir: "/var/lib/hopstat/geoip"`); err != nil {
-			slog.Warn("failed to update geoip path in config", "err", err)
 		}
 		if err := os.MkdirAll("/var/lib/hopstat", 0755); err != nil {
 			return fmt.Errorf("create data dir: %w", err)

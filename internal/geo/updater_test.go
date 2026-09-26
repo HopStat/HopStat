@@ -52,7 +52,7 @@ func TestUpdaterNeedsDownloadUsesStoredTime(t *testing.T) {
 	asnPath := writeASNEditionFiles(t, dir)
 
 	last := time.Now().UTC().Add(-1 * time.Hour)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.SetLastDownload(func(edition string) time.Time {
 		if edition == "GeoLite2-ASN" {
 			return last
@@ -77,7 +77,7 @@ func TestUpdaterNeedsDownloadWhenIntervalElapsed(t *testing.T) {
 	asnPath := writeASNEditionFiles(t, dir)
 
 	last := time.Now().UTC().Add(-80 * time.Hour)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.SetLastDownload(func(edition string) time.Time {
 		return last
 	})
@@ -96,7 +96,7 @@ func TestUpdaterNeedsDownloadWithoutStoredTimeUsesFileModTime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	should, _, _ := u.needsDownload("GeoLite2-ASN", asnPath)
 	if should {
 		t.Fatal("expected download to be skipped using file mod time")
@@ -104,10 +104,7 @@ func TestUpdaterNeedsDownloadWithoutStoredTimeUsesFileModTime(t *testing.T) {
 }
 
 func TestUpdaterResolveCredentialsPrefersSettings(t *testing.T) {
-	u := NewUpdater(config.GeoIPConfig{
-		LicenseKey: "cfg-key",
-		AccountID:  "cfg-account",
-	}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.SetCredentials(func() (string, string) {
 		return "db-key", "db-account"
 	})
@@ -123,7 +120,7 @@ func TestUpdaterNeedsDownloadWhenFileMissingIgnoresStoredTime(t *testing.T) {
 	asnPath := filepath.Join(dir, "GeoLite2-ASN.mmdb")
 
 	last := time.Now().UTC().Add(-1 * time.Hour)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = asnPath
 	u.SetLastDownload(func(edition string) time.Time {
 		if edition == "GeoLite2-ASN" {
@@ -146,7 +143,7 @@ func TestUpdaterNeedsDownloadWhenSidecarsMissing(t *testing.T) {
 	}
 
 	last := time.Now().UTC().Add(-1 * time.Hour)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = asnPath
 	u.SetLastDownload(func(edition string) time.Time {
 		return last
@@ -163,7 +160,7 @@ func TestUpdaterNeedsDownloadWhenDirEmpty(t *testing.T) {
 	asnPath := filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	cityPath := filepath.Join(dir, "GeoLite2-City.mmdb")
 
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = asnPath
 	u.cityPath = cityPath
 	u.SetLastDownload(func(edition string) time.Time {

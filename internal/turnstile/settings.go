@@ -3,9 +3,6 @@ package turnstile
 import (
 	"errors"
 	"strings"
-
-	"github.com/HopStat/HopStat/internal/config"
-	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
 const (
@@ -24,8 +21,7 @@ type Status struct {
 }
 
 // Update is a change from the admin panel. An empty Secret means "keep the stored one",
-// because the panel never received it. Clear turns the check off and stops config.yaml
-// from seeding it back on the next restart.
+// because the panel never received it. Clear turns the check off.
 type Update struct {
 	SiteKey   string `json:"site_key"`
 	Secret    string `json:"secret"`
@@ -33,61 +29,36 @@ type Update struct {
 	Clear     bool   `json:"clear"`
 }
 
-// SyncSettings copies config.yaml into the settings table once, so an existing deployment
-// keeps working and the admin panel can show and change those values.
-func SyncSettings(q *queries.Queries, cfg config.TurnstileConfig) error {
-	settings, err := q.GetSettings()
-	if err != nil {
-		return err
-	}
-	if settings[SettingCleared] == "1" {
-		return nil
-	}
-	toSet := map[string]string{}
-	seed := func(key, value string) {
-		if settings[key] != "" || strings.TrimSpace(value) == "" {
-			return
-		}
-		toSet[key] = strings.TrimSpace(value)
-	}
-	seed(SettingSiteKey, cfg.SiteKey)
-	seed(SettingSecret, cfg.Secret)
-	if hosts := joinHostnames(ParseHostnames(strings.Join(cfg.Hostnames, "\n"))); hosts != "" {
-		seed(SettingHostnames, hosts)
-	}
-	if len(toSet) == 0 {
-		return nil
-	}
-	return q.SetSettings(toSet)
+// Config is the check enforced on public queries. It comes from the settings database.
+type Config struct {
+	SiteKey   string
+	Secret    string
+	Hostnames []string
 }
 
-// Effective is the config the public query API should enforce. A cleared panel choice
-// wins over config.yaml. Stored settings win over the file. An empty store falls back
-// to the file so the check stays on before the first panel save.
-func Effective(settings map[string]string, fallback config.TurnstileConfig) config.TurnstileConfig {
+// Effective reads the stored check. A cleared panel choice stays off.
+func Effective(settings map[string]string) Config {
 	if settings[SettingCleared] == "1" {
-		return config.TurnstileConfig{}
+		return Config{}
 	}
-	site := strings.TrimSpace(settings[SettingSiteKey])
-	secret := strings.TrimSpace(settings[SettingSecret])
-	hosts := ParseHostnames(settings[SettingHostnames])
-	if site == "" && secret == "" && len(hosts) == 0 {
-		return normalizeConfig(fallback)
+	return Config{
+		SiteKey:   strings.TrimSpace(settings[SettingSiteKey]),
+		Secret:    strings.TrimSpace(settings[SettingSecret]),
+		Hostnames: ParseHostnames(settings[SettingHostnames]),
 	}
-	return config.TurnstileConfig{SiteKey: site, Secret: secret, Hostnames: hosts}
 }
 
-// StatusFrom describes the effective check without including the secret.
-func StatusFrom(settings map[string]string, fallback config.TurnstileConfig) Status {
-	cfg := Effective(settings, fallback)
+// StatusFrom describes the stored check without including the secret.
+func StatusFrom(settings map[string]string) Status {
+	cfg := Effective(settings)
 	hosts := cfg.Hostnames
 	if hosts == nil {
 		hosts = []string{}
 	}
 	return Status{
-		Configured: cfg.SiteKey != "" && strings.TrimSpace(cfg.Secret) != "" && len(cfg.Hostnames) > 0,
+		Configured: cfg.SiteKey != "" && cfg.Secret != "" && len(cfg.Hostnames) > 0,
 		SiteKey:    cfg.SiteKey,
-		SecretSet:  strings.TrimSpace(cfg.Secret) != "",
+		SecretSet:  cfg.Secret != "",
 		Hostnames:  hosts,
 	}
 }
@@ -147,12 +118,4 @@ func ParseHostnames(raw string) []string {
 
 func joinHostnames(hosts []string) string {
 	return strings.Join(hosts, ",")
-}
-
-func normalizeConfig(cfg config.TurnstileConfig) config.TurnstileConfig {
-	return config.TurnstileConfig{
-		SiteKey:   strings.TrimSpace(cfg.SiteKey),
-		Secret:    strings.TrimSpace(cfg.Secret),
-		Hostnames: ParseHostnames(strings.Join(cfg.Hostnames, "\n")),
-	}
 }

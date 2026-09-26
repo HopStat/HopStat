@@ -29,6 +29,39 @@ export function resetTurnstileScriptForTests() {
   scriptPromise = null
 }
 
+const TURNSTILE_READY_WAIT_MS = 50
+
+function wait(ms: number) {
+  return new Promise<void>(resolve => {
+    setTimeout(resolve, ms)
+  })
+}
+
+/** The script's load event can fire before window.turnstile exists. Keep polling until the client is ready. */
+export function whenTurnstileReady(
+  timeoutMs = 10000,
+  delay: (ms: number) => Promise<void> = wait,
+): Promise<TurnstileClient> {
+  return loadTurnstileScript().then(async () => {
+    const start = Date.now()
+    for (;;) {
+      const api = window.turnstile
+      if (api?.ready) {
+        return await new Promise<TurnstileClient>((resolve, reject) => {
+          api.ready(() => {
+            if (window.turnstile) resolve(window.turnstile)
+            else reject(new Error('turnstile script failed'))
+          })
+        })
+      }
+      if (Date.now() - start > timeoutMs) {
+        throw new Error('turnstile script failed')
+      }
+      await delay(TURNSTILE_READY_WAIT_MS)
+    }
+  })
+}
+
 export function loadTurnstileScript(): Promise<void> {
   if (window.turnstile) return Promise.resolve()
   if (scriptPromise) return scriptPromise

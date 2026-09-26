@@ -146,20 +146,20 @@ func TestGenerateServerConfigIncludesFloodControl(t *testing.T) {
 		"behind_cloudflare: false",
 		"trusted_proxies: []",
 		"geoip:",
-		"update_interval: \"72h\"",
+		`db_dir: "/var/lib/hopstat/geoip"`,
 		"bgp:",
 		"local_as: 0",
 		"listen_port: 11790",
 		"listen_addresses: []",
-		"turnstile:",
-		"site_key:",
-		"hostnames: []",
 		"tls_cert:",
 		"autocert_domain:",
 	} {
 		if !strings.Contains(content, want) {
 			t.Errorf("generated config missing %q", want)
 		}
+	}
+	if strings.Contains(content, "asn_db_path") || strings.Contains(content, "city_db_path") || strings.Contains(content, "license_key") {
+		t.Fatalf("generated config still has extra geoip settings:\n%s", content)
 	}
 
 	cfg, err := Load(tmpFile.Name())
@@ -791,50 +791,14 @@ security:
 	return f.Name()
 }
 
-func TestLoadTurnstileDisabledByDefault(t *testing.T) {
-	path := writeTurnstileConfig(t, "")
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Turnstile.Enabled() {
-		t.Fatal("turnstile should stay off when unset")
-	}
-}
-
-func TestLoadTurnstileEnabled(t *testing.T) {
+func TestLoadIgnoresLegacyTurnstileBlock(t *testing.T) {
 	path := writeTurnstileConfig(t, `
 turnstile:
-  site_key: " site "
-  secret: " secret "
-  hostnames: [" lg.example ", "", "lg.example"]
+  site_key: "site"
+  secret: "secret"
+  hostnames: ["lg.example"]
 `)
-	cfg, err := Load(path)
-	if err != nil {
+	if _, err := Load(path); err != nil {
 		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Turnstile.SiteKey != "site" || cfg.Turnstile.Secret != "secret" {
-		t.Fatalf("keys = %#v", cfg.Turnstile)
-	}
-	if len(cfg.Turnstile.Hostnames) != 1 || cfg.Turnstile.Hostnames[0] != "lg.example" {
-		t.Fatalf("hostnames = %#v", cfg.Turnstile.Hostnames)
-	}
-	if !cfg.Turnstile.Enabled() {
-		t.Fatal("expected turnstile enabled")
-	}
-}
-
-func TestLoadTurnstileRequiresAllFields(t *testing.T) {
-	partials := []string{
-		"turnstile:\n  site_key: site\n",
-		"turnstile:\n  secret: secret\n",
-		"turnstile:\n  hostnames: [\"lg.example\"]\n",
-		"turnstile:\n  site_key: site\n  secret: secret\n",
-	}
-	for _, extra := range partials {
-		path := writeTurnstileConfig(t, extra)
-		if _, err := Load(path); err == nil {
-			t.Fatalf("expected error for %q", extra)
-		}
 	}
 }

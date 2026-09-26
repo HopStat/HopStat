@@ -1,7 +1,5 @@
 package config
 
-import "strings"
-
 type Config struct {
 	Server       ServerConfig       `mapstructure:"server"`
 	Agent        AgentConfig        `mapstructure:"agent"`
@@ -13,7 +11,6 @@ type Config struct {
 	GeoIP        GeoIPConfig        `mapstructure:"geoip"`
 	BGP          BGPConfig          `mapstructure:"bgp"`
 	Update       UpdateConfig       `mapstructure:"update"`
-	Turnstile    TurnstileConfig    `mapstructure:"turnstile"`
 }
 
 type ServerConfig struct {
@@ -71,12 +68,7 @@ type QueryConfig struct {
 }
 
 type GeoIPConfig struct {
-	ASNDBPath      string `mapstructure:"asn_db_path"`
-	CityDBPath     string `mapstructure:"city_db_path"`
-	LicenseKey     string `mapstructure:"license_key"`
-	AccountID      string `mapstructure:"account_id"`
-	UpdateInterval string `mapstructure:"update_interval"`
-	DBDir          string `mapstructure:"db_dir"`
+	DBDir string `mapstructure:"db_dir"`
 }
 
 type BGPConfig struct {
@@ -91,18 +83,6 @@ type BGPConfig struct {
 
 type UpdateConfig struct {
 	Enabled bool `mapstructure:"enabled"`
-}
-
-// TurnstileConfig gates the public query API with Cloudflare Turnstile.
-// Leave every field empty to keep that API open. The node agent API does not use it.
-type TurnstileConfig struct {
-	SiteKey   string   `mapstructure:"site_key"`
-	Secret    string   `mapstructure:"secret"`
-	Hostnames []string `mapstructure:"hostnames"`
-}
-
-func (t TurnstileConfig) Enabled() bool {
-	return strings.TrimSpace(t.Secret) != ""
 }
 
 func (c *Config) IsServer() bool {

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -20,10 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
-	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/oschwald/geoip2-golang"
 )
 
@@ -288,31 +285,6 @@ func TestLatestRFC3339SecondLater(t *testing.T) {
 	}
 }
 
-func TestSyncSettingsErrorsAndWrites(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db.Close() })
-	mock.ExpectQuery("SELECT key, value FROM settings").WillReturnError(errors.New("settings failed"))
-	if err := SyncSettings(queries.New(db), config.GeoIPConfig{}); err == nil {
-		t.Fatal("expected settings error")
-	}
-
-	db2, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { db2.Close() })
-	if _, err := db2.Exec(`CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`); err != nil {
-		t.Fatal(err)
-	}
-	q := queries.New(db2)
-	if err := SyncSettings(q, config.GeoIPConfig{LicenseKey: "k", AccountID: "a", UpdateInterval: "24h"}); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestUpdaterRunMkdirError(t *testing.T) {
 	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = string([]byte{0})
@@ -337,7 +309,7 @@ func TestUpdaterNeedsDownloadLastZeroWithSidecars(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	_ = os.WriteFile(path, []byte("db"), 0644)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.SetLastDownload(func(string) time.Time { return time.Time{} })
 	should, _, _ := u.needsDownload("GeoLite2-ASN", path)
 	if !should {
@@ -350,7 +322,7 @@ func TestUpdaterUpdateAllReloadError(t *testing.T) {
 	asnPath := filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	_ = os.WriteFile(asnPath, []byte("bad"), 0644)
 	g := New("", "")
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, g)
+	u := newTestUpdater(g)
 	u.asnPath = asnPath
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	body := buildTestMMDBArchive(t, "GeoLite2-ASN.mmdb", readTestFile(t, testASNPath(t)))
@@ -372,7 +344,7 @@ func TestUpdaterUpdateAllReloadError(t *testing.T) {
 func TestDownloadMMDBEditionExtractError(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "GeoLite2-ASN.mmdb")
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("not-a-tar"))
@@ -393,7 +365,7 @@ func TestDownloadMMDBEditionExtractError(t *testing.T) {
 func TestDownloadMMDBEditionRenameError(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "GeoLite2-ASN.mmdb")
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	body := buildTestMMDBArchive(t, "GeoLite2-ASN.mmdb", []byte("mmdb"))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(body)
@@ -501,7 +473,7 @@ func TestWriteArchiveFileCloseError(t *testing.T) {
 
 func TestDownloadCSVSidecarsExtractError(t *testing.T) {
 	dir := t.TempDir()
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("not-a-zip"))
 	}))
@@ -707,7 +679,7 @@ func TestUpdaterNeedsDownloadLastZero(t *testing.T) {
 		return os.Stat(name)
 	}
 	t.Cleanup(func() { updaterOsStat = old })
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = asnPath
 	should, _, _ := u.needsDownload("GeoLite2-ASN", asnPath)
 	if !should {
@@ -718,7 +690,7 @@ func TestUpdaterNeedsDownloadLastZero(t *testing.T) {
 func TestUpdaterUpdateAllReloadSuccessWithError(t *testing.T) {
 	dir := t.TempDir()
 	g := New("", "")
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, g)
+	u := newTestUpdater(g)
 	u.asnPath = filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	body := buildTestMMDBArchive(t, "GeoLite2-ASN.mmdb", readTestFile(t, testASNPath(t)))
@@ -849,7 +821,7 @@ func TestLookupIPIncludesCity(t *testing.T) {
 func TestUpdaterUpdateAllReloadSuccess(t *testing.T) {
 	dir := t.TempDir()
 	g := New(testASNPath(t), testCityPath(t))
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, g)
+	u := newTestUpdater(g)
 	u.asnPath = filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	mmdbBody := buildTestMMDBArchive(t, "GeoLite2-ASN.mmdb", readTestFile(t, testASNPath(t)))
@@ -924,7 +896,7 @@ func TestUpdaterUpdateAllNoDownload(t *testing.T) {
 	_ = os.WriteFile(cityPath, []byte("db"), 0644)
 	_ = os.WriteFile(filepath.Join(dir, cityLocationsName), []byte("geoname_id,locale_code,country_iso_code\n"), 0644)
 	g := New(testASNPath(t), testCityPath(t))
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, g)
+	u := NewUpdater(config.GeoIPConfig{}, g)
 	u.asnPath = asnPath
 	u.cityPath = cityPath
 	u.SetLastDownload(func(string) time.Time { return time.Now().UTC() })
@@ -976,7 +948,7 @@ func TestUpdaterUpdateAllCityDownloadOnly(t *testing.T) {
 	asnPath := writeASNEditionFiles(t, dir)
 	cityPath := filepath.Join(dir, "GeoLite2-City.mmdb")
 	g := New(testASNPath(t), testCityPath(t))
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, g)
+	u := newTestUpdater(g)
 	u.asnPath = asnPath
 	u.cityPath = cityPath
 	u.SetLastDownload(func(edition string) time.Time {
@@ -1024,7 +996,7 @@ func TestUpdaterUpdateAllASNDownloadOnly(t *testing.T) {
 	_ = os.WriteFile(cityPath, []byte("db"), 0644)
 	_ = os.WriteFile(filepath.Join(dir, cityLocationsName), []byte("geoname_id,locale_code,country_iso_code\n"), 0644)
 	g := New(testASNPath(t), testCityPath(t))
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, g)
+	u := newTestUpdater(g)
 	u.asnPath = filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	u.cityPath = cityPath
 	u.SetLastDownload(func(edition string) time.Time {
@@ -1059,7 +1031,7 @@ func TestUpdaterUpdateAllReloadErrorPath(t *testing.T) {
 	cityPath := filepath.Join(dir, "GeoLite2-City.mmdb")
 	_ = os.WriteFile(cityPath, []byte("bad"), 0644)
 	g := New(asnPath, cityPath)
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, g)
+	u := newTestUpdater(g)
 	u.asnPath = asnPath
 	u.cityPath = cityPath
 	u.SetLastDownload(func(edition string) time.Time {

@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/HopStat/HopStat/internal/config"
 )
 
 const (
@@ -36,8 +34,8 @@ type siteverifyResult struct {
 	Hostname string `json:"hostname"`
 }
 
-// New builds a verifier from config. Empty secret leaves the public query API open.
-func New(cfg config.TurnstileConfig) *Verifier {
+// New builds a verifier. An empty secret leaves the public query API open.
+func New(cfg Config) *Verifier {
 	hosts := make(map[string]struct{}, len(cfg.Hostnames))
 	for _, hostname := range cfg.Hostnames {
 		hostname = strings.TrimSpace(hostname)
@@ -61,7 +59,7 @@ func (v *Verifier) Enabled() bool {
 }
 
 // With returns a verifier for cfg that keeps this verifier's siteverify client.
-func (v *Verifier) With(cfg config.TurnstileConfig) *Verifier {
+func (v *Verifier) With(cfg Config) *Verifier {
 	next := New(cfg)
 	if v == nil {
 		return next

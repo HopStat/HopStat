@@ -2,14 +2,11 @@ package geo
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/HopStat/HopStat/internal/config"
-	"github.com/HopStat/HopStat/internal/store"
-	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
 func TestSettingsFromUpdate_Clear(t *testing.T) {
@@ -142,7 +139,7 @@ func TestUpdateAllSkipsWithoutCredentials(t *testing.T) {
 	// Observed through the lastDownload hook: needsDownload consults it, so an untouched
 	// hook proves updateAll returned before attempting anything.
 	consulted := false
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.SetLastDownload(func(string) time.Time { consulted = true; return time.Time{} })
 	u.SetCredentials(func() (string, string) { return "", "" })
 
@@ -158,7 +155,7 @@ func TestUpdateAllProceedsWithCredentials(t *testing.T) {
 	// immediate download and never reaches the hook this asserts on.
 	dir := t.TempDir()
 	consulted := false
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = writeASNEditionFiles(t, dir)
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	u.SetLastDownload(func(string) time.Time { consulted = true; return time.Now().UTC() })
@@ -168,51 +165,5 @@ func TestUpdateAllProceedsWithCredentials(t *testing.T) {
 
 	if !consulted {
 		t.Fatal("updateAll skipped even though credentials were stored")
-	}
-}
-
-func TestSyncSettingsDoesNotResurrectClearedCredentials(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if err := store.Migrate(db); err != nil {
-		t.Fatal(err)
-	}
-	q := queries.New(db)
-	cfg := config.GeoIPConfig{LicenseKey: "from-config", AccountID: "1", UpdateInterval: "72h"}
-
-	// First run seeds from the config file.
-	if err := SyncSettings(q, cfg); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := q.GetSettings()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored[SettingLicenseKey] != "from-config" {
-		t.Fatalf("first run did not seed: %q", stored[SettingLicenseKey])
-	}
-
-	// The operator clears them in the panel — through the same path the handler uses.
-	cleared, err := SettingsFromUpdate(CredentialUpdate{ClearCredentials: true}, stored)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := q.SetSettings(cleared); err != nil {
-		t.Fatal(err)
-	}
-
-	// A restart must not put them back.
-	if err := SyncSettings(q, cfg); err != nil {
-		t.Fatal(err)
-	}
-	stored, err = q.GetSettings()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored[SettingLicenseKey] != "" || stored[SettingAccountID] != "" {
-		t.Fatalf("restart resurrected cleared credentials: %+v", stored)
 	}
 }

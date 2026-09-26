@@ -14,8 +14,7 @@ const (
 	SettingASNLastDownload  = "geoip_asn_last_download"
 	SettingCityLastDownload = "geoip_city_last_download"
 	// SettingCredentialsCleared records that the operator removed the credentials in the
-	// admin panel. The settings rows are pre-created empty by the migration, so an empty
-	// value alone cannot tell "never set" from "deliberately cleared".
+	// admin panel.
 	SettingCredentialsCleared = "geoip_credentials_cleared" //nolint:gosec // G101: a settings key name, not a credential
 )
 
@@ -40,9 +39,6 @@ func CollectStatus(settings map[string]string, cfg config.GeoIPConfig, geoDB *Ge
 	license := settings[SettingLicenseKey]
 	account := settings[SettingAccountID]
 	interval := settings[SettingUpdateInterval]
-	if interval == "" {
-		interval = cfg.UpdateInterval
-	}
 	if interval == "" {
 		interval = "72h"
 	}

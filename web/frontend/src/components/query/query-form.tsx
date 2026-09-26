@@ -14,7 +14,7 @@ import { listQueryHistory, deleteQueryHistory, type QueryHistoryRecord } from '@
 import { rankQueryHistory, type RankedQueryHistoryRecord } from '@/lib/query-history-search'
 import { blurActiveFieldPreservingScroll } from '@/lib/mobile-viewport'
 import { QueryErrorAlert } from '@/components/results/query-error-alert'
-import { TurnstileSession, loadTurnstileScript } from '@/lib/turnstile'
+import { TurnstileSession, whenTurnstileReady } from '@/lib/turnstile'
 const commands = [
   { value: 'ping', labelKey: 'cmd.ping' },
   { value: 'traceroute', labelKey: 'cmd.traceroute' },
@@ -120,13 +120,10 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     const session = new TurnstileSession()
     turnstileSessionRef.current = session
     let cancelled = false
-    loadTurnstileScript()
-      .then(() => {
-        if (cancelled || !window.turnstile || !turnstileBoxRef.current) return
-        window.turnstile.ready(() => {
-          if (cancelled || !window.turnstile || !turnstileBoxRef.current) return
-          session.mount(window.turnstile, turnstileBoxRef.current, turnstileSiteKey)
-        })
+    whenTurnstileReady()
+      .then(api => {
+        if (cancelled || !turnstileBoxRef.current) return
+        session.mount(api, turnstileBoxRef.current, turnstileSiteKey)
       })
       .catch(() => {
         session.deliver(null)

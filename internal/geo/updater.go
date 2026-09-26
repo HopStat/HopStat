@@ -58,7 +58,7 @@ func (u *Updater) resolveCredentials() (licenseKey, accountID string) {
 			return key, account
 		}
 	}
-	return u.cfg.LicenseKey, u.cfg.AccountID
+	return "", ""
 }
 
 func (u *Updater) ASNPath() string  { return u.asnPath }
@@ -94,7 +94,7 @@ func (u *Updater) resolveInterval() time.Duration {
 			return d
 		}
 	}
-	return ParseUpdateInterval(u.cfg.UpdateInterval, 72*time.Hour)
+	return 72 * time.Hour
 }
 
 func (u *Updater) lastDownloadAt(edition, targetPath string) time.Time {

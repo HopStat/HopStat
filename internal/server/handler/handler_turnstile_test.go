@@ -24,18 +24,25 @@ type turnstileRoundTrip func(*http.Request) (*http.Response, error)
 
 func (f turnstileRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func turnstileConfig() config.TurnstileConfig {
-	return config.TurnstileConfig{
-		SiteKey:   "site-key",
-		Secret:    "secret",
-		Hostnames: []string{"lg.example"},
+func storeTurnstile(t *testing.T, db *sql.DB, siteKey, secret, hostnames, cleared string) {
+	t.Helper()
+	if err := queries.New(db).SetSettings(map[string]string{
+		turnstile.SettingSiteKey:   siteKey,
+		turnstile.SettingSecret:    secret,
+		turnstile.SettingHostnames: hostnames,
+		turnstile.SettingCleared:   cleared,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sitecache.RefreshSettings(db, 0); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestSubmitQuery_TurnstileRejectsAPIWithoutToken(t *testing.T) {
 	db := setupDB(t)
+	storeTurnstile(t, db, "site-key", "secret", "lg.example", "")
 	cfg := testConfig()
-	cfg.Turnstile = turnstileConfig()
 	h := New(db, cfg, nil, nil)
 
 	body := `{"node_id":1,"command":"ping","target":"8.8.8.8"}`
@@ -54,8 +61,8 @@ func TestSubmitQuery_TurnstileRejectsAPIWithoutToken(t *testing.T) {
 
 func TestSubmitQuery_TurnstileAcceptsThenRejectsReplay(t *testing.T) {
 	db := setupDB(t)
+	storeTurnstile(t, db, "site-key", "secret", "lg.example", "")
 	cfg := testConfig()
-	cfg.Turnstile = turnstileConfig()
 	nodeRepo := repo.NewNodeRepo(db, "")
 	created, err := nodeRepo.Create(t.Context(), &domain.Node{
 		Name: "n", Type: domain.NodeTypeStandalone, Active: true,
@@ -106,9 +113,10 @@ func TestSubmitQuery_TurnstileAcceptsThenRejectsReplay(t *testing.T) {
 
 func TestGetPublicSettingsIncludesTurnstileSiteKeyOnly(t *testing.T) {
 	db := setupDB(t)
+	storeTurnstile(t, db, " site-key ", "secret", "lg.example", "")
 	c, w := setupContext(db, http.MethodGet, "/settings", "")
 
-	GetPublicSettings(db, config.BGPConfig{}, config.TurnstileConfig{SiteKey: " site-key "})(c)
+	GetPublicSettings(db, config.BGPConfig{})(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
@@ -131,8 +139,8 @@ func TestAgentAPI_NodeKeySkipsTurnstile(t *testing.T) {
 		t.Fatalf("create node: %v", err)
 	}
 
+	storeTurnstile(t, db, "site-key", "secret", "lg.example", "")
 	cfg := testConfig()
-	cfg.Turnstile = turnstileConfig()
 	r := gin.New()
 	agent := r.Group("")
 	agent.Use(middleware.NodeAgentAuth(db, ""))
@@ -148,20 +156,10 @@ func TestAgentAPI_NodeKeySkipsTurnstile(t *testing.T) {
 	}
 }
 
-func TestSubmitQuery_PanelSettingsOverrideFile(t *testing.T) {
+func TestSubmitQuery_UsesStoredTurnstileSecret(t *testing.T) {
 	db := setupDB(t)
+	storeTurnstile(t, db, "panel-key", "panel-secret", "lg.example", "")
 	cfg := testConfig()
-	cfg.Turnstile = turnstileConfig()
-	if err := queries.New(db).SetSettings(map[string]string{
-		turnstile.SettingSiteKey:   "panel-key",
-		turnstile.SettingSecret:    "panel-secret",
-		turnstile.SettingHostnames: "lg.example",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := sitecache.RefreshSettings(db, 0); err != nil {
-		t.Fatal(err)
-	}
 	h := New(db, cfg, nil, nil)
 	var secret string
 	h.turnstile.UseHTTPClient(&http.Client{Transport: turnstileRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -185,10 +183,10 @@ func TestSubmitQuery_PanelSettingsOverrideFile(t *testing.T) {
 	}
 }
 
-func TestSubmitQuery_ClearedPanelDisablesFile(t *testing.T) {
+func TestSubmitQuery_ClearedTurnstileStaysOff(t *testing.T) {
 	db := setupDB(t)
+	storeTurnstile(t, db, "site-key", "secret", "lg.example", "1")
 	cfg := testConfig()
-	cfg.Turnstile = turnstileConfig()
 	node, err := repo.NewNodeRepo(db, "").Create(t.Context(), &domain.Node{
 		Name: "n", Type: domain.NodeTypeStandalone, Active: true,
 		EnabledCmds: domain.DefaultEnabledCmds(),
@@ -197,12 +195,6 @@ func TestSubmitQuery_ClearedPanelDisablesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	refreshTestSiteCache(t, db)
-	if err := queries.New(db).SetSettings(map[string]string{turnstile.SettingCleared: "1"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := sitecache.RefreshSettings(db, 0); err != nil {
-		t.Fatal(err)
-	}
 	body := fmt.Sprintf(`{"node_id":%d,"command":"ping","target":"8.8.8.8","options":{"ping_count":1}}`, node.ID)
 	c, w := setupContext(db, http.MethodPost, "/query", body)
 	New(db, cfg, nil, nil).SubmitQuery()(c)
@@ -213,17 +205,15 @@ func TestSubmitQuery_ClearedPanelDisablesFile(t *testing.T) {
 
 func TestTurnstileAdmin_SaveClearAndErrors(t *testing.T) {
 	db := setupDB(t)
-	cfg := testConfig()
-	cfg.Turnstile = config.TurnstileConfig{SiteKey: "file-key", Secret: "file-secret", Hostnames: []string{"file.example"}}
 
 	c, w := setupAdminContext(db, http.MethodGet, "/admin/turnstile", "", 1)
-	TurnstileStatus(db, cfg)(c)
-	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"site_key":"file-key"`) || strings.Contains(w.Body.String(), "file-secret") {
+	TurnstileStatus(db)(c)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"configured":false`) || strings.Contains(w.Body.String(), "file-secret") {
 		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
 	}
 
 	c, w = setupAdminContext(db, http.MethodPut, "/admin/turnstile", `{"site_key":"panel-key","secret":"panel-secret","hostnames":"lg.example"}`, 1)
-	UpdateTurnstile(db, cfg)(c)
+	UpdateTurnstile(db)(c)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"secret_set":true`) || strings.Contains(w.Body.String(), "panel-secret") {
 		t.Fatalf("save status = %d body = %s", w.Code, w.Body.String())
 	}
@@ -233,7 +223,7 @@ func TestTurnstileAdmin_SaveClearAndErrors(t *testing.T) {
 	}
 
 	c, w = setupAdminContext(db, http.MethodPut, "/admin/turnstile", `{"site_key":"panel-key","hostnames":"lg.example"}`, 1)
-	UpdateTurnstile(db, cfg)(c)
+	UpdateTurnstile(db)(c)
 	if w.Code != http.StatusOK {
 		t.Fatalf("keep secret status = %d body = %s", w.Code, w.Body.String())
 	}
@@ -246,18 +236,18 @@ func TestTurnstileAdmin_SaveClearAndErrors(t *testing.T) {
 	refreshSettingsCacheFn = func(*sql.DB, uint32) error { return errors.New("refresh fail") }
 	t.Cleanup(func() { refreshSettingsCacheFn = prev })
 	c, w = setupAdminContext(db, http.MethodPut, "/admin/turnstile", `{"clear":true}`, 1)
-	UpdateTurnstile(db, cfg)(c)
+	UpdateTurnstile(db)(c)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"configured":false`) {
 		t.Fatalf("clear status = %d body = %s", w.Code, w.Body.String())
 	}
 
 	c, w = setupAdminContext(db, http.MethodPut, "/admin/turnstile", `{`, 1)
-	UpdateTurnstile(db, cfg)(c)
+	UpdateTurnstile(db)(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("json status = %d", w.Code)
 	}
 	c, w = setupAdminContext(db, http.MethodPut, "/admin/turnstile", `{"site_key":"only"}`, 1)
-	UpdateTurnstile(db, cfg)(c)
+	UpdateTurnstile(db)(c)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("partial status = %d body = %s", w.Code, w.Body.String())
 	}
@@ -265,12 +255,12 @@ func TestTurnstileAdmin_SaveClearAndErrors(t *testing.T) {
 	closed := setupDB(t)
 	closed.Close()
 	c, w = setupAdminContext(closed, http.MethodGet, "/admin/turnstile", "", 1)
-	TurnstileStatus(closed, cfg)(c)
+	TurnstileStatus(closed)(c)
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status load = %d", w.Code)
 	}
 	c, w = setupAdminContext(closed, http.MethodPut, "/admin/turnstile", `{"clear":true}`, 1)
-	UpdateTurnstile(closed, cfg)(c)
+	UpdateTurnstile(closed)(c)
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("update load = %d", w.Code)
 	}
@@ -282,7 +272,7 @@ func TestTurnstileAdmin_SaveFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	c, w := setupAdminContext(db, http.MethodPut, "/admin/turnstile", `{"site_key":"k","secret":"s","hostnames":"lg.example"}`, 1)
-	UpdateTurnstile(db, testConfig())(c)
+	UpdateTurnstile(db)(c)
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
 	}

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"database/sql"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -18,8 +17,6 @@ import (
 
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
-	"github.com/HopStat/HopStat/internal/store"
-	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
 func testASNPath(t *testing.T) string {
@@ -30,6 +27,12 @@ func testASNPath(t *testing.T) string {
 func testCityPath(t *testing.T) string {
 	t.Helper()
 	return filepath.Join("testdata", "GeoLite2-City-Test.mmdb")
+}
+
+func newTestUpdater(geoDB *GeoIPDB) *Updater {
+	u := NewUpdater(config.GeoIPConfig{}, geoDB)
+	u.SetCredentials(func() (string, string) { return "k", "a" })
+	return u
 }
 
 func testGeoDB(t *testing.T) *GeoIPDB {
@@ -255,12 +258,12 @@ func TestChosenSourceBranches(t *testing.T) {
 }
 
 func TestResolveUpdateInterval(t *testing.T) {
-	got := ResolveUpdateInterval(map[string]string{SettingUpdateInterval: "24h"}, config.GeoIPConfig{})
+	got := ResolveUpdateInterval(map[string]string{SettingUpdateInterval: "24h"})
 	if got != 24*time.Hour {
 		t.Fatalf("got %v", got)
 	}
-	got = ResolveUpdateInterval(map[string]string{}, config.GeoIPConfig{UpdateInterval: "48h"})
-	if got != 48*time.Hour {
+	got = ResolveUpdateInterval(map[string]string{})
+	if got != 72*time.Hour {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -278,7 +281,7 @@ func TestCollectStatusWithGeo(t *testing.T) {
 		SettingLicenseKey: "key",
 		SettingAccountID:  "acc",
 	}
-	st := CollectStatus(settings, config.GeoIPConfig{ASNDBPath: asnPath}, testGeoDB(t))
+	st := CollectStatus(settings, config.GeoIPConfig{DBDir: dir}, testGeoDB(t))
 	if !st.Configured || !st.ASNLoaded || st.ASNBuildDate == "" {
 		t.Fatalf("status = %+v", st)
 	}
@@ -287,35 +290,6 @@ func TestCollectStatusWithGeo(t *testing.T) {
 	}
 	if got := fileModTimeRFC3339("/nonexistent"); got != "" {
 		t.Fatalf("missing file mod = %q", got)
-	}
-}
-
-func TestSyncSettings(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if err := store.Migrate(db); err != nil {
-		t.Fatal(err)
-	}
-	q := queries.New(db)
-	if err := SyncSettings(q, config.GeoIPConfig{
-		LicenseKey:     "cfg-key",
-		AccountID:      "cfg-account",
-		UpdateInterval: "24h",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	settings, err := q.GetSettings()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if settings[SettingLicenseKey] != "cfg-key" {
-		t.Fatalf("settings = %+v", settings)
-	}
-	if err := SyncSettings(q, config.GeoIPConfig{}); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -354,10 +328,7 @@ func TestUpdaterRunAndDownload(t *testing.T) {
 
 	g := New("", "")
 	u := NewUpdater(config.GeoIPConfig{
-		LicenseKey:     "key",
-		AccountID:      "acc",
-		UpdateInterval: "72h",
-		DBDir:          dir,
+		DBDir: dir,
 	}, g)
 	u.asnPath = asnPath
 	u.cityPath = cityPath
@@ -444,7 +415,7 @@ func TestWriteArchiveFileError(t *testing.T) {
 }
 
 func TestUpdaterResolveIntervalFallback(t *testing.T) {
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	if got := u.resolveInterval(); got != 72*time.Hour {
 		t.Fatalf("got %v", got)
 	}
@@ -454,22 +425,36 @@ func TestUpdaterResolveIntervalFallback(t *testing.T) {
 	}
 }
 
-func TestUpdaterResolveCredentialsConfig(t *testing.T) {
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
-	key, account := u.resolveCredentials()
-	if key != "k" || account != "a" {
-		t.Fatalf("got %q %q", key, account)
+func TestFetchMaxMindDownloadError(t *testing.T) {
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := u.fetchMaxMind(ctx, "http://127.0.0.1/geoip", "GeoLite2-ASN"); err == nil {
+		t.Fatal("expected a download error")
 	}
 }
 
-func TestResolvePathsCustom(t *testing.T) {
-	asn, city := ResolvePaths(config.GeoIPConfig{
-		DBDir:      "/data",
-		ASNDBPath:  "/custom/asn.mmdb",
-		CityDBPath: "/custom/city.mmdb",
-	})
-	if asn != "/custom/asn.mmdb" || city != "/custom/city.mmdb" {
+func TestUpdaterResolveCredentialsStoredOnly(t *testing.T) {
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
+	key, account := u.resolveCredentials()
+	if key != "" || account != "" {
+		t.Fatalf("got %q %q", key, account)
+	}
+	u.SetCredentials(func() (string, string) { return "only-key", "" })
+	key, account = u.resolveCredentials()
+	if key != "" || account != "" {
+		t.Fatalf("partial credentials were used: %q %q", key, account)
+	}
+}
+
+func TestResolvePaths(t *testing.T) {
+	asn, city := ResolvePaths(config.GeoIPConfig{DBDir: "/var/lib/hopstat/geoip"})
+	if asn != "/var/lib/hopstat/geoip/GeoLite2-ASN.mmdb" || city != "/var/lib/hopstat/geoip/GeoLite2-City.mmdb" {
 		t.Fatalf("paths = %q %q", asn, city)
+	}
+	asn, city = ResolvePaths(config.GeoIPConfig{})
+	if asn != "/var/lib/hopstat/geoip/GeoLite2-ASN.mmdb" || city != "/var/lib/hopstat/geoip/GeoLite2-City.mmdb" {
+		t.Fatalf("default paths = %q %q", asn, city)
 	}
 }
 

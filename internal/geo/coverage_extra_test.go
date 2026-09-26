@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"database/sql"
 	"io"
 	"net"
 	"net/http"
@@ -19,8 +18,6 @@ import (
 
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
-	"github.com/HopStat/HopStat/internal/store"
-	"github.com/HopStat/HopStat/internal/store/queries"
 )
 
 func TestGeoIPDBCloseBoth(t *testing.T) {
@@ -228,7 +225,7 @@ func TestUpdaterLastDownloadAt(t *testing.T) {
 func TestUpdaterTryDownloadSkips(t *testing.T) {
 	dir := t.TempDir()
 	asnPath := writeASNEditionFiles(t, dir)
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h"}, New("", ""))
+	u := NewUpdater(config.GeoIPConfig{}, New("", ""))
 	u.asnPath = asnPath
 	u.SetLastDownload(func(string) time.Time { return time.Now().UTC() })
 	if u.tryDownloadEdition(context.Background(), "GeoLite2-ASN", asnPath) {
@@ -292,7 +289,7 @@ func TestWriteArchiveFileSuccess(t *testing.T) {
 
 func TestDownloadMMDBEditionHTTPError(t *testing.T) {
 	dir := t.TempDir()
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	u.asnPath = filepath.Join(dir, "GeoLite2-ASN.mmdb")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "fail", http.StatusInternalServerError)
@@ -364,7 +361,7 @@ func TestDownloadCSVSidecarsSuccess(t *testing.T) {
 		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	orig := http.DefaultTransport
 	http.DefaultTransport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		req2 := req.Clone(req.Context())
@@ -391,7 +388,7 @@ func TestDownloadMMDBEditionSuccess(t *testing.T) {
 		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
-	u := NewUpdater(config.GeoIPConfig{LicenseKey: "k", AccountID: "a"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	orig := http.DefaultTransport
 	http.DefaultTransport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		req2 := req.Clone(req.Context())
@@ -410,26 +407,6 @@ func TestLookupASByNumberMergeCountry(t *testing.T) {
 	info, err := g.LookupASByNumber(context.Background(), 15169)
 	if err != nil || info.OrgName != "GOOGLE" {
 		t.Fatalf("info=%+v err=%v", info, err)
-	}
-}
-
-func TestSyncSettingsAlreadyConfigured(t *testing.T) {
-	db, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	if err := store.Migrate(db); err != nil {
-		t.Fatal(err)
-	}
-	q := queries.New(db)
-	_ = q.SetSettings(map[string]string{
-		SettingLicenseKey:     "existing",
-		SettingAccountID:      "existing",
-		SettingUpdateInterval: "12h",
-	})
-	if err := SyncSettings(q, config.GeoIPConfig{LicenseKey: "new", AccountID: "new", UpdateInterval: "24h"}); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -475,7 +452,7 @@ func TestUpdateAllNoReloadWhenNothingDownloaded(t *testing.T) {
 	dir := t.TempDir()
 	asnPath := writeASNEditionFiles(t, dir)
 	// Credentials are needed to get past the configured check and reach the reload logic.
-	u := NewUpdater(config.GeoIPConfig{UpdateInterval: "72h", LicenseKey: "k", AccountID: "42"}, New("", ""))
+	u := newTestUpdater(New("", ""))
 	u.asnPath = asnPath
 	u.cityPath = filepath.Join(dir, "GeoLite2-City.mmdb")
 	u.SetLastDownload(func(string) time.Time { return time.Now().UTC() })
