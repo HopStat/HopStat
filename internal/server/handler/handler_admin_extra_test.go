@@ -155,7 +155,7 @@ func TestGetPublicSettings(t *testing.T) {
 	db := setupDB(t)
 	c, w := setupContext(db, http.MethodGet, "/settings", "")
 
-	GetPublicSettings(db, config.BGPConfig{})(c)
+	GetPublicSettings(db, config.BGPConfig{}, "")(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())

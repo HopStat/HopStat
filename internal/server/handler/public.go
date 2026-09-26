@@ -34,6 +34,7 @@ import (
 	"github.com/HopStat/HopStat/internal/store/querystore"
 	"github.com/HopStat/HopStat/internal/store/repo"
 	"github.com/HopStat/HopStat/internal/target"
+	"github.com/HopStat/HopStat/internal/turnstile"
 	"github.com/HopStat/HopStat/internal/updater"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -44,20 +45,22 @@ import (
 var queryStore = querystore.New()
 
 type Handler struct {
-	db       *sql.DB
-	cfg      *config.Config
-	engine   *engine.QueryEngine
-	geoDB    *geo.GeoIPDB
-	nodeRepo domain.NodeRepository
+	db        *sql.DB
+	cfg       *config.Config
+	engine    *engine.QueryEngine
+	geoDB     *geo.GeoIPDB
+	nodeRepo  domain.NodeRepository
+	turnstile *turnstile.Verifier
 }
 
 func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB, bgpMgr *bgp.SessionManager) *Handler {
 	credKey := cfg.Security.CredentialKey
 	h := &Handler{
-		db:       db,
-		cfg:      cfg,
-		geoDB:    geoDB,
-		nodeRepo: sitecache.NewCachedNodeRepo(db, credKey),
+		db:        db,
+		cfg:       cfg,
+		geoDB:     geoDB,
+		nodeRepo:  sitecache.NewCachedNodeRepo(db, credKey),
+		turnstile: turnstile.New(cfg.Turnstile),
 	}
 	h.engine = engine.New(&engine.QueryConfig{
 		MaxConcurrent:        cfg.Query.MaxConcurrent,
@@ -162,11 +165,22 @@ func (h *Handler) SubmitQuery() gin.HandlerFunc {
 				PingCount int `json:"ping_count"`
 				MaxHops   int `json:"max_hops"`
 			} `json:"options"`
+			TurnstileResponse string `json:"cf-turnstile-response"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+
+		if h.turnstile.Enabled() {
+			if err := h.turnstile.Verify(c.Request.Context(), req.TurnstileResponse, c.ClientIP()); err != nil {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error":      "security check failed",
+					"error_code": "TURNSTILE",
+				})
+				return
+			}
 		}
 
 		// V-01: Validate command type
@@ -1392,11 +1406,15 @@ func settingInt(settings map[string]string, key string, defaultVal, min, max int
 	return n
 }
 
-func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig) gin.HandlerFunc {
+func GetPublicSettings(db *sql.DB, bgpCfg config.BGPConfig, turnstileSiteKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_ = db
 		_ = bgpCfg
-		c.JSON(http.StatusOK, gin.H{"data": sitecache.PublicSettings()})
+		data := sitecache.PublicSettings()
+		if key := strings.TrimSpace(turnstileSiteKey); key != "" {
+			data["turnstile_site_key"] = key
+		}
+		c.JSON(http.StatusOK, gin.H{"data": data})
 	}
 }
 

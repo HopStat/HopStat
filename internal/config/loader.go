@@ -32,6 +32,7 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	normalizeFloodControl(&cfg)
+	normalizeTurnstile(&cfg)
 
 	if err := validate(&cfg); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
@@ -138,6 +139,14 @@ bgp:
   local_as: 0
   listen_addresses: []
   add_path_receive: true
+
+# Public query form only. Leave empty to keep POST /api/v1/query open.
+# The node agent API (/agent/v1) authenticates with the node key and ignores this block.
+# hostnames are the public site names Turnstile must return. Omit localhost on production.
+turnstile:
+  site_key: ""
+  secret: ""
+  hostnames: []
 `, jwtSecret, credKey)
 	}
 
@@ -244,6 +253,9 @@ func validate(cfg *Config) error {
 			}
 		}
 	}
+	if err := validateTurnstile(cfg); err != nil {
+		return err
+	}
 	if cfg.FloodControl.Enabled {
 		if cfg.FloodControl.HTTPRateLimitPerMin < 0 {
 			return fmt.Errorf("flood_control.http_rate_limit_per_min must be >= 0")
@@ -257,6 +269,38 @@ func validate(cfg *Config) error {
 		if cfg.FloodControl.BruteForceBanMin < 0 {
 			return fmt.Errorf("flood_control.brute_force_ban_min must be >= 0")
 		}
+	}
+	return nil
+}
+
+func normalizeTurnstile(cfg *Config) {
+	cfg.Turnstile.SiteKey = strings.TrimSpace(cfg.Turnstile.SiteKey)
+	cfg.Turnstile.Secret = strings.TrimSpace(cfg.Turnstile.Secret)
+	hosts := make([]string, 0, len(cfg.Turnstile.Hostnames))
+	seen := make(map[string]struct{}, len(cfg.Turnstile.Hostnames))
+	for _, hostname := range cfg.Turnstile.Hostnames {
+		hostname = strings.TrimSpace(hostname)
+		if hostname == "" {
+			continue
+		}
+		if _, ok := seen[hostname]; ok {
+			continue
+		}
+		seen[hostname] = struct{}{}
+		hosts = append(hosts, hostname)
+	}
+	cfg.Turnstile.Hostnames = hosts
+}
+
+func validateTurnstile(cfg *Config) error {
+	hasKey := cfg.Turnstile.SiteKey != ""
+	hasSecret := cfg.Turnstile.Secret != ""
+	hasHosts := len(cfg.Turnstile.Hostnames) > 0
+	if !hasKey && !hasSecret && !hasHosts {
+		return nil
+	}
+	if !hasKey || !hasSecret || !hasHosts {
+		return fmt.Errorf("turnstile.site_key, turnstile.secret, and turnstile.hostnames must all be set together")
 	}
 	return nil
 }

@@ -14,6 +14,7 @@ export interface SiteSettings {
   url_privacy: string
   ping_count: string
   max_hops: string
+  turnstile_site_key: string
 }
 
 export const settingsDefaults: SiteSettings = {
@@ -30,6 +31,7 @@ export const settingsDefaults: SiteSettings = {
   url_privacy: '',
   ping_count: '5',
   max_hops: '30',
+  turnstile_site_key: '',
 }
 
 export interface SettingsContextType {

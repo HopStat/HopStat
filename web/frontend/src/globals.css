@@ -1210,6 +1210,14 @@
     margin-top: 0.75rem;
   }
 
+  .query-form-turnstile {
+    margin-top: 0.75rem;
+  }
+
+  .query-form-turnstile:empty {
+    display: none;
+  }
+
   .query-form-select:focus-visible {
     border-color: color-mix(in srgb, var(--brand-accent-line) 52%, var(--color-border));
     box-shadow:

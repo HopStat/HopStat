@@ -51,3 +51,12 @@ bgp:
   listen_addresses: []
   # Negotiate BGP ADD-PATH receive to learn multiple paths per prefix from peers.
   add_path_receive: true
+
+# Cloudflare Turnstile for the public query form and POST /api/v1/query.
+# Leave all three empty to keep that API open. Node agent calls on /agent/v1
+# use the node key and never require a Turnstile token.
+# hostnames: public site names the widget runs on. Do not list localhost in production.
+turnstile:
+  site_key: ""
+  secret: ""
+  hostnames: []

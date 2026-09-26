@@ -151,6 +151,9 @@ func TestGenerateServerConfigIncludesFloodControl(t *testing.T) {
 		"local_as: 0",
 		"listen_port: 11790",
 		"listen_addresses: []",
+		"turnstile:",
+		"site_key:",
+		"hostnames: []",
 		"tls_cert:",
 		"autocert_domain:",
 	} {
@@ -761,5 +764,77 @@ func TestGenerateWriteFileError(t *testing.T) {
 	err = Generate(dir+"/cfg.yaml", "server")
 	if err == nil {
 		t.Fatal("expected write error in read-only directory")
+	}
+}
+
+func writeTurnstileConfig(t *testing.T, extra string) string {
+	t.Helper()
+	content := `
+server:
+  host: "127.0.0.1"
+  port: 8080
+  mode: "server"
+security:
+  jwt_secret: "this-is-a-very-long-secret-key-for-testing"
+` + extra
+	f, err := os.CreateTemp("", "turnstile-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(f.Name()) })
+	return f.Name()
+}
+
+func TestLoadTurnstileDisabledByDefault(t *testing.T) {
+	path := writeTurnstileConfig(t, "")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Turnstile.Enabled() {
+		t.Fatal("turnstile should stay off when unset")
+	}
+}
+
+func TestLoadTurnstileEnabled(t *testing.T) {
+	path := writeTurnstileConfig(t, `
+turnstile:
+  site_key: " site "
+  secret: " secret "
+  hostnames: [" lg.example ", "", "lg.example"]
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Turnstile.SiteKey != "site" || cfg.Turnstile.Secret != "secret" {
+		t.Fatalf("keys = %#v", cfg.Turnstile)
+	}
+	if len(cfg.Turnstile.Hostnames) != 1 || cfg.Turnstile.Hostnames[0] != "lg.example" {
+		t.Fatalf("hostnames = %#v", cfg.Turnstile.Hostnames)
+	}
+	if !cfg.Turnstile.Enabled() {
+		t.Fatal("expected turnstile enabled")
+	}
+}
+
+func TestLoadTurnstileRequiresAllFields(t *testing.T) {
+	partials := []string{
+		"turnstile:\n  site_key: site\n",
+		"turnstile:\n  secret: secret\n",
+		"turnstile:\n  hostnames: [\"lg.example\"]\n",
+		"turnstile:\n  site_key: site\n  secret: secret\n",
+	}
+	for _, extra := range partials {
+		path := writeTurnstileConfig(t, extra)
+		if _, err := Load(path); err == nil {
+			t.Fatalf("expected error for %q", extra)
+		}
 	}
 }

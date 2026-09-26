@@ -73,6 +73,7 @@
   "result.best_route": "Aktif rota",
   "result.bgp_no_routes": "{{target}} için eşleşen BGP rotası bulunamadı.",
   "error.rate_limited": "Rate limit aşıldı.",
+  "error.turnstile": "Güvenlik doğrulaması başarısız. Sorguyu yeniden deneyin.",
   "error.node_not_found": "Node bulunamadı",
   "error.command_disabled": "Bu komut seçili node için etkin değil.",
   "error.invalid_target": "Geçersiz hedef adresi.",

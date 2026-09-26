@@ -73,6 +73,7 @@
   "result.best_route": "Route active",
   "result.bgp_no_routes": "Aucune route BGP correspondante pour {{target}}.",
   "error.rate_limited": "Rate limit dépassé.",
+  "error.turnstile": "La vérification de sécurité a échoué. Relancez la requête.",
   "error.node_not_found": "Node introuvable",
   "error.command_disabled": "Commande non activée pour ce node.",
   "error.invalid_target": "Adresse cible invalide.",

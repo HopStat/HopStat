@@ -14,6 +14,7 @@ import { listQueryHistory, deleteQueryHistory, type QueryHistoryRecord } from '@
 import { rankQueryHistory, type RankedQueryHistoryRecord } from '@/lib/query-history-search'
 import { blurActiveFieldPreservingScroll } from '@/lib/mobile-viewport'
 import { QueryErrorAlert } from '@/components/results/query-error-alert'
+import { TurnstileSession, loadTurnstileScript } from '@/lib/turnstile'
 const commands = [
   { value: 'ping', labelKey: 'cmd.ping' },
   { value: 'traceroute', labelKey: 'cmd.traceroute' },
@@ -110,6 +111,32 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
 
   const pingCount = parseInt(settings.ping_count as string) || 5
   const maxHops = parseInt(settings.max_hops as string) || 30
+  const turnstileSiteKey = (settings.turnstile_site_key || '').trim()
+  const turnstileBoxRef = useRef<HTMLDivElement>(null)
+  const turnstileSessionRef = useRef<TurnstileSession | null>(null)
+
+  useEffect(() => {
+    if (!turnstileSiteKey || !turnstileBoxRef.current) return
+    const session = new TurnstileSession()
+    turnstileSessionRef.current = session
+    let cancelled = false
+    loadTurnstileScript()
+      .then(() => {
+        if (cancelled || !window.turnstile || !turnstileBoxRef.current) return
+        window.turnstile.ready(() => {
+          if (cancelled || !window.turnstile || !turnstileBoxRef.current) return
+          session.mount(window.turnstile, turnstileBoxRef.current, turnstileSiteKey)
+        })
+      })
+      .catch(() => {
+        session.deliver(null)
+      })
+    return () => {
+      cancelled = true
+      session.remove(window.turnstile)
+      if (turnstileSessionRef.current === session) turnstileSessionRef.current = null
+    }
+  }, [turnstileSiteKey])
 
   useEffect(() => {
     api.get<Node[]>('/nodes').then(loaded => {
@@ -349,6 +376,23 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     setLoading(true)
     setError('')
     setSuggestionsOpen(false)
+    let turnstileToken = ''
+    if (turnstileSiteKey) {
+      const session = turnstileSessionRef.current
+      if (!session) {
+        setError(t('error.turnstile'))
+        setLoading(false)
+        return
+      }
+      try {
+        turnstileToken = await session.getToken(window.turnstile)
+      } catch {
+        session.reset(window.turnstile)
+        setError(t('error.turnstile'))
+        setLoading(false)
+        return
+      }
+    }
     try {
       const options: Record<string, number> = {}
       if (cmd === 'ping') options.ping_count = pingCount
@@ -359,6 +403,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
         command: cmd,
         target: trimmed,
         options,
+        ...(turnstileToken ? { 'cf-turnstile-response': turnstileToken } : {}),
       })
       const node = nodes.find(n => n.id === parseInt(effectiveNodeId))
       onQuerySubmit({
@@ -376,8 +421,9 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       setError(translateQueryError(t, code, raw || undefined))
     } finally {
       setLoading(false)
+      turnstileSessionRef.current?.reset(window.turnstile)
     }
-  }, [selectedNodeId, loading, pingCount, maxHops, nodes, onQuerySubmit, t])
+  }, [selectedNodeId, loading, pingCount, maxHops, nodes, onQuerySubmit, t, turnstileSiteKey])
 
   useEffect(() => {
     if (!initialQuery || initialQueryRanRef.current || !nodesLoaded) return
@@ -594,6 +640,8 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
           {submitButton}
         </div>
       </div>
+
+      {turnstileSiteKey ? <div ref={turnstileBoxRef} className="query-form-turnstile" /> : null}
 
       {showFormHint && (
         <p className="query-form-hint">

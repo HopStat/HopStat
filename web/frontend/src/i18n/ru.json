@@ -73,6 +73,7 @@
   "result.best_route": "Активный маршрут",
   "result.bgp_no_routes": "Подходящие BGP routes для {{target}} не найдены.",
   "error.rate_limited": "Превышен rate limit.",
+  "error.turnstile": "Проверка безопасности не пройдена. Повторите запрос.",
   "error.node_not_found": "Node не найден",
   "error.command_disabled": "Команда не включена для этого node.",
   "error.invalid_target": "Неверный адрес цели.",

@@ -73,6 +73,7 @@
   "result.best_route": "Active route",
   "result.bgp_no_routes": "No matching BGP routes for {{target}}.",
   "error.rate_limited": "Rate limit exceeded.",
+  "error.turnstile": "Security check failed. Please try the query again.",
   "error.node_not_found": "Node not found",
   "error.command_disabled": "Command not enabled for this node.",
   "error.invalid_target": "Invalid target address.",

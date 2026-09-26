@@ -73,6 +73,7 @@
   "result.best_route": "Aktive Route",
   "result.bgp_no_routes": "Keine passende BGP-Route für {{target}}.",
   "error.rate_limited": "Rate Limit überschritten.",
+  "error.turnstile": "Sicherheitsprüfung fehlgeschlagen. Bitte die Abfrage erneut senden.",
   "error.node_not_found": "Node nicht gefunden",
   "error.command_disabled": "Befehl für diesen Node nicht aktiviert.",
   "error.invalid_target": "Ungültige Zieladresse.",

@@ -46,7 +46,7 @@ func New(cfg *config.Config, db *sql.DB, geoDB *geo.GeoIPDB, distFS fs.FS, bgpMg
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "0")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://flagcdn.com; font-src 'self'; connect-src 'self'; frame-ancestors 'none'")
+		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://flagcdn.com; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'")
 		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		c.Next()
 	})
@@ -100,7 +100,7 @@ func (s *Server) setupRoutes() {
 		public.GET("/query/:id", handler.GetResult(s.db))
 		public.GET("/query/:id/stream", handler.StreamResult(s.db))
 		public.GET("/myip", handler.MyIP(s.geoDB))
-		public.GET("/settings", handler.GetPublicSettings(s.db, s.cfg.BGP))
+		public.GET("/settings", handler.GetPublicSettings(s.db, s.cfg.BGP, s.cfg.Turnstile.SiteKey))
 		public.GET("/communities", handler.ListPublicCommunities(s.db))
 		public.GET("/quick-queries", handler.ListPublicQuickQueries())
 	}
