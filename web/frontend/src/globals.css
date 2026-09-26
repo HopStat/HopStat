@@ -1212,10 +1212,7 @@
 
   .query-form-turnstile {
     margin-top: 0.75rem;
-  }
-
-  .query-form-turnstile:empty {
-    display: none;
+    min-height: 65px;
   }
 
   .query-form-select:focus-visible {
