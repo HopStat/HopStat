@@ -80,7 +80,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   ref,
 ) {
   const { t } = useI18n()
-  const { settings } = useSettings()
+  const { settings, loading: settingsLoading } = useSettings()
   const [nodes, setNodes] = useState<Node[]>([])
   const [nodesLoaded, setNodesLoaded] = useState(false)
   const [nodeId, setNodeId] = useState('')
@@ -425,8 +425,10 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     }
   }, [selectedNodeId, loading, pingCount, maxHops, nodes, onQuerySubmit, t, turnstileSiteKey])
 
+  // A shared link must not run before /settings says whether Turnstile is on — a first-time
+  // visitor has no cached site key, and a query sent without a token is refused.
   useEffect(() => {
-    if (!initialQuery || initialQueryRanRef.current || !nodesLoaded) return
+    if (!initialQuery || initialQueryRanRef.current || !nodesLoaded || settingsLoading) return
     initialQueryRanRef.current = true
 
     const linkedNodeId = resolveLinkedNodeId(nodes, initialQuery.node)
@@ -436,7 +438,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     setTarget(initialQuery.target)
     setNodeId(linkedNodeId)
     void submitQuery(initialQuery.command, initialQuery.target, linkedNodeId)
-  }, [initialQuery, nodesLoaded, nodes, submitQuery])
+  }, [initialQuery, nodesLoaded, settingsLoading, nodes, submitQuery])
 
   useImperativeHandle(ref, () => ({
     runQuery: async (cmd: string, tgt: string, nodeIdOverride?: string) => {
