@@ -4,6 +4,7 @@ import {
   buildBrandDarkSurfaces,
   buildBrandPalette,
   contrastRatio,
+  darkSurfaceHue,
   hexToHSL,
   hexToRgb,
   hslToRgb,
@@ -177,5 +178,23 @@ describe('the light surface constants match the stylesheet', () => {
     const theme = css.slice(css.indexOf('@theme'), css.indexOf('@layer base'))
     expect(theme).toContain(`--color-background: ${LIGHT_SURFACE_BG};`)
     expect(theme).toContain(`--color-card: ${LIGHT_SURFACE_CARD};`)
+  })
+})
+
+describe('dark surfaces for a yellow-green brand', () => {
+  it('lean cooler, the way the DGN panel pairs #77bc1f with ~136° surfaces', () => {
+    expect(darkSurfaceHue(86)).toBe(136)
+    expect(darkSurfaceHue(120)).toBe(140)
+  })
+
+  it('keep the hue of every other brand', () => {
+    for (const h of [0, 30, 49, 140, 217, 300]) expect(darkSurfaceHue(h)).toBe(h)
+  })
+
+  it('stay near-black and only lightly tinted', () => {
+    const surfaces = buildBrandDarkSurfaces(86, 72, '#77bc1f')
+    expect(surfaces.background).toBe('hsl(136 25.2% 5%)')
+    expect(surfaces.card).toBe('hsl(136 25.2% 6.5%)')
+    expect(surfaces.surfaceElevated).toBe('hsl(136 25.2% 10%)')
   })
 })

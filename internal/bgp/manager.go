@@ -152,7 +152,7 @@ func (m *SessionManager) RestartNeighbor(id int64) error {
 }
 
 func (m *SessionManager) Start(ctx context.Context) error {
-	m.bgpServer = server.NewBgpServer()
+	m.bgpServer = server.NewBgpServer(server.LoggerOption(newGobgpLogger(m)))
 
 	// Serve must run before StartBgp: mgmt APIs block on mgmtCh until the event loop is active.
 	go func() {
@@ -288,6 +288,10 @@ func (m *SessionManager) AddNeighbor(n *domain.BGPNeighbor) error {
 	}
 	m.nodeNeighbors[n.NodeID][n.ID] = struct{}{}
 	m.states[n.ID] = domain.BGPSessionIdle
+	if m.stateSince == nil {
+		m.stateSince = make(map[int64]time.Time)
+	}
+	m.stateSince[n.ID] = time.Now()
 	m.mu.Unlock()
 
 	if neighborIP != "" {
@@ -762,16 +766,14 @@ func (m *SessionManager) handleWatchPeerEvent(ev *api.WatchEventResponse) {
 	neighborAddr := peer.State.NeighborAddress
 	state := apiStateToDomain(peer.State.SessionState)
 
-	m.mu.RLock()
-	for id, entry := range m.neighbors {
-		if entry.neighborIP == neighborAddr || entry.ipv6NeighborIP == neighborAddr {
-			prev := m.states[id]
-			m.mu.RUnlock()
-			m.handlePeerStateChange(id, neighborAddr, prev, state, peerEv)
-			return
-		}
+	id, ok := m.neighborIDForAddress(neighborAddr)
+	if !ok {
+		return
 	}
+	m.mu.RLock()
+	prev := m.states[id]
 	m.mu.RUnlock()
+	m.handlePeerStateChange(id, neighborAddr, prev, state, peerEv)
 }
 
 func (m *SessionManager) pathToRouteEntry(path *api.Path, prefix string) *domain.BGPRouteEntry {

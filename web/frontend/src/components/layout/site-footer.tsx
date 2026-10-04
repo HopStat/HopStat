@@ -33,7 +33,7 @@ export function SiteFooter() {
   const hasLeftLinks = hasCommunities || externalLinks.length > 0 || turnstileActive
 
   return (
-    <footer className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
+    <footer className="site-footer fixed bottom-0 inset-x-0 z-40 border-t border-border pb-[env(safe-area-inset-bottom)]">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-1 sm:py-2 flex items-center justify-between gap-2 sm:gap-2 min-h-[2.25rem] sm:min-h-[2.5rem]">
         <div className="flex items-center gap-1.5 sm:gap-1.5 flex-nowrap min-w-0 overflow-hidden">
           {hasCommunities && (

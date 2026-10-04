@@ -319,7 +319,16 @@
   }
 
   .dark .query-console {
-    border-color: color-mix(in srgb, var(--brand-accent-line) 20%, var(--color-border));
+    border-color: var(--color-border);
+  }
+
+  .site-footer {
+    background: var(--color-card);
+  }
+
+  /* Footer sits below the page, darker than it — the corporate site's sunken band. */
+  .dark .site-footer {
+    background: color-mix(in srgb, var(--color-background) 68%, #000);
   }
 
   .query-header {
@@ -861,8 +870,8 @@
   .dark .query-home-card {
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--brand) 10%, var(--color-surface-elevated)) 0%,
-      color-mix(in srgb, var(--brand) 6%, var(--color-card)) 100%
+      var(--color-surface-elevated) 0%,
+      var(--color-card) 100%
     );
   }
 
@@ -1074,30 +1083,18 @@
   }
 
   .dark .query-form-select {
-    border-color: color-mix(in srgb, var(--brand) 18%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 18%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 10%, var(--color-background)) 100%
-    );
+    border-color: var(--color-border);
+    background: var(--color-background);
   }
 
   .dark .query-form-field {
-    border-color: color-mix(in srgb, var(--brand) 18%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 18%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 10%, var(--color-background)) 100%
-    );
+    border-color: var(--color-border);
+    background: var(--color-background);
   }
 
   .dark .query-form-field:focus-within {
     border-color: color-mix(in srgb, var(--brand-accent-line) 52%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 24%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 14%, var(--color-background)) 100%
-    );
+    background: var(--color-background);
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 16%, transparent),
       var(--shadow-soft),
@@ -1118,20 +1115,12 @@
   }
 
   .dark .query-form-select__node {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 20%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 11%, var(--color-background)) 100%
-    );
+    background: var(--color-background);
     color: color-mix(in srgb, var(--brand-accent-line) 55%, var(--color-foreground));
   }
 
   .dark .query-form-select__node:focus-visible {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 24%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 14%, var(--color-background)) 100%
-    );
+    background: var(--color-background);
   }
 
   html[data-brand-dark="true"]:not(.dark) .query-form-select {
@@ -1237,11 +1226,7 @@
 
   .dark .corporate-background {
     background-color: var(--color-background);
-    background-image: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 14%, var(--color-background)) 0%,
-      var(--color-background) 14rem
-    );
+    background-image: none;
   }
 
   .brand-accent-line {
@@ -1285,11 +1270,7 @@
   }
 
   .dark .query-header-band {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 30%, var(--color-card)) 0%,
-      color-mix(in srgb, var(--brand) 14%, var(--color-card)) 100%
-    );
+    background: var(--color-card);
   }
 
   .query-header-band::after {
@@ -2207,7 +2188,7 @@
   }
 
   .dark .query-results-waiting {
-    background: color-mix(in srgb, var(--brand) 8%, var(--color-surface-elevated));
+    background: var(--color-surface-elevated);
   }
 
   .query-sticky-inner {
@@ -2480,11 +2461,7 @@
   }
 
   .dark .admin-sidebar__brand {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 30%, var(--color-card)) 0%,
-      color-mix(in srgb, var(--brand) 14%, var(--color-card)) 100%
-    );
+    background: var(--color-card);
   }
 
   .admin-sidebar__brand-close {
@@ -2807,8 +2784,8 @@
   .dark .admin-panel {
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--brand) 12%, var(--color-surface-elevated)) 0%,
-      color-mix(in srgb, var(--brand) 7%, var(--color-card)) 100%
+      var(--color-surface-elevated) 0%,
+      var(--color-card) 100%
     );
     border-color: color-mix(in srgb, var(--brand-accent-line) 22%, var(--color-border));
     box-shadow:

@@ -379,7 +379,9 @@ func TestApplySuccessWithoutExec(t *testing.T) {
 	runtimeGOOS = "linux"
 	t.Setenv("LG_UPDATE_ENABLED", "")
 
+	var calls []string
 	execProcess = func(path string, argv []string, envv []string) error {
+		calls = append(calls, "exec")
 		return nil
 	}
 
@@ -397,8 +399,13 @@ func TestApplySuccessWithoutExec(t *testing.T) {
 
 	u := New("HopStat/HopStat", "v1.0.0", true)
 	u.SetReleaseAPIURL(srv.URL)
+	// BGP sessions must be closed before the exec replaces the process.
+	u.SetBeforeRestart(func() { calls = append(calls, "stop-bgp") })
 	if err := u.Apply(context.Background()); err != nil {
 		t.Fatalf("Apply error: %v", err)
+	}
+	if strings.Join(calls, ",") != "stop-bgp,exec" {
+		t.Fatalf("calls = %v, want stop-bgp then exec", calls)
 	}
 
 	got, err := os.ReadFile(binPath)

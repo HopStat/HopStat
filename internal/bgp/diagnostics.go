@@ -156,6 +156,26 @@ func sessionTransitionHint(prev, next domain.BGPSessionState) string {
 	}
 }
 
+// passiveTransitionHint replaces the hints that describe an outbound connect: a passive
+// neighbor never dials out, it waits for the peer to connect to us on TCP/179.
+func passiveTransitionHint(prev, next domain.BGPSessionState) string {
+	switch {
+	case prev == domain.BGPSessionActive && next == domain.BGPSessionIdle:
+		return "no inbound connection from the peer — check that the peer targets our bind address and that TCP/179 is allowed towards us"
+	case next == domain.BGPSessionActive:
+		return "passive mode — waiting for the peer to open a TCP connection to our port 179"
+	default:
+		return sessionTransitionHint(prev, next)
+	}
+}
+
+func transitionHint(prev, next domain.BGPSessionState, passive bool) string {
+	if passive {
+		return passiveTransitionHint(prev, next)
+	}
+	return sessionTransitionHint(prev, next)
+}
+
 func logLevelForStateChange(prev, next domain.BGPSessionState) string {
 	if next == domain.BGPSessionEstablished {
 		return "info"
@@ -216,9 +236,9 @@ func (m *SessionManager) fetchPeerByAddress(ctx context.Context, addr string) (*
 	return found, nil
 }
 
-func (m *SessionManager) buildStateChangeMessage(prev, next domain.BGPSessionState, neighborAddr string, peer *api.Peer, inStateFor time.Duration) string {
+func (m *SessionManager) buildStateChangeMessage(prev, next domain.BGPSessionState, neighborAddr string, peer *api.Peer, inStateFor time.Duration, passive bool) string {
 	msg := fmt.Sprintf("state %s → %s", prev, next)
-	if hint := sessionTransitionHint(prev, next); hint != "" {
+	if hint := transitionHint(prev, next, passive); hint != "" {
 		msg += "; " + hint
 	}
 	if peer != nil {
@@ -254,7 +274,11 @@ func (m *SessionManager) handlePeerStateChange(id int64, neighborAddr string, pr
 	if m.stateSince == nil {
 		m.stateSince = make(map[int64]time.Time)
 	}
-	inStateFor := now.Sub(m.stateSince[id])
+	// Zero until the neighbor is added; a zero start would print a ~292-year duration.
+	var inStateFor time.Duration
+	if since := m.stateSince[id]; !since.IsZero() {
+		inStateFor = now.Sub(since)
+	}
 	m.stateSince[id] = now
 	m.states[id] = next
 	m.mu.Unlock()
@@ -274,10 +298,11 @@ func (m *SessionManager) handlePeerStateChange(id int64, neighborAddr string, pr
 		cancel()
 	}
 
-	msg := m.buildStateChangeMessage(prev, next, neighborAddr, peer, inStateFor)
+	passive := m.isPassive(id)
+	msg := m.buildStateChangeMessage(prev, next, neighborAddr, peer, inStateFor, passive)
 	m.recordEvent(id, level, msg, neighborAddr)
 	slogFields := []any{"neighbor_id", id, "neighbor", neighborAddr, "prev", prev, "state", next, "level", level}
-	if hint := sessionTransitionHint(prev, next); hint != "" {
+	if hint := transitionHint(prev, next, passive); hint != "" {
 		slogFields = append(slogFields, "hint", hint)
 	}
 	switch level {
@@ -349,7 +374,11 @@ func (m *SessionManager) logStuckSessions(ctx context.Context, lastLogged map[in
 			}
 			msg := fmt.Sprintf("session not established (state=%s, in_state_for=%s); %s",
 				p.state, inStateFor.Truncate(time.Second), formatPeerSnapshot(snap))
-			if hint := stuckStateHint(p.state); hint != "" {
+			hint := stuckStateHint(p.state)
+			if p.entry.neighbor != nil && p.entry.neighbor.PassiveMode && (p.state == domain.BGPSessionActive || p.state == domain.BGPSessionConnect) {
+				hint = "passive mode — no inbound TCP/179 connection from the peer yet; check the peer's neighbor config and ACLs towards our bind address"
+			}
+			if hint != "" {
 				msg += "; " + hint
 			}
 			m.recordEvent(p.id, "warn", msg, addr)

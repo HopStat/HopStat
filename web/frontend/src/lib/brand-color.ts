@@ -14,9 +14,9 @@ export const LIGHT_SURFACE_CARD = '#ffffff'
 /** Dark-theme surfaces are derived from the brand hue rather than fixed, so the accent has
  *  to be solved against them. These are the lightness stops buildBrandDarkSurfaces uses for
  *  the page and card; keeping them here is what stops the two from drifting. */
-const DARK_SURFACE_BG_L = 7
-const DARK_SURFACE_CARD_L = 10
-const DARK_SURFACE_ELEVATED_L = 13
+const DARK_SURFACE_BG_L = 5
+const DARK_SURFACE_CARD_L = 6.5
+const DARK_SURFACE_ELEVATED_L = 10
 
 /** Preferred pair for text on a brand fill — softer than pure black/white, and enough for
  *  every brand colour except a narrow mid band. */
@@ -120,8 +120,13 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
 
+/** Saturation is derived by multiplication, so keep float noise out of the CSS value. */
+function round1(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
 function hsl(h: number, s: number, l: number): string {
-  return `hsl(${h} ${clamp(s, 0, 100)}% ${clamp(l, 0, 100)}%)`
+  return `hsl(${round1(h)} ${round1(clamp(s, 0, 100))}% ${round1(clamp(l, 0, 100))}%)`
 }
 
 export function hexToRgb(hex: string): [number, number, number] | null {
@@ -253,9 +258,32 @@ export function solveReadableAccent(
   return solveLightness(h, sat, surfaceLums, target, onLightSurfaces ? 40 : 60)
 }
 
-/** Saturation buildBrandDarkSurfaces tints its surfaces with. */
+/** Saturation buildBrandDarkSurfaces tints its surfaces with. Dark surfaces stay close to
+ *  neutral — a hint of the brand hue, never a wash of it — so the brand fill itself is what
+ *  carries the colour, the way the corporate site's dark theme does. */
 function darkSurfaceSaturation(s: number): number {
-  return clamp(Math.max(s, 22), 18, 70)
+  return clamp(s * 0.35, 0, 26)
+}
+
+/** Yellow-greens turn muddy when darkened, so their dark surfaces lean about 50° cooler —
+ *  the DGN panel pairs a #77bc1f brand (86°) with surfaces near 136°. Other hues keep their
+ *  own angle; rotating them would drift a blue towards violet or a red towards magenta. */
+const WARM_GREEN_START = 50
+const COOL_GREEN_TARGET = 140
+const DARK_HUE_SHIFT = 50
+
+export function darkSurfaceHue(h: number): number {
+  if (h < WARM_GREEN_START || h >= COOL_GREEN_TARGET) return h
+  return Math.min(h + DARK_HUE_SHIFT, COOL_GREEN_TARGET)
+}
+
+/** Text on dark surfaces is nearly neutral; only a trace of the hue remains. */
+function darkTextSaturation(s: number): number {
+  return clamp(s * 0.2, 0, 13)
+}
+
+function darkMutedTextSaturation(s: number): number {
+  return clamp(s * 0.12, 0, 8)
 }
 
 /** The stylesheet paints many surfaces as color-mix(in srgb, brand N%, base) — the header
@@ -295,9 +323,9 @@ export function tintedSurfaceLuminances(
   const bases: Array<[[number, number, number], number]> =
     theme === 'dark'
       ? [
-          [hslToRgb(h, sat, DARK_SURFACE_CARD_L), MAX_TINT_OVER_CARD],
-          [hslToRgb(h, sat, DARK_SURFACE_BG_L), MAX_TINT_OVER_BG],
-          [hslToRgb(h, sat, DARK_SURFACE_ELEVATED_L), MAX_TINT_OVER_CARD],
+          [hslToRgb(darkSurfaceHue(h), sat, DARK_SURFACE_CARD_L), MAX_TINT_OVER_CARD],
+          [hslToRgb(darkSurfaceHue(h), sat, DARK_SURFACE_BG_L), MAX_TINT_OVER_BG],
+          [hslToRgb(darkSurfaceHue(h), sat, DARK_SURFACE_ELEVATED_L), MAX_TINT_OVER_CARD],
         ]
       : [
           [hexToRgb(LIGHT_SURFACE_CARD) as [number, number, number], MAX_TINT_OVER_CARD],
@@ -318,8 +346,8 @@ function surfaceLuminances(h: number, s: number, theme: 'light' | 'dark'): numbe
   if (theme === 'dark') {
     const sat = darkSurfaceSaturation(s)
     return [
-      relativeLuminance(hslToRgb(h, sat, DARK_SURFACE_BG_L)),
-      relativeLuminance(hslToRgb(h, sat, DARK_SURFACE_CARD_L)),
+      relativeLuminance(hslToRgb(darkSurfaceHue(h), sat, DARK_SURFACE_BG_L)),
+      relativeLuminance(hslToRgb(darkSurfaceHue(h), sat, DARK_SURFACE_CARD_L)),
     ]
   }
   return [hexLuminance(LIGHT_SURFACE_BG), hexLuminance(LIGHT_SURFACE_CARD)]
@@ -335,18 +363,19 @@ export interface BrandTerminalColors {
 
 /** Terminal output colors — dark console in dark theme, light surface in light theme. */
 export function buildTerminalColors(h: number, s: number, theme: 'light' | 'dark'): BrandTerminalColors {
-  const sat = clamp(Math.max(s, 20), 18, 70)
+  const sat = theme === 'dark' ? darkSurfaceSaturation(s) : clamp(Math.max(s, 20), 18, 70)
 
   // Text on the console is solved against its own background rather than placed at a fixed
   // lightness. The stops that used to be here read fine for a blue and failed badly for a
   // yellow, because equal HSL lightness is not equal luminance.
   if (theme === 'dark') {
-    const bgLum = relativeLuminance(hslToRgb(h, sat, 8))
+    const sh = darkSurfaceHue(h)
+    const bgLum = relativeLuminance(hslToRgb(sh, sat, DARK_SURFACE_BG_L))
     return {
-      bg: hsl(h, sat, 8),
-      border: hsl(h, sat, 16),
-      fg: solveLightness(h, clamp(s - 20, 6, 30), [bgLum], AA_TEXT, 82),
-      muted: solveLightness(h, clamp(s - 16, 8, 36), [bgLum], AA_TEXT, 52),
+      bg: hsl(sh, sat, DARK_SURFACE_BG_L),
+      border: hsl(sh, sat, DARK_SURFACE_ELEVATED_L),
+      fg: solveLightness(sh, darkTextSaturation(s), [bgLum], AA_TEXT, 82),
+      muted: solveLightness(sh, darkMutedTextSaturation(s), [bgLum], AA_TEXT, 55),
       asn: solveLightness(h, clamp(s + 10, 42, 78), [bgLum], AA_TEXT, 72),
     }
   }
@@ -371,35 +400,36 @@ export function isDarkBrandColor(hex: string): boolean {
 /** Brand-tinted page surfaces for dark mode. */
 export function buildBrandDarkSurfaces(h: number, s: number, brand: string): BrandDarkSurfaces {
   const sat = darkSurfaceSaturation(s)
-  const textSat = clamp(s - 22, 6, 34)
+  const sh = darkSurfaceHue(h)
+  const textSat = darkTextSaturation(s)
 
   // Secondary text and the input boundary are solved against the surfaces they land on.
   // Both used to sit at fixed lightness: mutedForeground missed 4.5:1 on light-luminance
   // hues, and the input boundary — the only affordance marking where a field is, since its
   // fill barely differs from the card — missed 3:1 for every hue.
-  const cardLum = relativeLuminance(hslToRgb(h, sat, DARK_SURFACE_CARD_L))
-  const bgLum = relativeLuminance(hslToRgb(h, sat, DARK_SURFACE_BG_L))
-  const mutedLum = relativeLuminance(hslToRgb(h, sat, 11))
-  const elevatedLum = relativeLuminance(hslToRgb(h, sat, DARK_SURFACE_ELEVATED_L))
+  const cardLum = relativeLuminance(hslToRgb(sh, sat, DARK_SURFACE_CARD_L))
+  const bgLum = relativeLuminance(hslToRgb(sh, sat, DARK_SURFACE_BG_L))
+  const mutedLum = relativeLuminance(hslToRgb(sh, sat, 8))
+  const elevatedLum = relativeLuminance(hslToRgb(sh, sat, DARK_SURFACE_ELEVATED_L))
   const textSurfaces = [bgLum, cardLum, mutedLum, elevatedLum, ...tintedSurfaceLuminances(brand, h, s, 'dark')]
 
   return {
-    background: hsl(h, sat, DARK_SURFACE_BG_L),
-    foreground: hsl(h, textSat, 93),
-    muted: hsl(h, sat, 11),
-    mutedForeground: solveLightness(h, clamp(s - 12, 8, 42), textSurfaces, AA_TEXT, 58),
-    border: hsl(h, sat, 17),
-    card: hsl(h, sat, DARK_SURFACE_CARD_L),
-    cardForeground: hsl(h, textSat, 93),
-    popover: hsl(h, sat, 11),
-    popoverForeground: hsl(h, textSat, 93),
-    accent: hsl(h, sat, 14),
-    accentForeground: hsl(h, textSat, 93),
-    input: solveLightness(h, sat, [cardLum], AA_OBJECT, 19),
-    surfaceElevated: hsl(h, sat, DARK_SURFACE_ELEVATED_L),
-    sidebar: hsl(h, sat, 8),
-    sidebarForeground: hsl(h, clamp(s - 8, 8, 40), 68),
-    sidebarBorder: hsl(h, sat, 15),
+    background: hsl(sh, sat, DARK_SURFACE_BG_L),
+    foreground: hsl(sh, textSat, 93),
+    muted: hsl(sh, sat, 8),
+    mutedForeground: solveLightness(sh, darkMutedTextSaturation(s), textSurfaces, AA_TEXT, 55),
+    border: hsl(sh, sat, DARK_SURFACE_ELEVATED_L),
+    card: hsl(sh, sat, DARK_SURFACE_CARD_L),
+    cardForeground: hsl(sh, textSat, 93),
+    popover: hsl(sh, sat, 8),
+    popoverForeground: hsl(sh, textSat, 93),
+    accent: hsl(sh, sat, 15),
+    accentForeground: hsl(sh, textSat, 93),
+    input: solveLightness(sh, sat, [cardLum], AA_OBJECT, 22),
+    surfaceElevated: hsl(sh, sat, DARK_SURFACE_ELEVATED_L),
+    sidebar: hsl(sh, sat, DARK_SURFACE_CARD_L),
+    sidebarForeground: hsl(sh, darkMutedTextSaturation(s), 62),
+    sidebarBorder: hsl(sh, sat, DARK_SURFACE_ELEVATED_L),
   }
 }
 
@@ -417,8 +447,22 @@ export function solveMutedForeground(
   surfaceLums: number[],
   theme: 'light' | 'dark',
 ): string {
-  const sat = Math.min(s, MUTED_SATURATION)
-  return solveLightness(h, sat, surfaceLums, AA_TEXT, theme === 'dark' ? 62 : 42)
+  if (theme === 'dark') {
+    return solveLightness(darkSurfaceHue(h), darkMutedTextSaturation(s), surfaceLums, AA_TEXT, 55)
+  }
+  return solveLightness(h, Math.min(s, MUTED_SATURATION), surfaceLums, AA_TEXT, 42)
+}
+
+/**
+ * Text on a brand fill in dark mode: a near-black of the brand's own hue rather than the
+ * light theme's navy ink, which reads as a foreign colour on a green or orange button.
+ * Falls back to the shared pick when the tinted ink cannot clear AA on this fill.
+ */
+function pickOnBrandDark(brand: string, h: number, s: number): string {
+  const brandLum = hexLuminance(brand)
+  const ink = rgbToHex(hslToRgb(h, clamp(s * 0.3, 0, 20), 7))
+  if (contrastRatio(hexLuminance(ink), brandLum) >= AA_TEXT) return ink
+  return pickOnColor(brandLum)
 }
 
 interface ContrastTokens {
@@ -436,7 +480,7 @@ interface ContrastTokens {
 function contrastTokens(brand: string, h: number, s: number, theme: 'light' | 'dark'): ContrastTokens {
   const surfaces = surfaceLuminances(h, s, theme)
   return {
-    foreground: pickOnColor(hexLuminance(brand)),
+    foreground: theme === 'dark' ? pickOnBrandDark(brand, h, s) : pickOnColor(hexLuminance(brand)),
     accent: solveReadableAccent(h, s, surfaces, AA_TEXT),
     accentUi: solveReadableAccent(h, s, surfaces, AA_OBJECT),
     muted: solveMutedForeground(h, s, [...surfaces, ...tintedSurfaceLuminances(brand, h, s, theme)], theme),

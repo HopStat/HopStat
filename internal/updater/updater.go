@@ -75,6 +75,7 @@ type Updater struct {
 	dlClient      *http.Client
 	statusCacheMu sync.Mutex
 	statusCache   map[string]cachedStatus
+	beforeRestart func()
 }
 
 type cachedStatus struct {
@@ -94,6 +95,13 @@ func New(repo, currentVersion string, enabled bool) *Updater {
 		apiClient: &http.Client{Timeout: 15 * time.Second},
 		dlClient:  &http.Client{Timeout: 10 * time.Minute},
 	}
+}
+
+// SetBeforeRestart registers work to finish before the process is replaced. Exec skips
+// deferred shutdown code, so without it open BGP sessions die with the old process and
+// the peer sees a broken pipe instead of a Cease NOTIFICATION.
+func (u *Updater) SetBeforeRestart(fn func()) {
+	u.beforeRestart = fn
 }
 
 // SetEnabledSource supplies a live answer for whether self-update is allowed, so the
@@ -322,6 +330,9 @@ func (u *Updater) Apply(ctx context.Context) error {
 		return fmt.Errorf("replace binary: %w", err)
 	}
 
+	if u.beforeRestart != nil {
+		u.beforeRestart()
+	}
 	slog.Info("restarting with new binary", "path", execPath)
 	return execProcess(execPath, os.Args, os.Environ())
 }

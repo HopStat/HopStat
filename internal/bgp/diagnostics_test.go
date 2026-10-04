@@ -200,7 +200,7 @@ func TestBuildStateChangeMessage(t *testing.T) {
 		Conf:  &api.PeerConf{Type: api.PeerType_EXTERNAL},
 		State: &api.PeerState{AdminState: api.PeerState_UP},
 	}
-	msg := mgr.buildStateChangeMessage(domain.BGPSessionOpenConfirm, domain.BGPSessionIdle, "10.0.0.2", peer, time.Minute)
+	msg := mgr.buildStateChangeMessage(domain.BGPSessionOpenConfirm, domain.BGPSessionIdle, "10.0.0.2", peer, time.Minute, false)
 	for _, want := range []string{"open_confirm", "idle", "NOTIFICATION", "admin=up", "in_state_for=1m0s", "firewall"} {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("message = %q, missing %q", msg, want)
