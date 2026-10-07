@@ -27,6 +27,12 @@ func IsBlockedIP(ip net.IP) bool {
 		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
 			return true
 		}
+		// Limited broadcast. IsMulticast only covers 224.0.0.0/4, so the top of
+		// the address space falls through it and a query naming 255.255.255.255
+		// would have the driver exec a ping against the broadcast address.
+		if ip4.Equal(net.IPv4bcast) {
+			return true
+		}
 	}
 	return false
 }

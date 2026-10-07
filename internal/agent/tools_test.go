@@ -49,6 +49,7 @@ func TestIsBlockedIP(t *testing.T) {
 		{"100.63.0.1", false},
 		{"0.1.2.3", true},
 		{"224.0.0.1", true},
+		{"255.255.255.255", true},
 		{"fe80::1", true},
 		{"2001:4860:4860::8888", false},
 		{"8.8.8.8", false},
@@ -259,5 +260,22 @@ func TestRunBGPRouteInvalidPrefix(t *testing.T) {
 	_, err := runBGPRoute(context.Background(), "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected blocked target error")
+	}
+}
+
+// Regression: isBlockedIP used to let 255.255.255.255 through. IsMulticast covers
+// only 224.0.0.0/4, so the broadcast address fell through every branch and runPing
+// would have exec'd ping against it.
+func TestIsBlockedIPRejectsLimitedBroadcast(t *testing.T) {
+	if !isBlockedIP(net.ParseIP("255.255.255.255")) {
+		t.Fatal("isBlockedIP(255.255.255.255) = false; the limited broadcast address must be blocked")
+	}
+	if isValidTarget("255.255.255.255") {
+		t.Fatal("isValidTarget accepted 255.255.255.255")
+	}
+	for _, s := range []string{"8.8.8.8", "1.1.1.1"} {
+		if isBlockedIP(net.ParseIP(s)) {
+			t.Errorf("isBlockedIP(%q) = true; public addresses must stay dialable", s)
+		}
 	}
 }

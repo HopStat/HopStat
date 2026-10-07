@@ -3,6 +3,7 @@ package target
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 	"time"
 
@@ -89,5 +90,25 @@ func TestValidateQueryTargetBlocked(t *testing.T) {
 	_, err := ValidateQueryTarget(context.Background(), "ping", "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected blocked IP error")
+	}
+}
+
+// Regression: 255.255.255.255 used to pass IsBlockedIP. IsMulticast covers only
+// 224.0.0.0/4, so the top of the address space fell through every branch and a
+// query naming it reached internal/driver/standalone, which execs ping against the
+// broadcast address.
+func TestIsBlockedIPRejectsLimitedBroadcast(t *testing.T) {
+	if !IsBlockedIP(net.ParseIP("255.255.255.255")) {
+		t.Fatal("IsBlockedIP(255.255.255.255) = false; the limited broadcast address must be blocked")
+	}
+	// The behavioural contract: the query gate must refuse it, not just the helper.
+	if _, err := ValidateQueryTarget(context.Background(), "ping", "255.255.255.255"); err == nil {
+		t.Fatal("ValidateQueryTarget accepted 255.255.255.255 as a ping target")
+	}
+	// Controls: ordinary public addresses stay dialable.
+	for _, s := range []string{"8.8.8.8", "1.1.1.1", "93.184.216.34"} {
+		if IsBlockedIP(net.ParseIP(s)) {
+			t.Errorf("IsBlockedIP(%q) = true; public addresses must stay dialable", s)
+		}
 	}
 }
