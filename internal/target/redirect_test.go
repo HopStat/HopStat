@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -73,13 +74,25 @@ func TestCheckSameHostRedirectAllowsSameHost(t *testing.T) {
 
 // Every http.Client built in production code must carry the policy. The four vendor
 // clients are easy to harden once and easy to regress by adding a fifth later, so the
-func TestEveryProductionHTTPClientRefusesCrossHostRedirects(t *testing.T) {
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+// repoRoot locates the repository from this file's own path rather than the process
+// working directory. Deriving it from the cwd meant the guard resolved to whatever
+// directory the binary happened to start in, walked an empty tree, found no clients,
+// and passed vacuously — a guard that silently stops guarding.
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate this test file, so the repository root is unknown")
 	}
+	// thisFile is <root>/internal/target/redirect_test.go
+	return filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
+}
+
+func TestEveryProductionHTTPClientRefusesCrossHostRedirects(t *testing.T) {
+	root := repoRoot(t)
 
 	var offenders []string
+	scanned := 0
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -98,6 +111,7 @@ func TestEveryProductionHTTPClientRefusesCrossHostRedirects(t *testing.T) {
 		// "}" inside a string or comment, and a fixed line window lets one literal's
 		// CheckRedirect vouch for its neighbour. The AST gives each client its exact
 		// construct and ignores comments and string contents.
+		scanned++
 		fset := token.NewFileSet()
 		file, parseErr := parser.ParseFile(fset, path, nil, 0)
 		if parseErr != nil {
@@ -149,6 +163,9 @@ func TestEveryProductionHTTPClientRefusesCrossHostRedirects(t *testing.T) {
 	})
 	if walkErr != nil {
 		t.Fatalf("walk: %v", walkErr)
+	}
+	if scanned == 0 {
+		t.Fatalf("no Go files found under %s; the walk root is wrong, so this guard would pass vacuously", root)
 	}
 	if len(offenders) > 0 {
 		sort.Strings(offenders)
