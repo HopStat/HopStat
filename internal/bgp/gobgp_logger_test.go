@@ -32,6 +32,30 @@ func lastLog(t *testing.T, mgr *SessionManager, id int64) LogEntry {
 	return logs[len(logs)-1]
 }
 
+// waitForLog polls for a neighbor entry containing want and returns it.
+//
+// lastLog returns the newest entry, which races the peer watcher: it records a
+// state-transition log for the same neighbor, and under -coverpkg that can land
+// after the entry under test. Searching for the expected message instead of
+// asserting on position tests the actual claim — that the entry was recorded —
+// without depending on which concurrent writer appended last.
+func waitForLog(t *testing.T, mgr *SessionManager, id int64, want string) LogEntry {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		for _, l := range mgr.GetNeighborLogs(id, 50) {
+			if strings.Contains(l.Message, want) {
+				return l
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no log entry containing %q for neighbor %d; last was %q",
+				want, id, lastLog(t, mgr, id).Message)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 func TestGobgpLoggerRecordsPeerDownReason(t *testing.T) {
 	mgr := managerWithNeighbor(t, false)
 	l := newGobgpLogger(mgr)
@@ -189,7 +213,5 @@ func TestLogStuckSessionsPassiveHint(t *testing.T) {
 	mgr.mu.Unlock()
 
 	mgr.logStuckSessions(ctx, make(map[int64]time.Time))
-	if got := lastLog(t, mgr, 61); !strings.Contains(got.Message, "no inbound TCP/179 connection") {
-		t.Fatalf("message = %q", got.Message)
-	}
+	waitForLog(t, mgr, 61, "no inbound TCP/179 connection")
 }
