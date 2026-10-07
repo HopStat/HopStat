@@ -484,3 +484,26 @@ func TestQueries_CleanupAuditLogs(t *testing.T) {
 		t.Errorf("remaining command: got %q, want %q", remaining[0].Command, "bgp_lookup")
 	}
 }
+
+// endOfDayBound only appends the time-of-day to a bound that is a bare calendar date; a
+// bound that already carries a time is passed through untouched. Both branches matter —
+// the pass-through is what a caller supplying an exact cutoff relies on.
+func TestEndOfDayBound(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "bare date gets the end of that day", in: "2024-06-30", want: "2024-06-30 23:59:59"},
+		{name: "full timestamp passes through", in: "2024-06-30 12:00:00", want: "2024-06-30 12:00:00"},
+		{name: "empty passes through", in: "", want: ""},
+		{name: "already end of day passes through", in: "2024-06-30 23:59:59", want: "2024-06-30 23:59:59"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := endOfDayBound(tt.in); got != tt.want {
+				t.Fatalf("endOfDayBound(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

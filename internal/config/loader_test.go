@@ -881,3 +881,21 @@ turnstile:
 		t.Fatalf("Load: %v", err)
 	}
 }
+
+// isRepetitionOfBlock refuses a period that cannot describe a repeated block: one that is
+// zero or negative, and one that already spans the whole string.
+func TestIsRepetitionOfBlockBounds(t *testing.T) {
+	if isRepetitionOfBlock("abc", 0) {
+		t.Fatal("zero period should be refused")
+	}
+	if isRepetitionOfBlock("abc", -1) {
+		t.Fatal("negative period should be refused")
+	}
+	if isRepetitionOfBlock("ab", 2) {
+		t.Fatal("a period spanning the whole string is not a repetition")
+	}
+	// A period that is short enough to repeat is the real case.
+	if !isRepetitionOfBlock("abab", 2) {
+		t.Fatal("isRepetitionOfBlock(\"abab\", 2) = false, want true")
+	}
+}
