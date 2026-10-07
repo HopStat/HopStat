@@ -149,3 +149,77 @@ func TestGetHandlesNilStoredResult(t *testing.T) {
 		t.Fatalf("Get = %+v, want nil for a nil stored result", got)
 	}
 }
+
+// MergePartial must not retain the caller's slices by reference.
+//
+// The caller keeps filling its result after OnPartial returns — engine.go:241-242
+// writes result.ASPathNodes and calls applyBGPASPath — while a concurrent Get hands
+// out a shallow copy. If ASPath still pointed at the engine's backing array, the
+// engine's write and the reader's got.ASPath[0] would touch the same memory.
+// Observed under -race.
+func TestRetainedSlicesDoNotAliasCallerMemory(t *testing.T) {
+	s := New()
+	defer s.Stop()
+
+	const id = "query-1"
+	s.SetRunning(id)
+
+	enginePath := []uint32{64500, 64512}
+	s.MergePartial(id, &domain.QueryResult{Status: domain.StatusRunning, ASPath: enginePath})
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 2000; i++ {
+			enginePath[0] = uint32(i)
+			enginePath[1] = uint32(i)
+		}
+	}()
+
+	for i := 0; i < 2000; i++ {
+		got, ok := s.Get(id)
+		if !ok || got == nil {
+			continue
+		}
+		if len(got.ASPath) > 0 {
+			_ = got.ASPath[0]
+		}
+	}
+
+	wg.Wait()
+}
+
+// The stored ASPath must be a copy: rewriting the caller's slice after the merge
+// must not change what Get hands back.
+func TestMergePartialCopiesRetainedSlices(t *testing.T) {
+	s := New()
+	defer s.Stop()
+
+	const id = "query-1"
+	s.SetRunning(id)
+
+	enginePath := []uint32{64500, 64512}
+	rules := []*domain.CommunityRule{{ID: 1, Community: "no-export"}}
+	s.MergePartial(id, &domain.QueryResult{
+		Status:       domain.StatusRunning,
+		ASPath:       enginePath,
+		MatchedRules: rules,
+	})
+
+	enginePath[0] = 13335
+
+	got, ok := s.Get(id)
+	if !ok || got == nil {
+		t.Fatal("Get: not found")
+	}
+	if len(got.ASPath) != 2 {
+		t.Fatalf("stored ASPath length = %d, want 2", len(got.ASPath))
+	}
+	if got.ASPath[0] != 64500 {
+		t.Fatalf("stored ASPath[0] = %d after the caller rewrote its slice; MergePartial must copy", got.ASPath[0])
+	}
+	if len(got.MatchedRules) != 1 || got.MatchedRules[0] != rules[0] {
+		t.Fatal("stored MatchedRules must still reference the same rule objects")
+	}
+}

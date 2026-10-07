@@ -126,24 +126,41 @@ func (s *Store) MergePartial(id string, partial *domain.QueryResult) {
 		e.result.Raw = partial.Raw
 	}
 	if len(partial.MatchedRules) > 0 {
-		e.result.MatchedRules = partial.MatchedRules
+		// Copy the slice, for the same reason mergeASPathPartialFields copies ASPath.
+		// The *CommunityRule elements stay shared — cloning each is a design decision
+		// this change deliberately does not make.
+		e.result.MatchedRules = cloneSlice(partial.MatchedRules)
 	}
 	s.mu.Unlock()
 	s.signal(id)
 }
 
+// cloneSlice copies a slice so the store never holds the caller's backing array.
+// Every caller guards on len(...) > 0 first, so there is no empty-input path to handle.
+func cloneSlice[T any](src []T) []T {
+	out := make([]T, len(src))
+	copy(out, src)
+	return out
+}
+
+// mergeASPathPartialFields copies every slice it retains rather than aliasing the
+// caller's. The caller keeps filling its result after OnPartial returns —
+// engine.go:241-242 writes result.ASPathNodes and calls applyBGPASPath — while a
+// concurrent Get hands out a shallow copy whose ASPath shared the same backing
+// array. Observed under -race: the engine's write and the reader's got.ASPath[0]
+// on the same memory.
 func mergeASPathPartialFields(dest, partial *domain.QueryResult) {
 	if len(partial.ASPath) > 0 {
-		dest.ASPath = partial.ASPath
+		dest.ASPath = cloneSlice(partial.ASPath)
 	}
 	if partial.ASPathPrefix != "" {
 		dest.ASPathPrefix = partial.ASPathPrefix
 	}
 	if len(partial.ASPathEnriched) > 0 {
-		dest.ASPathEnriched = partial.ASPathEnriched
+		dest.ASPathEnriched = cloneSlice(partial.ASPathEnriched)
 	}
 	if len(partial.ASPathNodes) > 0 {
-		dest.ASPathNodes = partial.ASPathNodes
+		dest.ASPathNodes = cloneSlice(partial.ASPathNodes)
 	}
 }
 
