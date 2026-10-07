@@ -91,10 +91,26 @@ func (m *SessionManager) synthesizeDefaultRoutesForNode(ctx context.Context, nod
 	}
 
 	SortRoutesBestFirst(routes)
+	// No neighbor had a default route the RIB confirmed, so nothing carries the selected
+	// flag. Fall back to the first synthesized route rather than leaving the node with no
+	// selected path at all.
+	if len(routes) > 0 && !hasBestRoute(routes) {
+		routes[0].Best = true
+	}
 	return &domain.BGPResult{
 		Routes: routes,
 		Raw:    strings.Join(rawLines, "\n"),
 	}, nil
+}
+
+// hasBestRoute reports whether any of these routes is already flagged as selected.
+func hasBestRoute(routes []domain.BGPRoute) bool {
+	for i := range routes {
+		if routes[i].Best {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *SessionManager) BuildRouteResult(ctx context.Context, nodeID int64, prefix string, nodeNameForNeighbor func(string) string) (*domain.BGPResult, error) {

@@ -57,9 +57,13 @@ func NewResource(percent float64) Resource {
 	if percent > 100 {
 		percent = 100
 	}
+	// Classify the number that is actually reported. Rounding first keeps the pair
+	// self-consistent: a reading displayed as "70%" must not carry the level "ok" just
+	// because the raw value was a hair under the threshold.
+	rounded := round1(percent)
 	return Resource{
-		Percent: round1(percent),
-		Level:   LevelForPercent(percent),
+		Percent: rounded,
+		Level:   LevelForPercent(rounded),
 	}
 }
 

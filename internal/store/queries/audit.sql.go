@@ -55,6 +55,17 @@ func (q *Queries) ListAuditLogs(ctx context.Context, filter *AuditFilter) ([]Aud
 		where += " AND a.source_ip = ?"
 		filterArgs = append(filterArgs, filter.SourceIP)
 	}
+	// created_at is written by CURRENT_TIMESTAMP as "2006-01-02 15:04:05", so a date-only
+	// bound sorts correctly against it as text. A bare "To" is a calendar day, so its
+	// upper bound has to reach the end of that day rather than midnight.
+	if filter.From != "" {
+		where += " AND a.created_at >= ?"
+		filterArgs = append(filterArgs, filter.From)
+	}
+	if filter.To != "" {
+		where += " AND a.created_at <= ?"
+		filterArgs = append(filterArgs, endOfDayBound(filter.To))
+	}
 
 	// Count total
 	var total int

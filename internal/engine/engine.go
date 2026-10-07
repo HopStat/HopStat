@@ -457,7 +457,11 @@ func (e *QueryEngine) nodeName(ctx context.Context, nodeID int64) string {
 	return node.Name
 }
 
+// nodeNameForNeighborIP resolves a neighbor IP to its node's name, memoizing lookups.
+// The resolver is handed to bgp.BuildNodeASPaths, which calls it from several
+// per-node goroutines at once, so the cache is guarded.
 func (e *QueryEngine) nodeNameForNeighborIP(ctx context.Context) func(string) string {
+	var mu sync.RWMutex
 	cache := map[int64]string{}
 	return func(neighborIP string) string {
 		if e.bgpMgr == nil {
@@ -467,11 +471,16 @@ func (e *QueryEngine) nodeNameForNeighborIP(ctx context.Context) func(string) st
 		if !ok {
 			return ""
 		}
-		if name, ok := cache[nodeID]; ok {
+		mu.RLock()
+		name, ok := cache[nodeID]
+		mu.RUnlock()
+		if ok {
 			return name
 		}
-		name := e.nodeName(ctx, nodeID)
+		name = e.nodeName(ctx, nodeID)
+		mu.Lock()
 		cache[nodeID] = name
+		mu.Unlock()
 		return name
 	}
 }

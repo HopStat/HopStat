@@ -310,6 +310,11 @@ func (u *Updater) fetchMaxMind(ctx context.Context, dlURL, edition string) (*htt
 	return resp, nil
 }
 
+// maxMMDBSize caps how much of a .mmdb entry is read out of an archive, so a hostile or
+// corrupt download cannot fill the disk. It is a var rather than a const so tests can
+// exercise the cap without allocating its full size.
+var maxMMDBSize int64 = 200 << 20 // 200 MiB
+
 func extractMMDBFile(r io.Reader, mmdbTmpPath string) error {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
@@ -331,11 +336,20 @@ func extractMMDBFile(r io.Reader, mmdbTmpPath string) error {
 		if !strings.HasSuffix(base, ".mmdb") {
 			continue
 		}
+		// The cap below keeps a hostile or corrupt archive from filling the disk. An
+		// entry that exceeds it has to be refused, not quietly cut short: io.Copy stops
+		// at the cap with a nil error, so copying alone would install a truncated file as
+		// a valid database.
+		if hdr.Size > maxMMDBSize {
+			return fmt.Errorf("mmdb entry %q is %d bytes, over the %d byte limit", base, hdr.Size, maxMMDBSize)
+		}
 		f, err := os.Create(mmdbTmpPath)
 		if err != nil {
 			return fmt.Errorf("create temp file: %w", err)
 		}
-		const maxMMDBSize = 200 << 20 // 200 MiB
+		// No short-write check follows: archive/tar reports an entry whose body ends
+		// before hdr.Size as io.ErrUnexpectedEOF, so the error branch above already
+		// rejects it and io.Copy can only return n == hdr.Size with a nil error here.
 		if _, err := io.Copy(f, io.LimitReader(tr, maxMMDBSize)); err != nil {
 			f.Close()
 			return fmt.Errorf("write mmdb: %w", err)

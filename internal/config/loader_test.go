@@ -523,6 +523,85 @@ func TestIsLowEntropy(t *testing.T) {
 	}
 }
 
+// isLowEntropy promises to reject obvious values ("all same chars, sequential digits,
+// etc."), but it only detected the all-same case. A secret made of sequential digits
+// satisfied the >= 32 character rule and was accepted, even though it signs admin
+// sessions and can be guessed outright.
+func TestIsLowEntropyRejectsObviousSecrets(t *testing.T) {
+	rejected := []struct {
+		name   string
+		secret string
+	}{
+		{name: "empty", secret: ""},
+		{name: "all same character", secret: strings.Repeat("a", 40)},
+		{name: "ascending digits", secret: strings.Repeat("1234567890", 4)},
+		{name: "descending digits", secret: strings.Repeat("9876543210", 4)},
+		{name: "four byte block repeated", secret: strings.Repeat("abcd", 10)},
+		{name: "three byte block repeated", secret: strings.Repeat("xyz", 12)},
+		{name: "digit run embedded in a phrase", secret: "correct-horse-" + strings.Repeat("12345678", 3) + "-battery"},
+	}
+	for _, tt := range rejected {
+		t.Run(tt.name, func(t *testing.T) {
+			if !isLowEntropy(tt.secret) {
+				t.Fatalf("isLowEntropy(%q) = false, want true", tt.secret)
+			}
+		})
+	}
+
+	accepted := []struct {
+		name   string
+		secret string
+	}{
+		{name: "existing varied secret", secret: validJWT},
+		{name: "long passphrase", secret: "quiet-lantern-over-the-harbour-42"},
+		{name: "run shorter than the threshold", secret: "abc123-very-secret-key-here"},
+	}
+	for _, tt := range accepted {
+		t.Run(tt.name, func(t *testing.T) {
+			if isLowEntropy(tt.secret) {
+				t.Fatalf("isLowEntropy(%q) = true, want false", tt.secret)
+			}
+		})
+	}
+}
+
+// The same guarantee seen through the real entry point: Load must refuse an obviously
+// guessable jwt_secret rather than booting the server with it.
+func TestLoadRejectsObviousJWTSecret(t *testing.T) {
+	for _, secret := range []string{
+		strings.Repeat("1234567890", 4),
+		strings.Repeat("9876543210", 4),
+		strings.Repeat("abcd", 10),
+	} {
+		path := writeTempConfig(t, `
+server:
+  mode: "server"
+  port: 8080
+database:
+  path: "./test.db"
+security:
+  jwt_secret: "`+secret+`"
+`)
+		if _, err := Load(path); err == nil {
+			t.Fatalf("Load accepted a low entropy jwt_secret (%d chars of %q)", len(secret), secret[:4])
+		}
+	}
+
+	// Control: a varied secret of sufficient length still loads.
+	path := writeTempConfig(t, `
+server:
+  mode: "server"
+  port: 8080
+database:
+  path: "./test.db"
+security:
+  jwt_secret: "`+validJWT+`"
+`)
+	if _, err := Load(path); err != nil {
+		t.Fatalf("Load rejected a valid jwt_secret: %v", err)
+	}
+}
+
 func TestLoadUnmarshalError(t *testing.T) {
 	path := writeTempConfig(t, `
 server:

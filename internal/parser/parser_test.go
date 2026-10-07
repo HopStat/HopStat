@@ -222,3 +222,58 @@ func TestDomainTypes(t *testing.T) {
 		t.Error("CmdBGPRoute mismatch")
 	}
 }
+
+// A BGP table marks the selected path with "*" and prints every other path indented, so
+// the indentation is part of the route syntax. parseBGPLine trims the line before
+// inspecting it, which made the indented-line branch unreachable and silently dropped
+// every non-selected route.
+func TestParseBGPLineKeepsNonSelectedRoutes(t *testing.T) {
+	tests := []struct {
+		name       string
+		line       string
+		wantPrefix string
+		wantNil    bool
+	}{
+		{name: "selected path", line: "*>10.0.0.0/24 10.0.0.1 100 0 65001 i", wantPrefix: "10.0.0.0/24"},
+		{name: "selected path with origin marker", line: "*e 10.0.0.0/8 10.0.0.1 100 0 e", wantPrefix: "10.0.0.0/8"},
+		{name: "non-selected path", line: "   192.168.0.0/24 10.0.0.2 100 0 65002 i", wantPrefix: "192.168.0.0/24"},
+		{name: "non-selected path tab indented", line: "\t198.51.100.0/24 10.0.0.3 100 0 65003 i", wantPrefix: "198.51.100.0/24"},
+		{name: "blank line", line: "   ", wantNil: true},
+		{name: "unmarked non-route header", line: "BGP table version is 12", wantNil: true},
+		{name: "indented non-route header", line: "   Network          Next Hop", wantNil: true},
+		{name: "route without a next hop", line: "*>10.0.0.0/24", wantNil: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseBGPLine(tt.line)
+			if tt.wantNil {
+				if got != nil {
+					t.Fatalf("parseBGPLine(%q) = %+v, want nil", tt.line, got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("parseBGPLine(%q) = nil, want prefix %q", tt.line, tt.wantPrefix)
+			}
+			if got.Prefix != tt.wantPrefix {
+				t.Fatalf("parseBGPLine(%q).Prefix = %q, want %q", tt.line, got.Prefix, tt.wantPrefix)
+			}
+		})
+	}
+}
+
+// Through the package entry point: a table with one selected and one non-selected route
+// must yield both.
+func TestParseBGPRouteGenericKeepsNonSelectedRoutes(t *testing.T) {
+	got, err := parseBGPRouteGeneric(`BGP table version is 12
+   192.168.0.0/24       10.0.0.2               0      100      0 65002 i
+*>10.0.0.0/24          10.0.0.1               0      100      0 65001 i
+`)
+	if err != nil {
+		t.Fatalf("ParseBGPRoute: %v", err)
+	}
+	if len(got.Routes) != 2 {
+		t.Fatalf("routes = %+v, want both the selected and the non-selected route", got.Routes)
+	}
+}

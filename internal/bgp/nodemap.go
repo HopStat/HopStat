@@ -140,7 +140,24 @@ func RoutesToNodeASPaths(nodeID int64, nodeName string, routes []domain.BGPRoute
 	if len(paths) == 0 {
 		return NoRouteNodeASPaths(nodeID, nodeName)
 	}
+	// `selected` is resolved before the loop above, which can drop it — a selected route
+	// with no AS path, or one whose AS path repeats an earlier route's. The map then needs
+	// one path flagged as this node's selected route; without it the frontend draws every
+	// path as a backup. The routes are sorted best-first, so the first survivor is the one
+	// the node actually prefers.
+	if !hasBestPath(paths) {
+		paths[0].Best = true
+	}
 	return paths
+}
+
+func hasBestPath(paths []domain.NodeASPath) bool {
+	for _, p := range paths {
+		if p.Best {
+			return true
+		}
+	}
+	return false
 }
 
 func asPathKey(path []uint32) string {

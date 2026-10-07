@@ -253,3 +253,56 @@ func TestBuildNodeASPathMapReadsSessionNodesFromRIB(t *testing.T) {
 		}
 	}
 }
+
+// The node-name resolver is one closure shared by every per-node goroutine in
+// bgp.BuildNodeASPaths, so its memoized lookups must be safe to call concurrently.
+// Only cache misses write, so the fan-out must cover several distinct node IDs —
+// two nodes alone could race on reads only. Fails under -race against an unsynchronized cache.
+func TestBuildNodeASPathMapResolvesNeighborNamesConcurrently(t *testing.T) {
+	const nodeCount = 8
+
+	repo := &activeNodeRepo{
+		idNodeRepo: &idNodeRepo{nodes: make(map[int64]*domain.Node, nodeCount)},
+		active:     make([]*domain.Node, 0, nodeCount),
+	}
+	for i := 1; i <= nodeCount; i++ {
+		nodeID := int64(i)
+		name := "NODE" + string(rune('0'+i))
+		repo.nodes[nodeID] = &domain.Node{ID: nodeID, Name: name}
+		repo.active = append(repo.active, &domain.Node{ID: nodeID, Name: name, Type: domain.NodeTypeStandalone})
+	}
+
+	e := New(&QueryConfig{MaxConcurrent: 4}, repo, nil, nil, startedManager(t), nil, 65000)
+	for i := 1; i <= nodeCount; i++ {
+		if err := e.bgpMgr.AddNeighbor(&domain.BGPNeighbor{
+			ID: int64(i), NodeID: int64(i), LocalAS: 65000, RemoteAS: 65000,
+			PeeringIP: "127.0.0.1", NeighborIP: "10.0.0." + string(rune('0'+i)),
+			// DefaultRouteAS makes BuildRouteResult resolve a name for this neighbor.
+			DefaultRouteAS: 65100,
+		}); err != nil {
+			t.Fatalf("add neighbor %d: %v", i, err)
+		}
+	}
+
+	old := hasActiveBGPSession
+	hasActiveBGPSession = func(*bgp.SessionManager, int64) bool { return true }
+	defer func() { hasActiveBGPSession = old }()
+
+	for round := 0; round < 20; round++ {
+		paths := e.buildNodeASPathMap(context.Background(), "8.8.8.0/24")
+		if len(paths) != nodeCount {
+			t.Fatalf("round %d: paths = %d, want %d", round, len(paths), nodeCount)
+		}
+		// Control: the concurrent resolver must still return each node's own name,
+		// in input order — a corrupted cache would cross-wire these.
+		for j, p := range paths {
+			wantID := int64(j + 1)
+			if p.NodeID != wantID {
+				t.Fatalf("round %d: path %d has node id %d, want %d", round, j, p.NodeID, wantID)
+			}
+			if want := "NODE" + string(rune('0'+(j+1))); p.NodeName != want {
+				t.Fatalf("round %d: path %d node name = %q, want %q", round, j, p.NodeName, want)
+			}
+		}
+	}
+}

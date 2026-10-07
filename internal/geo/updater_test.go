@@ -1,8 +1,10 @@
 package geo
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -212,4 +214,66 @@ func TestExtractCSVFiles(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, asnBlocksIPv4Name)); err != nil {
 		t.Fatalf("expected extracted csv: %v", err)
 	}
+}
+
+// extractMMDBFile copies the entry through io.LimitReader(tr, maxMMDBSize). io.Copy stops
+// at the cap with a nil error, so an entry over the cap used to be written out truncated
+// and reported as a *successful* extraction — and the caller then renames that file over
+// the live GeoIP database. An oversized entry must be refused instead.
+func TestExtractMMDBFileRejectsOversizedEntry(t *testing.T) {
+	withCap := func(t *testing.T, limit int64) {
+		t.Helper()
+		old := maxMMDBSize
+		maxMMDBSize = limit
+		t.Cleanup(func() { maxMMDBSize = old })
+	}
+
+	t.Run("oversized entry is refused", func(t *testing.T) {
+		withCap(t, 8)
+		target := filepath.Join(t.TempDir(), "out.mmdb")
+		body := buildTestMMDBArchive(t, "GeoLite2-ASN.mmdb", bytes.Repeat([]byte("x"), 64))
+		if err := extractMMDBFile(bytes.NewReader(body), target); err == nil {
+			t.Fatalf("extract accepted a 64 byte entry under an 8 byte cap")
+		}
+	})
+
+	t.Run("entry exactly at the cap is accepted", func(t *testing.T) {
+		withCap(t, 64)
+		target := filepath.Join(t.TempDir(), "out.mmdb")
+		content := bytes.Repeat([]byte("x"), 64)
+		body := buildTestMMDBArchive(t, "GeoLite2-ASN.mmdb", content)
+		if err := extractMMDBFile(bytes.NewReader(body), target); err != nil {
+			t.Fatalf("extract rejected an entry exactly at the cap: %v", err)
+		}
+		got, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, content) {
+			t.Fatalf("extracted %d bytes, want %d", len(got), len(content))
+		}
+	})
+
+	t.Run("entry shorter than its header claims is refused", func(t *testing.T) {
+		withCap(t, 4096)
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		tw := tar.NewWriter(gw)
+		// Header claims 1024 bytes; only 4 follow before the archive ends.
+		if err := tw.WriteHeader(&tar.Header{Name: "GeoLite2-ASN.mmdb", Mode: 0644, Size: 1024}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte("data")); err != nil {
+			t.Fatal(err)
+		}
+		// Close reports the deliberate under-write; the archive is meant to be short.
+		_ = tw.Close()
+		if err := gw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		target := filepath.Join(t.TempDir(), "out.mmdb")
+		if err := extractMMDBFile(bytes.NewReader(buf.Bytes()), target); err == nil {
+			t.Fatal("extract accepted an entry shorter than its header declares")
+		}
+	})
 }

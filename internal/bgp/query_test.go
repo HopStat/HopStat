@@ -8,6 +8,8 @@ import (
 	"time"
 
 	api "github.com/osrg/gobgp/v3/api"
+	"github.com/osrg/gobgp/v3/pkg/apiutil"
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 
 	"github.com/HopStat/HopStat/internal/config"
 	"github.com/HopStat/HopStat/internal/domain"
@@ -292,5 +294,95 @@ func TestBuildRouteResultDefaultRouteHostQuery(t *testing.T) {
 	}
 	if !r.ViaDefaultRoute {
 		t.Fatal("expected via_default_route for host covered by default route")
+	}
+}
+
+// SynthesizeDefaultRouteResult used to seed every synthesized route with Best: true and
+// only overwrite that flag when it was handed a default-route entry. A neighbor that
+// merely *declares* a default-route AS, but whose route the RIB never confirmed, was
+// therefore returned as the node's best route — so a node with two such neighbors came
+// back with two "best" routes and BestRoute picked between them by slice order.
+func TestSynthesizedDefaultRoutesMarkOnlyTheConfirmedOneBest(t *testing.T) {
+	mgr, ctx := startTestManager(t, config.BGPConfig{LocalAS: 9121, RouterID: "127.0.0.1"})
+
+	mgr.mu.Lock()
+	mgr.neighbors[1] = &neighborEntry{
+		neighbor:   &domain.BGPNeighbor{ID: 1, NodeID: 1, DefaultRouteAS: 6453},
+		neighborIP: "10.0.0.1",
+	}
+	mgr.neighbors[2] = &neighborEntry{
+		neighbor:   &domain.BGPNeighbor{ID: 2, NodeID: 1, DefaultRouteAS: 174},
+		neighborIP: "10.0.0.2",
+	}
+	mgr.nodeNeighbors[1] = map[int64]struct{}{1: {}, 2: {}}
+	mgr.mu.Unlock()
+
+	// Only 10.0.0.1 actually advertises a default route.
+	old := lookupListPathHook
+	lookupListPathHook = func(_ context.Context, req *api.ListPathRequest, fn func(*api.Destination)) error {
+		if req == nil || len(req.Prefixes) == 0 || req.Prefixes[0].Prefix != "0.0.0.0/0" {
+			return nil
+		}
+		path, err := apiutil.NewPath(
+			bgp.NewIPAddrPrefix(0, "0.0.0.0"), false,
+			[]bgp.PathAttributeInterface{
+				bgp.NewPathAttributeOrigin(bgp.BGP_ORIGIN_ATTR_TYPE_IGP),
+				bgp.NewPathAttributeNextHop("10.0.0.1"),
+				bgp.NewPathAttributeAsPath([]bgp.AsPathParamInterface{
+					bgp.NewAs4PathParam(2, []uint32{6453}),
+				}),
+			}, time.Now())
+		if err != nil {
+			return err
+		}
+		path.NeighborIp = "10.0.0.1"
+		path.Best = true
+		fn(&api.Destination{Prefix: "0.0.0.0/0", Paths: []*api.Path{path}})
+		return nil
+	}
+	t.Cleanup(func() { lookupListPathHook = old })
+
+	br, err := mgr.BuildRouteResult(ctx, 1, "213.146.165.165", nil)
+	if err != nil {
+		t.Fatalf("BuildRouteResult: %v", err)
+	}
+	if len(br.Routes) != 2 {
+		t.Fatalf("routes = %+v, want one synthesized route per neighbor", br.Routes)
+	}
+
+	best := 0
+	for _, r := range br.Routes {
+		if r.Best {
+			best++
+		}
+	}
+	if best != 1 {
+		t.Fatalf("%d of %d synthesized routes flagged Best, want exactly 1: %+v", best, len(br.Routes), br.Routes)
+	}
+
+	// The selected route must be the one the RIB confirmed, not the fabricated one.
+	selected := BestRoute(br.Routes)
+	if selected == nil || selected.NextHop != "10.0.0.1" {
+		t.Fatalf("selected route = %+v, want the one with next hop 10.0.0.1", selected)
+	}
+
+	// Control: with no confirmed default route anywhere, the node still needs a selected
+	// path, so the first synthesized route keeps the flag.
+	lookupListPathHook = func(context.Context, *api.ListPathRequest, func(*api.Destination)) error { return nil }
+	br, err = mgr.BuildRouteResult(ctx, 1, "213.146.165.166", nil)
+	if err != nil {
+		t.Fatalf("BuildRouteResult: %v", err)
+	}
+	if len(br.Routes) != 2 {
+		t.Fatalf("control: routes = %+v, want one per neighbor", br.Routes)
+	}
+	best = 0
+	for _, r := range br.Routes {
+		if r.Best {
+			best++
+		}
+	}
+	if best != 1 {
+		t.Fatalf("control: expected exactly one selected route, got %d: %+v", best, br.Routes)
 	}
 }

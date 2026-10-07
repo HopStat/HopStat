@@ -322,3 +322,66 @@ func TestBuildNodeASPathsSkipsPathlessRoutes(t *testing.T) {
 		t.Fatalf("a route with no AS path is not a usable path: %+v", paths[0])
 	}
 }
+
+// RoutesToNodeASPaths resolves the node's selected route before the loop that drops
+// unusable routes, and decides "Best" by pointer identity against it. When the selected
+// route carries no AS path it is filtered out, so nothing in the output could be flagged
+// and the network map drew every one of the node's paths as a backup. Whatever survives
+// must still name one selected path.
+func TestRoutesToNodeASPathsAlwaysFlagsOneSelectedPath(t *testing.T) {
+	countBest := func(paths []domain.NodeASPath) int {
+		n := 0
+		for _, p := range paths {
+			if p.Best {
+				n++
+			}
+		}
+		return n
+	}
+
+	// The selected route is dropped for having no AS path; the backups survive.
+	paths := RoutesToNodeASPaths(1, "BURSA", []domain.BGPRoute{
+		{Prefix: "1.0.0.0/24", Best: true},
+		{Prefix: "1.0.0.0/24", ASPath: []uint32{64500, 15169}},
+		{Prefix: "1.0.0.0/24", ASPath: []uint32{64500, 15170}},
+	})
+	if len(paths) != 2 {
+		t.Fatalf("paths = %+v, want the two usable backups", paths)
+	}
+	if n := countBest(paths); n != 1 {
+		t.Fatalf("Best paths = %d, want exactly 1: %+v", n, paths)
+	}
+	if !paths[0].Best {
+		t.Fatalf("first (preferred) path must be the selected one: %+v", paths[0])
+	}
+
+	// Control: a usable selected route is flagged as before.
+	ok := RoutesToNodeASPaths(2, "SOFIA", []domain.BGPRoute{
+		{Prefix: "2.0.0.0/24", ASPath: []uint32{64500, 15169}, Best: true},
+		{Prefix: "2.0.0.0/24", ASPath: []uint32{64500, 15170}},
+	})
+	if n := countBest(ok); n != 1 || !ok[0].Best || ok[1].Best {
+		t.Fatalf("control: Best flag on the wrong path: %+v", ok)
+	}
+
+	// Control: nothing usable means NoRoute, not a manufactured selected path.
+	none := RoutesToNodeASPaths(3, "ANKARA", []domain.BGPRoute{{Prefix: "3.0.0.0/24", Best: true}})
+	if len(none) != 1 || !none[0].NoRoute || none[0].Best {
+		t.Fatalf("control: unusable route should report NoRoute, got %+v", none)
+	}
+
+	// The duplicate-AS-path filter must not cost the selected route its flag. Routes are
+	// sorted best-first, so the selected one is seen before `seen` holds its key and
+	// survives; a backup sharing that AS path is the one that gets dropped.
+	dup := RoutesToNodeASPaths(4, "IZMIR", []domain.BGPRoute{
+		{Prefix: "4.0.0.0/24", ASPath: []uint32{64500, 15169}, Best: true},
+		{Prefix: "4.0.0.0/24", ASPath: []uint32{64500, 15169}},
+		{Prefix: "4.0.0.0/24", ASPath: []uint32{64500, 15170}},
+	})
+	if len(dup) != 2 {
+		t.Fatalf("duplicate AS path should collapse to one entry: %+v", dup)
+	}
+	if !dup[0].Best || dup[1].Best {
+		t.Fatalf("selected route lost its flag to the dedupe: %+v", dup)
+	}
+}

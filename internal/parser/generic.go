@@ -30,8 +30,15 @@ func containsNoRoute(s string) bool {
 }
 
 func parseBGPLine(line string) *domain.BGPRoute {
+	// A BGP table marks the selected path with "*" and prints every other path indented,
+	// so indentation is part of the route's own syntax and has to be inspected before the
+	// line is trimmed. The CIDR check below is what rejects non-route lines.
+	if strings.TrimSpace(line) == "" {
+		return nil
+	}
+	indented := line != strings.TrimLeft(line, " \t")
 	line = strings.TrimSpace(line)
-	if line == "" || (!strings.HasPrefix(line, "*") && !strings.HasPrefix(line, " ")) {
+	if !strings.HasPrefix(line, "*") && !indented {
 		return nil
 	}
 

@@ -158,21 +158,77 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("bgp.add_path_receive", true)
 }
 
-// isLowEntropy returns true if the string consists of a single repeated character
-// or is an obvious low-entropy value (all same chars, sequential digits, etc.)
+// Thresholds for the entropy checks below. The sequential run is long enough that a
+// random 32-byte hex secret trips it with negligible probability, and the repeat period
+// is short enough to only catch a hand-typed pattern like "abcdabcd...".
+const (
+	minSequentialRun = 8
+	maxRepeatPeriod  = 4
+)
+
+// isLowEntropy returns true if the string is obvious enough to guess: it is empty, a
+// single repeated character, a run of sequential characters, or a short block repeated to
+// fill the whole string.
 func isLowEntropy(s string) bool {
 	if len(s) == 0 {
 		return true
 	}
-	first := s[0]
-	allSame := true
-	for i := 1; i < len(s); i++ {
-		if s[i] != first {
-			allSame = false
-			break
+	if isAllSame(s) {
+		return true
+	}
+	if hasSequentialRun(s, minSequentialRun) {
+		return true
+	}
+	for p := 2; p <= maxRepeatPeriod && p < len(s); p++ {
+		if isRepetitionOfBlock(s, p) {
+			return true
 		}
 	}
-	return allSame
+	return false
+}
+
+func isAllSame(s string) bool {
+	for i := 1; i < len(s); i++ {
+		if s[i] != s[0] {
+			return false
+		}
+	}
+	return true
+}
+
+// hasSequentialRun reports whether s holds a stretch of at least n bytes that step by a
+// constant amount, which is what counting up, counting down and "1234567890" filler all
+// look like.
+func hasSequentialRun(s string, n int) bool {
+	for i := 0; i+n <= len(s); i++ {
+		for _, step := range []byte{1, 0xff} {
+			run := true
+			for j := 1; j < n; j++ {
+				if s[i+j] != s[i+j-1]+step {
+					run = false
+					break
+				}
+			}
+			if run {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isRepetitionOfBlock reports whether s is its own first p bytes, repeated until it fills
+// the string.
+func isRepetitionOfBlock(s string, p int) bool {
+	if p <= 0 || p >= len(s) {
+		return false
+	}
+	for i := p; i < len(s); i++ {
+		if s[i] != s[i%p] {
+			return false
+		}
+	}
+	return true
 }
 
 // normalizeFloodControl merges legacy security.* limits into flood_control and applies defaults.

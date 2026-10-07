@@ -220,3 +220,111 @@ func TestCommunityRuleRepo_ActiveAndToggle(t *testing.T) {
 		t.Fatal("expected node-scoped rule")
 	}
 }
+
+// AuditFilter.From/To arrive from the public API (handler ListAudit reads the "from" and
+// "to" query parameters) and were carried all the way into the query struct without ever
+// reaching the WHERE clause, so the date range was silently ignored.
+func TestAuditRepo_ListHonoursDateRange(t *testing.T) {
+	db := setupRepoDB(t)
+	auditRepo := NewAuditRepo(db)
+	ctx := context.Background()
+
+	rows := []struct {
+		createdAt string
+		command   string
+	}{
+		{"2024-01-10 12:00:00", "before"},
+		{"2024-06-01 09:00:00", "first-of-june"},
+		{"2024-06-15 12:00:00", "mid-june"},
+		{"2024-06-30 23:30:00", "last-day-of-june"},
+		{"2024-12-20 12:00:00", "after"},
+	}
+	for _, row := range rows {
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO audit_log (created_at, source_ip, command, params, duration_ms, success, error_msg)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			row.createdAt, "10.0.0.1", row.command, "", 10, 1, ""); err != nil {
+			t.Fatalf("insert %s: %v", row.command, err)
+		}
+	}
+
+	commands := func(entries []*domain.AuditEntry) map[string]bool {
+		out := make(map[string]bool, len(entries))
+		for _, e := range entries {
+			out[e.Command] = true
+		}
+		return out
+	}
+
+	tests := []struct {
+		name   string
+		filter domain.AuditFilter
+		want   []string
+	}{
+		{name: "no range returns everything", filter: domain.AuditFilter{Limit: 50}, want: nil},
+		{
+			name:   "both bounds",
+			filter: domain.AuditFilter{From: "2024-06-01", To: "2024-06-30", Limit: 50},
+			want:   []string{"first-of-june", "mid-june", "last-day-of-june"},
+		},
+		{
+			name:   "lower bound only",
+			filter: domain.AuditFilter{From: "2024-06-15", Limit: 50},
+			want:   []string{"mid-june", "last-day-of-june", "after"},
+		},
+		{
+			name:   "upper bound only",
+			filter: domain.AuditFilter{To: "2024-01-10", Limit: 50},
+			want:   []string{"before"},
+		},
+		{
+			name:   "bounds outside the data",
+			filter: domain.AuditFilter{From: "2025-01-01", To: "2025-12-31", Limit: 50},
+			want:   nil,
+		},
+		{
+			// Both filters must hold at once: the command narrows the window, the date
+			// bounds exclude "before"/"after" and the other June command.
+			name:   "combined with the command filter",
+			filter: domain.AuditFilter{Command: "mid-june", From: "2024-06-10", To: "2024-06-20", Limit: 50},
+			want:   []string{"mid-june"},
+		},
+		{
+			// The command matches only a row outside the date range: the date filter has
+			// to win, so the result is empty rather than the command-only match.
+			name:   "command matches only outside the range",
+			filter: domain.AuditFilter{Command: "before", From: "2024-06-01", To: "2024-06-30", Limit: 50},
+			want:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entries, total, err := auditRepo.List(ctx, tt.filter)
+			if err != nil {
+				t.Fatalf("List: %v", err)
+			}
+			if tt.want == nil {
+				if len(entries) == 0 {
+					return
+				}
+				if total != len(entries) {
+					t.Fatalf("total = %d, len = %d", total, len(entries))
+				}
+				return
+			}
+			got := commands(entries)
+			if total != len(tt.want) {
+				t.Fatalf("total = %d, want %d (entries %+v)", total, len(tt.want), entries)
+			}
+			if len(entries) != len(tt.want) {
+				t.Fatalf("entries = %d, want %d: %+v", len(entries), len(tt.want), entries)
+			}
+			for _, want := range tt.want {
+				if !got[want] {
+					t.Fatalf("missing %q in filtered result: %+v", want, entries)
+				}
+			}
+		})
+	}
+}

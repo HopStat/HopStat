@@ -140,7 +140,11 @@ func SynthesizeDefaultRouteResult(queriedPrefix string, defaults []*domain.BGPRo
 		Prefix:          displayPrefix(queriedPrefix),
 		ASPath:          fb.ASPath(),
 		ViaDefaultRoute: true,
-		Best:            true,
+		// Best comes from the default-route entry below, never from the assumption that a
+		// neighbor *declares* a default-route AS. With no entry there is no evidence this
+		// node actually holds that default route, so the synthesized route must not
+		// outrank a sibling whose route the RIB did select.
+		Best: false,
 	}
 
 	defaultLabel := DefaultRoutePrefix(queriedPrefix)
