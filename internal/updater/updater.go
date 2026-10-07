@@ -337,11 +337,23 @@ func (u *Updater) Apply(ctx context.Context) error {
 	return execProcess(execPath, os.Args, os.Environ())
 }
 
-func (u *Updater) fetchLatest(ctx context.Context) (*Release, error) {
-	apiURL := u.releaseAPIURL
-	if apiURL == "" {
-		apiURL = fmt.Sprintf(githubAPIURL, u.repo)
+// releaseURL returns the releases/latest endpoint to query.
+//
+// The host is always the GitHub API: only the repository path segment is
+// configurable, so no operator-supplied value can redirect this request at another
+// host. The setReleaseAPIURL override exists for tests that need to point at a local
+// httptest server; it must never be fed a settings or otherwise operator-controlled
+// value, because that would hand the release host to an admin and reintroduce the
+// SSRF class of bug the agent driver had to be hardened against.
+func (u *Updater) releaseURL() string {
+	if u.releaseAPIURL != "" {
+		return u.releaseAPIURL
 	}
+	return fmt.Sprintf(githubAPIURL, u.repo)
+}
+
+func (u *Updater) fetchLatest(ctx context.Context) (*Release, error) {
+	apiURL := u.releaseURL()
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return nil, err
