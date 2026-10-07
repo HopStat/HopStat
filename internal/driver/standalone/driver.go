@@ -34,9 +34,21 @@ type Driver struct {
 
 func NewDriver(node *domain.Node, cfg *config.Config) (*Driver, error) {
 	return &Driver{
-		node:           node,
-		cfg:            cfg,
-		parser:         parser.GetParser("generic"),
+		node:   node,
+		cfg:    cfg,
+		parser: parser.GetParser("generic"),
+		// Every production call site builds a Driver per request (engine.go:148 and
+		// :435, factory.go:17, agent_api.go:100/:140/:196, agent_stream.go:44/:96),
+		// so this breaker is discarded before it can reach its threshold: the most
+		// execs one Driver ever makes is BGPRoute's birdc-then-vtysh fallback, two.
+		// The threshold of 5 is therefore currently unreachable.
+		//
+		// It is kept rather than removed because it is not dead code — Call runs on
+		// every command — and it is the right place for "stop hammering a broken
+		// node" if a Driver is ever cached per node. Lowering the threshold would be
+		// actively harmful: at 2 a single unreachable host would open the circuit and
+		// break the remaining commands of the same request. See
+		// driver_circuit_test.go, which pins both halves.
 		circuitBreaker: circuitbreaker.New(5, 30*time.Second),
 	}, nil
 }
