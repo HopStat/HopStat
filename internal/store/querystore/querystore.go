@@ -120,7 +120,7 @@ func (s *Store) MergePartial(id string, partial *domain.QueryResult) {
 		return
 	}
 	if partial.Parsed != nil {
-		e.result.Parsed = partial.Parsed
+		e.result.Parsed = cloneParsed(partial.Parsed)
 	}
 	if partial.Raw != "" {
 		e.result.Raw = partial.Raw
@@ -141,6 +141,49 @@ func cloneSlice[T any](src []T) []T {
 	out := make([]T, len(src))
 	copy(out, src)
 	return out
+}
+
+// cloneParsed detaches a Parsed result from the caller's memory.
+//
+// Parsed is interface{}, so there is no generic way to clone it and the concrete
+// types have to be enumerated. Exactly three are reachable: engine.go:211 assigns
+// *domain.PingResult, :220 *domain.TracerouteResult and :232 *domain.BGPResult.
+// A type switch is used rather than a Clone() interface on the domain types so
+// the exhaustive set stays greppable here, and so a future result type shows up
+// as an unhandled case in this switch during review rather than silently missing
+// a method.
+//
+// Shallow by design: the struct is copied and its top-level slice is detached.
+// PingResult holds no reference fields at all, so its copy is complete. The
+// Routes/Hops elements are still shared — each BGPRoute carries its own ASPath,
+// Communities, MatchedRules and Aggregate, and cloning those per route on every
+// partial is a cost this change does not take on. The struct fields the engine
+// writes after OnPartial (Raw, the slice headers) are the ones this detaches.
+func cloneParsed(v any) any {
+	switch p := v.(type) {
+	case *domain.PingResult:
+		if p == nil {
+			return v
+		}
+		cp := *p
+		return &cp
+	case *domain.TracerouteResult:
+		if p == nil {
+			return v
+		}
+		cp := *p
+		cp.Hops = cloneSlice(p.Hops)
+		return &cp
+	case *domain.BGPResult:
+		if p == nil {
+			return v
+		}
+		cp := *p
+		cp.Routes = cloneSlice(p.Routes)
+		return &cp
+	default:
+		return v
+	}
 }
 
 // mergeASPathPartialFields copies every slice it retains rather than aliasing the

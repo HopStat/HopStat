@@ -223,3 +223,96 @@ func TestMergePartialCopiesRetainedSlices(t *testing.T) {
 		t.Fatal("stored MatchedRules must still reference the same rule objects")
 	}
 }
+
+// Parsed must not alias the caller's result struct.
+//
+// engine.go:211/:220/:232 assign *PingResult, *TracerouteResult and *BGPResult
+// into result.Parsed; the engine keeps writing that struct after OnPartial returns,
+// while a concurrent GetResult dereferences cp.Parsed. Observed under -race: the
+// engine's br.Raw write against the reader's parsed.Raw on the same memory.
+func TestParsedDoesNotRaceWithCallerWritingResult(t *testing.T) {
+	s := New()
+	defer s.Stop()
+
+	const id = "query-1"
+	s.SetRunning(id)
+
+	br := &domain.BGPResult{Raw: "initial", Routes: []domain.BGPRoute{{Prefix: "10.0.0.0/8"}}}
+	s.MergePartial(id, &domain.QueryResult{Status: domain.StatusRunning, Parsed: br})
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 2000; i++ {
+			br.Raw = "engine still writing"
+			br.Routes[0].Best = i%2 == 0
+		}
+	}()
+
+	for i := 0; i < 2000; i++ {
+		got, ok := s.Get(id)
+		if !ok || got == nil {
+			continue
+		}
+		if parsed, isBGP := got.Parsed.(*domain.BGPResult); isBGP && parsed != nil {
+			_ = parsed.Raw
+		}
+	}
+
+	wg.Wait()
+}
+
+// Every type the engine can put in Parsed must be copied, and an unknown type must
+// pass through untouched rather than being mangled. The nil cases cover a typed nil
+// pointer, which is non-nil as an interface and so reaches the type switch.
+func TestCloneParsedCoversEveryKnownType(t *testing.T) {
+	s := New()
+	defer s.Stop()
+
+	t.Run("ping", func(t *testing.T) {
+		const id = "q-ping"
+		s.SetRunning(id)
+		orig := &domain.PingResult{Raw: "p", AvgRTT: 12.5}
+		s.MergePartial(id, &domain.QueryResult{Status: domain.StatusRunning, Parsed: orig})
+		orig.Raw = "changed"
+		got, _ := s.Get(id)
+		if p, ok := got.Parsed.(*domain.PingResult); !ok || p.Raw != "p" {
+			t.Fatalf("PingResult not copied: %+v", got.Parsed)
+		}
+	})
+
+	t.Run("traceroute", func(t *testing.T) {
+		const id = "q-tr"
+		s.SetRunning(id)
+		orig := &domain.TracerouteResult{Raw: "t", Hops: []domain.Hop{{Number: 1, IP: "10.0.0.1"}}}
+		s.MergePartial(id, &domain.QueryResult{Status: domain.StatusRunning, Parsed: orig})
+		orig.Hops[0].IP = "changed"
+		got, _ := s.Get(id)
+		if tr, ok := got.Parsed.(*domain.TracerouteResult); !ok || tr.Hops[0].IP != "10.0.0.1" {
+			t.Fatalf("TracerouteResult not copied: %+v", got.Parsed)
+		}
+	})
+
+	// A typed nil pointer is a non-nil interface holding a nil pointer, so the
+	// returned interface compares != nil even though the value it holds does not.
+	// Assert on the concrete pointer, which is what actually matters.
+	t.Run("typed nil is preserved", func(t *testing.T) {
+		if c, ok := cloneParsed((*domain.PingResult)(nil)).(*domain.PingResult); !ok || c != nil {
+			t.Fatalf("cloneParsed(typed nil PingResult) = %v, want (*PingResult)(nil)", c)
+		}
+		if c, ok := cloneParsed((*domain.TracerouteResult)(nil)).(*domain.TracerouteResult); !ok || c != nil {
+			t.Fatalf("cloneParsed(typed nil TracerouteResult) = %v, want (*TracerouteResult)(nil)", c)
+		}
+		if c, ok := cloneParsed((*domain.BGPResult)(nil)).(*domain.BGPResult); !ok || c != nil {
+			t.Fatalf("cloneParsed(typed nil BGPResult) = %v, want (*BGPResult)(nil)", c)
+		}
+	})
+
+	t.Run("unknown type passes through", func(t *testing.T) {
+		unknown := map[string]string{"a": "b"}
+		if c := cloneParsed(unknown); c == nil {
+			t.Fatal("cloneParsed dropped an unknown type")
+		}
+	})
+}
