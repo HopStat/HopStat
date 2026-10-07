@@ -30,10 +30,25 @@ type Driver struct {
 
 func NewDriver(node *domain.Node, cfg *config.Config) (*Driver, error) {
 	return &Driver{
-		node:           node,
-		cfg:            cfg,
-		httpClient:     &http.Client{Timeout: 30 * time.Second, Transport: agentTransport()},
-		streamClient:   &http.Client{Transport: agentTransport()},
+		node:         node,
+		cfg:          cfg,
+		httpClient:   &http.Client{Timeout: 30 * time.Second, Transport: agentTransport()},
+		streamClient: &http.Client{Transport: agentTransport()},
+		// Every production call site builds a Driver per request
+		// (factory.go:19, engine.go:148 and :435, agent_api.go:100/:140/:196,
+		// agent_stream.go:44/:96), so this breaker is discarded before it can reach
+		// its threshold, and the threshold of 5 is currently unreachable.
+		//
+		// It is kept rather than removed for the same reason as the standalone
+		// driver: Call runs on every request, so this is unused configuration rather
+		// than dead code, and it is the natural place for "stop hammering a broken
+		// agent" if a Driver is ever cached per node.
+		//
+		// Unlike the standalone driver, nothing here turns an expected outcome into
+		// a success: every path here reports transport failure as an error. So even
+		// if a Driver were reused, this breaker would see only genuine agent
+		// failures. See internal/driver/standalone/driver_circuit_test.go, which
+		// measures and pins the standalone side of this.
 		circuitBreaker: circuitbreaker.New(5, 30*time.Second),
 	}, nil
 }
