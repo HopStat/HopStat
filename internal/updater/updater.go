@@ -17,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/HopStat/HopStat/internal/target"
 )
 
 const githubAPIURL = "https://api.github.com/repos/%s/releases/latest"
@@ -92,8 +94,8 @@ func New(repo, currentVersion string, enabled bool) *Updater {
 		repo:      repo,
 		current:   currentVersion,
 		enabled:   enabled,
-		apiClient: &http.Client{Timeout: 15 * time.Second},
-		dlClient:  &http.Client{Timeout: 10 * time.Minute},
+		apiClient: &http.Client{Timeout: 15 * time.Second, CheckRedirect: target.CheckSameHostRedirect},
+		dlClient:  &http.Client{Timeout: 10 * time.Minute, CheckRedirect: target.CheckSameHostRedirect},
 	}
 }
 

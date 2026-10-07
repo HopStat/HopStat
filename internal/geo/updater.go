@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/HopStat/HopStat/internal/config"
+	"github.com/HopStat/HopStat/internal/target"
 )
 
 type Updater struct {
@@ -296,7 +297,7 @@ func (u *Updater) fetchMaxMind(ctx context.Context, dlURL, edition string) (*htt
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	dlClient := &http.Client{Timeout: 10 * time.Minute}
+	dlClient := &http.Client{Timeout: 10 * time.Minute, CheckRedirect: target.CheckSameHostRedirect}
 	resp, err := dlClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)

@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/HopStat/HopStat/internal/target"
 )
 
 const (
@@ -49,7 +51,8 @@ func New(cfg Config) *Verifier {
 		hostnames: hosts,
 		endpoint:  siteverifyURL,
 		httpClient: &http.Client{
-			Timeout: verifyTimeout,
+			Timeout:       verifyTimeout,
+			CheckRedirect: target.CheckSameHostRedirect,
 		},
 	}
 }
