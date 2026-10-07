@@ -12,29 +12,12 @@ import (
 	"github.com/HopStat/HopStat/internal/target"
 )
 
+// isBlockedIP defers to target.IsBlockedIP so the repository has a single IP
+// blocklist. The two copies had already drifted: the agent's copy was missing
+// the limited-broadcast case, which is how 255.255.255.255 reached runPing's
+// exec. Both gate the same commands, so they must agree on every address.
 func isBlockedIP(ip net.IP) bool {
-	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsPrivate() {
-		return true
-	}
-	if ip.IsLinkLocalUnicast() || ip.IsMulticast() {
-		return true
-	}
-	// CGNAT / Shared Address Space (RFC 6598)
-	if ip4 := ip.To4(); ip4 != nil {
-		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
-			return true
-		}
-		if ip4[0] == 0 {
-			return true
-		}
-		// Limited broadcast. IsMulticast only covers 224.0.0.0/4, so the top of
-		// the address space falls through it and a query naming 255.255.255.255
-		// would have runPing exec a ping against the broadcast address.
-		if ip4.Equal(net.IPv4bcast) {
-			return true
-		}
-	}
-	return false
+	return target.IsBlockedIP(ip)
 }
 
 func isValidTarget(target string) bool {

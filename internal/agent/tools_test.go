@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/HopStat/HopStat/internal/target"
 )
 
 func prependFakeBin(t *testing.T, scripts map[string]string) {
@@ -276,6 +278,33 @@ func TestIsBlockedIPRejectsLimitedBroadcast(t *testing.T) {
 	for _, s := range []string{"8.8.8.8", "1.1.1.1"} {
 		if isBlockedIP(net.ParseIP(s)) {
 			t.Errorf("isBlockedIP(%q) = true; public addresses must stay dialable", s)
+		}
+	}
+}
+
+// The agent's blocklist and the server's must agree on every address. They gate
+// the same commands, so a drift means one path accepts a target the other
+// rejects. This pins that contract across the address families both must
+// handle, including the v4-mapped forms where the two implementations could
+// most easily diverge.
+func TestIsBlockedIPMatchesTargetBlocklist(t *testing.T) {
+	addresses := []string{
+		"127.0.0.1", "::1", "0.0.0.0", "::",
+		"10.0.0.1", "172.16.0.1", "192.168.1.1", "fd00::1",
+		"169.254.1.1", "fe80::1", "::ffff:169.254.1.1",
+		"224.0.0.1", "ff02::1",
+		"100.64.0.1", "100.127.255.254", "100.63.0.1", "100.128.0.1",
+		"0.1.2.3", "255.255.255.255",
+		"8.8.8.8", "1.1.1.1", "93.184.216.34", "2001:4860:4860::8888",
+		"::ffff:8.8.8.8",
+	}
+	for _, s := range addresses {
+		ip := net.ParseIP(s)
+		if ip == nil {
+			t.Fatalf("unparsable address %q", s)
+		}
+		if got, want := isBlockedIP(ip), target.IsBlockedIP(ip); got != want {
+			t.Errorf("isBlockedIP(%q) = %v but target.IsBlockedIP = %v; the two blocklists must not drift", s, got, want)
 		}
 	}
 }
