@@ -2,11 +2,14 @@ package target
 
 import (
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -70,7 +73,6 @@ func TestCheckSameHostRedirectAllowsSameHost(t *testing.T) {
 
 // Every http.Client built in production code must carry the policy. The four vendor
 // clients are easy to harden once and easy to regress by adding a fifth later, so the
-// invariant is checked across the tree rather than per file.
 func TestEveryProductionHTTPClientRefusesCrossHostRedirects(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -92,50 +94,137 @@ func TestEveryProductionHTTPClientRefusesCrossHostRedirects(t *testing.T) {
 		if !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_test.go") {
 			return nil
 		}
-		body, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
+		// Parse rather than scan text. Brace matching over raw source is fooled by a
+		// "}" inside a string or comment, and a fixed line window lets one literal's
+		// CheckRedirect vouch for its neighbour. The AST gives each client its exact
+		// construct and ignores comments and string contents.
+		fset := token.NewFileSet()
+		file, parseErr := parser.ParseFile(fset, path, nil, 0)
+		if parseErr != nil {
+			return nil
 		}
-		src := string(body)
-		for i, line := range strings.Split(src, "\n") {
-			if !strings.Contains(line, "http.Client{") && !strings.Contains(line, "http.DefaultClient") {
-				continue
-			}
-			// The literal may be spread over several lines; check the remainder of the
-			// composite literal rather than only the opening line.
-			tail := strings.Join(strings.Split(src, "\n")[i:min(i+8, len(strings.Split(src, "\n")))], "\n")
-			// Two acceptable protections. CheckRedirect refuses the hop before it is
-			// made. agentTransport() validates at dial time instead, which is strictly
-			// stronger for that client: every connection it opens, including one made
-			// for a redirect, re-checks the resolved address. So the requirement is
-			// "protected", not "literally has CheckRedirect".
-			if strings.Contains(tail, "CheckRedirect") || strings.Contains(tail, "agentTransport()") {
-				continue
-			}
-			rel, _ := filepath.Rel(root, path)
-			offenders = append(offenders, rel+":"+itoa(i+1))
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			rel = path
 		}
+		flag := func(pos token.Pos) {
+			offenders = append(offenders, fmt.Sprintf("%s:%d", rel, fset.Position(pos).Line))
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch node := n.(type) {
+			case *ast.CompositeLit:
+				// &http.Client{...} and http.Client{...}
+				if !isHTTPClientType(node.Type) {
+					return true
+				}
+				if clientLitIsProtected(node) {
+					return true
+				}
+				flag(node.Type.Pos())
+			case *ast.ValueSpec:
+				// var c http.Client — a zero-value client with no policy at all.
+				// Skipped when initialised, since that initialiser is itself a
+				// composite literal and is checked above.
+				if len(node.Values) > 0 {
+					return true
+				}
+				if isHTTPClientType(node.Type) {
+					flag(node.Type.Pos())
+				}
+			case *ast.CallExpr:
+				// new(http.Client) and the package-level one-shots, none of which
+				// can carry a CheckRedirect at all.
+				if isNewHTTPClient(node) || isHTTPOneShot(node) {
+					flag(node.Pos())
+				}
+			case *ast.SelectorExpr:
+				// http.DefaultClient is the shared global and cannot be protected.
+				if isHTTPDefaultClient(node) {
+					flag(node.Pos())
+				}
+			}
+			return true
+		})
 		return nil
 	})
 	if walkErr != nil {
 		t.Fatalf("walk: %v", walkErr)
 	}
 	if len(offenders) > 0 {
-		t.Fatalf("production http.Client without a CheckRedirect policy: %v\n"+
+		sort.Strings(offenders)
+		t.Fatalf("production http.Client without a redirect policy: %v\n"+
 			"A vendor response could redirect the request to an internal address.", offenders)
 	}
 }
 
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
+func isHTTPClientType(e ast.Expr) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	if !ok {
+		return false
 	}
-	var b []byte
-	for n > 0 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-		n /= 10
+	x, ok := sel.X.(*ast.Ident)
+	return ok && x.Name == "http" && sel.Sel.Name == "Client"
+}
+
+func isHTTPDefaultClient(sel *ast.SelectorExpr) bool {
+	if sel.Sel.Name != "DefaultClient" {
+		return false
 	}
-	return string(b)
+	x, ok := sel.X.(*ast.Ident)
+	return ok && x.Name == "http"
+}
+
+// clientLitIsProtected reports whether the literal carries one of the two accepted
+// protections. CheckRedirect refuses the hop before it is made. agentTransport()
+// validates at dial time instead, which is strictly stronger for that client: every
+// connection it opens, including one made for a redirect, re-checks the resolved
+// address. The requirement is "protected", not "literally has CheckRedirect".
+func clientLitIsProtected(lit *ast.CompositeLit) bool {
+	for _, elt := range lit.Elts {
+		kv, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, ok := kv.Key.(*ast.Ident)
+		if !ok {
+			continue
+		}
+		switch key.Name {
+		case "CheckRedirect":
+			return true
+		case "Transport":
+			if call, ok := kv.Value.(*ast.CallExpr); ok {
+				if fn, ok := call.Fun.(*ast.Ident); ok && fn.Name == "agentTransport" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func isNewHTTPClient(call *ast.CallExpr) bool {
+	fn, ok := call.Fun.(*ast.Ident)
+	if !ok || fn.Name != "new" || len(call.Args) != 1 {
+		return false
+	}
+	return isHTTPClientType(call.Args[0])
+}
+
+func isHTTPOneShot(call *ast.CallExpr) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	x, ok := sel.X.(*ast.Ident)
+	if !ok || x.Name != "http" {
+		return false
+	}
+	switch sel.Sel.Name {
+	case "Get", "Head", "Post", "PostForm":
+		return true
+	}
+	return false
 }
 
 // The first request has no redirect history at all. CheckRedirect is not consulted for
