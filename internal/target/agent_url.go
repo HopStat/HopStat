@@ -41,7 +41,7 @@ func AllowedAgentHost(ctx context.Context, host string) bool {
 	}
 
 	if ip := net.ParseIP(host); ip != nil {
-		return allowedAgentIP(ip)
+		return AllowedAgentIP(ip)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -52,14 +52,21 @@ func AllowedAgentHost(ctx context.Context, host string) bool {
 		return false
 	}
 	for _, addr := range addrs {
-		if !allowedAgentIP(addr.IP) {
+		if !AllowedAgentIP(addr.IP) {
 			return false
 		}
 	}
 	return true
 }
 
-func allowedAgentIP(ip net.IP) bool {
+// AllowedAgentIP reports whether ip may be dialled for an agent connection. Loopback
+// and this host's own interface addresses stay allowed for co-located agents.
+//
+// It is exported so the connection path can re-check the address it is about to dial:
+// validation happens when a node is saved, but the driver resolves the stored hostname
+// again at connect time, so the address that is actually reached must be re-validated
+// here rather than trusted from the save-time check.
+func AllowedAgentIP(ip net.IP) bool {
 	if ip.IsLoopback() {
 		return true
 	}

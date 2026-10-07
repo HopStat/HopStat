@@ -32,8 +32,8 @@ func NewDriver(node *domain.Node, cfg *config.Config) (*Driver, error) {
 	return &Driver{
 		node:           node,
 		cfg:            cfg,
-		httpClient:     &http.Client{Timeout: 30 * time.Second},
-		streamClient:   &http.Client{},
+		httpClient:     &http.Client{Timeout: 30 * time.Second, Transport: agentTransport()},
+		streamClient:   &http.Client{Transport: agentTransport()},
 		circuitBreaker: circuitbreaker.New(5, 30*time.Second),
 	}, nil
 }
