@@ -139,7 +139,15 @@ export function saveAppearanceCache(settings: AppearanceSettings, theme: Theme) 
     vars: paletteToVars(palette, theme),
   }
 
-  localStorage.setItem(APPEARANCE_CACHE_KEY, JSON.stringify(cache))
+  // Same hazard as the read in getInitialTheme: private browsing and partitioned profiles
+  // raise on storage access instead of returning null. The palette above is already
+  // applied to the document and this cache only speeds up the next paint, so a failed
+  // write must degrade rather than take the caller down — the settings still come back.
+  try {
+    localStorage.setItem(APPEARANCE_CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // storage unavailable; the cache is simply not persisted
+  }
   return cache
 }
 

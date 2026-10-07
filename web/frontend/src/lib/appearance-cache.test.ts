@@ -129,3 +129,40 @@ describe('theme resolution survives a Web Storage that throws', () => {
     expect(getInitialTheme()).toBe('dark')
   })
 })
+
+describe('saving appearance survives a Web Storage that throws', () => {
+  // Same failure mode as the read above, on the write side. saveAppearanceCache runs from
+  // a React effect (brand-style-injector) and from appearance-boot, so letting the error
+  // escape would break the brand colours for the whole session. The cache only speeds up
+  // the next paint — the palette is already on the document — so the settings must still
+  // come back to the caller even when nothing was persisted.
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  function breakLocalStorageWrites() {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw Object.assign(new Error('The operation is insecure.'), { name: 'SecurityError' })
+    })
+  }
+
+  it('applies the settings without persisting them', () => {
+    breakLocalStorageWrites()
+    let cache: ReturnType<typeof saveAppearanceCache> | undefined
+    expect(() => {
+      cache = saveAppearanceCache({ header_color: '#e0edd4', site_name: 'LG' }, 'light')
+    }).not.toThrow()
+    expect(cache?.header_color).toBe('#e0edd4')
+    expect(cache?.site_name).toBe('LG')
+    expect(cache?.vars['--brand']).toBeTruthy()
+  })
+
+  it('still persists the cache when storage works', () => {
+    const cache = saveAppearanceCache({ header_color: '#e0edd4', site_name: 'LG' }, 'light')
+    const raw = localStorage.getItem(APPEARANCE_CACHE_KEY)
+    expect(raw).not.toBeNull()
+    expect(JSON.parse(raw as string).version).toBe(APPEARANCE_CACHE_VERSION)
+    expect(JSON.parse(raw as string).header_color).toBe(cache.header_color)
+  })
+})
