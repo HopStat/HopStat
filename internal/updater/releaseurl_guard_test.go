@@ -2,22 +2,31 @@ package updater
 
 import (
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"net/url"
-	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
 
-// repoRoot is two levels up from internal/updater.
+// repoRoot locates the repository from this file's own path rather than the process
+// working directory. Deriving it from the cwd meant the guard resolved to whatever
+// directory the binary happened to start in, walked an empty tree, found no callers,
+// and passed vacuously — a guard that silently stops guarding. runtime.Caller is
+// unaffected by where the test is invoked from.
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate this test file, so the repository root is unknown")
 	}
-	return root
+	// thisFile is <root>/internal/updater/releaseurl_guard_test.go
+	return filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
 }
 
 // SetReleaseAPIURL is a test-only override of the GitHub releases endpoint. It exists so
@@ -28,54 +37,64 @@ func repoRoot(t *testing.T) string {
 // seam is guarded rather than merely documented.
 //
 // The setter cannot be unexported — other packages' tests legitimately use it — so this
-// test is the guard: any call from a non-test file fails the build.
+// test is the guard: any production reference fails the build.
+//
+// The scan is over the AST, not the raw text. A line-based scan reported a /* */ comment
+// body and a raw-string body as production callers, which is the failure mode that gets a
+// guard disabled: people delete the useful comment rather than the real caller.
 func TestSetReleaseAPIURLHasNoProductionCallers(t *testing.T) {
 	root := repoRoot(t)
 	var offenders []string
+	scanned := 0
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		name := d.Name()
 		if d.IsDir() {
-			switch name {
+			switch d.Name() {
 			case "vendor", "node_modules", "dist", ".git", ".temp_files", "coverage":
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+		if !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_test.go") {
+			return nil
+		}
+		scanned++
+
+		fset := token.NewFileSet()
+		file, parseErr := parser.ParseFile(fset, path, nil, 0)
+		if parseErr != nil {
 			return nil
 		}
 		rel, relErr := filepath.Rel(root, path)
 		if relErr != nil {
 			rel = path
 		}
-		body, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
-		}
-		// Match call sites only: a mention in a comment or in the setter's own
-		// signature is not a call. Skipping by line rather than by file means a
-		// production call placed in updater.go itself is still caught.
-		for i, line := range strings.Split(string(body), "\n") {
-			trimmed := strings.TrimSpace(line)
-			if strings.HasPrefix(trimmed, "//") {
-				continue
+		// Any selector on the method is a production reference. That covers a call
+		// (whose Fun is the selector) and a method value assigned for later use.
+		// The declaration itself is an ast.FuncDecl, not a selector, so it is never
+		// matched, and comments and string literals are not nodes at all.
+		ast.Inspect(file, func(n ast.Node) bool {
+			sel, ok := n.(*ast.SelectorExpr)
+			if ok && sel.Sel.Name == "SetReleaseAPIURL" {
+				offenders = append(offenders, fmt.Sprintf("%s:%d", rel, fset.Position(sel.Pos()).Line))
 			}
-			if strings.Contains(line, "SetReleaseAPIURL") &&
-				!strings.HasPrefix(trimmed, "func (u *Updater) SetReleaseAPIURL(") {
-				offenders = append(offenders, fmt.Sprintf("%s:%d: %s", rel, i+1, trimmed))
-			}
-		}
+			return true
+		})
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("walk: %v", err)
 	}
+
+	if scanned == 0 {
+		t.Fatalf("no Go files found under %s; the walk root is wrong, so this guard would pass vacuously", root)
+	}
 	if len(offenders) > 0 {
-		t.Fatalf("SetReleaseAPIURL is a test-only seam but is called from production code: %v\n"+
+		sort.Strings(offenders)
+		t.Fatalf("SetReleaseAPIURL is a test-only seam but is referenced from production code: %v\n"+
 			"Wiring it to a settings value would make the release host operator-controlled.", offenders)
 	}
 }
