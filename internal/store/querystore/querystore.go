@@ -176,6 +176,14 @@ func (s *Store) Set(id string, result *domain.QueryResult) {
 	s.signal(id)
 }
 
+// Get returns a copy of the stored result.
+//
+// It must not hand back the live pointer. MergePartial writes fields into
+// e.result in place while holding the store lock, but every caller of Get reads
+// the result after this function has already released the lock — GetResult
+// serialises it straight into the response. Returning e.result therefore races
+// the query goroutine's OnPartial writes: concurrent read and write of the same
+// memory, observed under -race at querystore.go:126 against a Get caller.
 func (s *Store) Get(id string) (*domain.QueryResult, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -183,7 +191,11 @@ func (s *Store) Get(id string) (*domain.QueryResult, bool) {
 	if !ok {
 		return nil, false
 	}
-	return e.result, true
+	if e.result == nil {
+		return nil, true
+	}
+	cp := *e.result
+	return &cp, true
 }
 
 func (s *Store) Delete(id string) {
