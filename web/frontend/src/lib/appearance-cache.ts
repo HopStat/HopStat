@@ -37,7 +37,16 @@ function getSystemTheme(): Theme {
 }
 
 export function getInitialTheme(): Theme {
-  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+  // Runs before React (appearance-boot) and inside a useState initializer (theme-provider),
+  // so a throwing Web Storage would take the whole page down. Private browsing and
+  // partitioned profiles raise on access rather than returning null; the stored preference
+  // is an optimisation, so fall through to the system one instead.
+  let stored: string | null = null
+  try {
+    stored = localStorage.getItem(THEME_STORAGE_KEY)
+  } catch {
+    // ignore storage errors
+  }
   if (stored === 'dark' || stored === 'light') return stored
   return getSystemTheme()
 }

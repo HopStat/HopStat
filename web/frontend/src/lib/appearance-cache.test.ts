@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   APPEARANCE_CACHE_KEY,
   APPEARANCE_CACHE_VERSION,
+  getInitialTheme,
   readAppearanceCache,
   saveAppearanceCache,
   THEME_STORAGE_KEY,
@@ -84,5 +85,47 @@ describe('a cache that no longer describes this page is discarded', () => {
   it('survives unreadable storage', () => {
     localStorage.setItem(APPEARANCE_CACHE_KEY, 'not json')
     expect(readAppearanceCache()).toBeNull()
+  })
+})
+
+describe('theme resolution survives a Web Storage that throws', () => {
+  // Safari Private Browsing and partitioned browser profiles raise on storage access
+  // instead of returning null. getInitialTheme runs before React (appearance-boot) and
+  // inside a useState initializer (theme-provider), so letting that error escape takes the
+  // whole page down. The stored preference is only an optimisation — the system one is a
+  // complete answer — so the read must degrade rather than throw.
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  function breakLocalStorage() {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw Object.assign(new Error('The operation is insecure.'), { name: 'SecurityError' })
+    })
+  }
+
+  it('falls back to the system preference instead of throwing', () => {
+    // jsdom here ships no matchMedia, and the system fallback reads it. Stand one up so
+    // this case measures the storage fallback rather than a missing browser API.
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('dark'),
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }))
+    breakLocalStorage()
+
+    expect(() => getInitialTheme()).not.toThrow()
+    expect(['light', 'dark']).toContain(getInitialTheme())
+  })
+
+  it('still honours a stored preference when storage works', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark')
+    expect(getInitialTheme()).toBe('dark')
   })
 })
