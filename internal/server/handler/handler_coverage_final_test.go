@@ -3097,3 +3097,67 @@ func TestUpdateQuickQuery_RemainingBranches(t *testing.T) {
 		t.Fatalf("update error status = %d", w.Code)
 	}
 }
+
+// SubmitQuery early-stops a traceroute once traceroute_max_timeouts consecutive
+// timeouts have streamed, through the ShouldStop option it hands the engine. The
+// engine invokes that closure from its own watcher goroutine while the command is
+// still running, so coverage of the closure body depends on how long the command
+// takes. Driving it directly here makes that deterministic: twenty unresponsive
+// hops exceed every legal setting of the limit, so ShouldStop must be reached and
+// must ask the engine to stop.
+func TestSubmitQuery_TracerouteEarlyStopAfterMaxTimeouts(t *testing.T) {
+	db := setupDB(t)
+	cfg := testConfig()
+	nodeRepo := repo.NewNodeRepo(db, "")
+	node, err := nodeRepo.Create(context.Background(), &domain.Node{
+		Name: "n", Type: domain.NodeTypeStandalone, Active: true,
+		EnabledCmds: domain.DefaultEnabledCmds(), AgentToken: "tok",
+	})
+	if err != nil {
+		t.Fatalf("create node: %v", err)
+	}
+	refreshTestSiteCache(t, db)
+
+	prev := handlerEngineExecute
+	prevDone := submitQueryAsyncDone
+	done := make(chan struct{})
+	submitQueryAsyncDone = func() { close(done) }
+
+	var shouldStopRan, shouldStopTrue bool
+	handlerEngineExecute = func(h *Handler, ctx context.Context, query *domain.Query, opts ...engine.ExecuteOption) (*domain.QueryResult, error) {
+		var opt engine.ExecuteOption
+		if len(opts) > 0 {
+			opt = opts[0]
+		}
+		if opt.OnLine == nil || opt.ShouldStop == nil {
+			return &domain.QueryResult{ID: query.ID, Status: domain.StatusDone}, nil
+		}
+		shouldStopRan = true
+		for hop := 2; hop <= 21; hop++ {
+			opt.OnLine(fmt.Sprintf(" %d  * * *", hop))
+		}
+		shouldStopTrue = opt.ShouldStop()
+		return &domain.QueryResult{ID: query.ID, Status: domain.StatusDone, Raw: "done"}, nil
+	}
+	t.Cleanup(func() {
+		<-done
+		handlerEngineExecute = prev
+		submitQueryAsyncDone = prevDone
+	})
+
+	body := fmt.Sprintf(`{"node_id":%d,"command":"traceroute","target":"1.1.1.1"}`, node.ID)
+	c, w := setupContext(db, http.MethodPost, "/query", body)
+	h := New(db, cfg, nil, nil)
+	h.SubmitQuery()(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+
+	<-done // the handler returns before the async goroutine; wait for it
+	if !shouldStopRan {
+		t.Fatal("ShouldStop was never invoked")
+	}
+	if !shouldStopTrue {
+		t.Fatal("ShouldStop = false after 20 consecutive timeouts, want true")
+	}
+}
