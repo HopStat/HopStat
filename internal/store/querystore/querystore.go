@@ -166,11 +166,23 @@ func (s *Store) IsOutputComplete(id string) bool {
 }
 
 func (s *Store) Set(id string, result *domain.QueryResult) {
+	// Copy on the way in, for the same reason Get copies on the way out. MergePartial
+	// mutates e.result in place through mergeASPathPartialFields, and that runs before
+	// the status guard, so storing the caller's pointer would let those writes land on
+	// memory the caller still owns and still reads without holding a lock — the same
+	// unsynchronised read/write pair, entered from the other direction. Observed under
+	// -race at querystore.go:137 against a caller reading the result it had just handed
+	// over, as SubmitQuery does when it builds the audit entry.
+	var stored *domain.QueryResult
+	if result != nil {
+		cp := *result
+		stored = &cp
+	}
 	s.mu.Lock()
 	if e, ok := s.results[id]; ok {
-		e.result = result
+		e.result = stored
 	} else {
-		s.results[id] = &entry{result: result, notify: make(chan struct{}, 1), createdAt: time.Now()}
+		s.results[id] = &entry{result: stored, notify: make(chan struct{}, 1), createdAt: time.Now()}
 	}
 	s.mu.Unlock()
 	s.signal(id)
