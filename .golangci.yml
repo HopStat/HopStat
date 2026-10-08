@@ -25,8 +25,10 @@ linters:
       - builtin$
       - examples$
       - web/frontend/node_modules
-      # sqlc output. It carries no "Code generated" header, so `generated: lax` cannot skip
-      # it, and any hand fix here is erased by the next `make generate`.
+      # Hand-maintained SQL wrappers, not generated output. They carry no
+      # "Code generated" header, so `generated: lax` cannot skip them and
+      # they have to be excluded here by path. Hand fixes are permanent: there
+      # is no codegen step that would erase them (see the header in sqlc.yaml).
       - internal/store/queries
     rules:
       - path: _test\.go
