@@ -1,4 +1,4 @@
-.PHONY: build test lint generate run-server run-agent release clean bench \
+.PHONY: build test lint run-server run-agent release clean bench \
 	test-cover test-race test-smoke frontend test-ui gate
 
 version ?= $$(git describe --tags --always 2>/dev/null || echo "dev")
@@ -8,9 +8,6 @@ GOPKGS = $(shell go list ./... | grep -v node_modules)
 
 build:
 	CGO_ENABLED=0 go build -ldflags="-s -w -X main.version=$(version)" -o hopstat ./cmd/lg/
-
-generate:
-	sqlc generate
 
 # -shuffle=on: tests that depend on run order (shared caches, package-level seams) pass
 # under the default order and fail in CI. Shuffling makes that failure immediate.

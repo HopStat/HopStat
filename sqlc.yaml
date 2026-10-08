@@ -1,3 +1,28 @@
+# This config is retained for reference, NOT wired into any make target.
+#
+# There is no query source for this project: `internal/store/sql/` contains only
+# schema.sql. Every file in internal/store/queries is hand-maintained — including
+# the two that used to claim otherwise (audit.sql.go and user.sql.go, corrected in
+# 1c0eaa7) and queries.go, which holds hand-written helpers such as endOfDayBound.
+#
+# Running `sqlc generate` as configured fails:
+#     error parsing queries: no queries contained in paths internal/store/sql
+# The `generate` make target was removed for exactly this reason; nothing in CI or
+# the docs invoked it.
+#
+# Do not "fix" the failure by pointing this at schema-only generation. sqlc would
+# then emit a models.go declaring AuditLog, BGPNeighbor, CommunityRule, Node,
+# QuickQuery and User — all six already exist as hand-written types in the
+# *.sql.go files, so the result would be duplicate declarations and a broken
+# build. No models.go has ever existed in this repository.
+#
+# Do not add query sources for audit.sql.go either. ListAuditLogs builds its WHERE
+# clause dynamically (optional node_id / command / source_ip / created_at bounds
+# plus LIMIT/OFFSET, shared between the COUNT and page queries), which sqlc cannot
+# express as a named query; regenerating it would silently drop that filtering.
+# user.sql.go and the other five files are static SQL and could be regenerated if
+# that were ever wanted, but it is a deliberate decision, not something to
+# reintroduce by accident.
 version: "2"
 sql:
   - engine: "sqlite"
