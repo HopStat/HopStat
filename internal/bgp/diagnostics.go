@@ -271,6 +271,15 @@ func (m *SessionManager) handlePeerStateChange(id int64, neighborAddr string, pr
 
 	now := time.Now()
 	m.mu.Lock()
+	// Ignore a queued event for a neighbor that has already been removed.
+	// RemoveNeighbor deletes m.neighbors[id] and m.states[id], but the watcher
+	// goroutine may still deliver an in-flight peer-state event afterwards.
+	// Writing m.states[id] unconditionally would resurrect the deleted
+	// neighbor: GetAllStatuses and HasNeighbors would report it as live again.
+	if _, ok := m.neighbors[id]; !ok {
+		m.mu.Unlock()
+		return
+	}
 	if m.stateSince == nil {
 		m.stateSince = make(map[int64]time.Time)
 	}

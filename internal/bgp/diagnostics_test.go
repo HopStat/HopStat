@@ -261,6 +261,33 @@ func TestLogStuckSessions(t *testing.T) {
 	}
 }
 
+// A peer-state event can still be in flight on the watcher goroutine when
+// RemoveNeighbor runs. handlePeerStateChange must not resurrect the deleted
+// neighbor's entry, or GetAllStatuses/HasNeighbors report it as live again.
+func TestHandlePeerStateChangeIgnoresRemovedNeighbor(t *testing.T) {
+	mgr, _ := startTestManager(t, config.BGPConfig{LocalAS: 65000, RouterID: "127.0.0.1"})
+
+	// 77 was never registered (or was already removed): m.neighbors has no entry.
+	mgr.mu.Lock()
+	_, registered := mgr.neighbors[77]
+	mgr.mu.Unlock()
+	if registered {
+		t.Fatal("precondition: neighbor 77 should not be registered")
+	}
+
+	mgr.handlePeerStateChange(77, "198.51.100.77", domain.BGPSessionIdle, domain.BGPSessionActive, nil)
+
+	mgr.mu.Lock()
+	state, resurrected := mgr.states[77]
+	mgr.mu.Unlock()
+	if resurrected {
+		t.Fatalf("late event for a removed neighbor resurrected m.states[77] = %v", state)
+	}
+	if _, ok := mgr.GetAllStatuses()[77]; ok {
+		t.Fatal("GetAllStatuses reported a removed neighbor after a late state-change event")
+	}
+}
+
 func TestFormatNeighborConfigMultihopOff(t *testing.T) {
 	n := &domain.BGPNeighbor{RemoteAS: 65002}
 	got := formatNeighborConfig(n, 65001, "10.0.0.1", "10.0.0.2")
