@@ -31,11 +31,47 @@ var hasActiveBGPSession = func(m *bgp.SessionManager, nodeID int64) bool {
 	return m.HasActiveSession(nodeID)
 }
 
-var lookupASForPath = func(g *geo.GeoIPDB, ctx context.Context, asn uint32) (*domain.ASInfo, error) {
+// asForPathFunc is the shape of the AS-path lookup seam.
+type asForPathFunc func(*geo.GeoIPDB, context.Context, uint32) (*domain.ASInfo, error)
+
+// lookupASForPathFn holds the current AS lookup.
+//
+// It is an atomic pointer rather than a plain package-level var because
+// prefetchBGPASPath reads this seam from a goroutine that Execute starts and does
+// not join. A plain var made every test that swapped it a potential data race —
+// that is the race fixed in commit 2cce94a, where a leaked prefetch goroutine read
+// lookupASForPath while another test assigned it. Swapping is now safe from any
+// goroutine, so the class of bug is gone rather than just this instance.
+//
+// A nil pointer means "no override installed" and the production lookup runs.
+var lookupASForPathFn atomic.Pointer[asForPathFunc]
+
+// setLookupASForPath installs an AS lookup override. Production never calls this;
+// only tests do.
+func setLookupASForPath(fn asForPathFunc) {
+	lookupASForPathFn.Store(&fn)
+}
+
+// resetLookupASForPath removes any override and restores the production lookup.
+// Tests call it from t.Cleanup.
+func resetLookupASForPath() {
+	lookupASForPathFn.Store(nil)
+}
+
+func defaultLookupASForPath(g *geo.GeoIPDB, ctx context.Context, asn uint32) (*domain.ASInfo, error) {
 	if g == nil {
 		return nil, nil
 	}
 	return g.LookupASByNumber(ctx, asn)
+}
+
+// lookupASForPath resolves an ASN, via the installed override when a test has
+// installed one.
+func lookupASForPath(g *geo.GeoIPDB, ctx context.Context, asn uint32) (*domain.ASInfo, error) {
+	if fn := lookupASForPathFn.Load(); fn != nil {
+		return (*fn)(g, ctx, asn)
+	}
+	return defaultLookupASForPath(g, ctx, asn)
 }
 
 type SettingsProvider interface {

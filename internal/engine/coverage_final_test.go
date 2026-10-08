@@ -28,11 +28,10 @@ func TestExecuteTraceroutePoolError(t *testing.T) {
 }
 
 func TestEnrichASPathSetsFlagEmojiFromCountry(t *testing.T) {
-	old := lookupASForPath
-	lookupASForPath = func(_ *geo.GeoIPDB, _ context.Context, asn uint32) (*domain.ASInfo, error) {
+	setLookupASForPath(func(_ *geo.GeoIPDB, _ context.Context, asn uint32) (*domain.ASInfo, error) {
 		return &domain.ASInfo{ASN: asn, OrgName: "Example", CountryCode: "US"}, nil
-	}
-	t.Cleanup(func() { lookupASForPath = old })
+	})
+	t.Cleanup(resetLookupASForPath)
 
 	e := New(&QueryConfig{MaxConcurrent: 4}, &mockNodeRepo{}, nil, testGeoDB(t), nil, nil, 0)
 	br := &domain.BGPResult{Routes: []domain.BGPRoute{{ASPath: []uint32{15169}, Best: true}}}

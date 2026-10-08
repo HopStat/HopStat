@@ -555,10 +555,11 @@ func TestPrefetchBGPASPath(t *testing.T) {
 	}, ExecuteOption{OnPartial: func(*domain.QueryResult) { partials.Add(1) }})
 
 	// Execute launches the AS-path prefetch on a bare goroutine and returns without
-	// waiting for it. That goroutine reads the package-level lookupASForPath seam,
-	// which TestEnrichASPathSetsFlagEmojiFromCountry swaps out via t.Cleanup — so if
-	// it escapes this test it races that swap. Observed under -race. Await it here
-	// instead of sleeping and hoping it finished.
+	// waiting for it, so it would otherwise outlive this test. That was a data race
+	// while the AS lookup seam was a plain package-level var (fixed in 2cce94a); the
+	// seam is now behind setLookupASForPath/resetLookupASForPath and swapping it is
+	// atomic, so nothing races any more. Awaiting is kept regardless: it makes this
+	// test deterministic and stops a goroutine leaking into whatever runs next.
 	e.waitPrefetch()
 }
 
