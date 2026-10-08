@@ -75,3 +75,7 @@ web/frontend/test-results/
 web/frontend/playwright-report/
 web/frontend/blob-report/
 web/frontend/coverage/
+.temp_files/
+!/.wrongstack/
+/.wrongstack/*
+!/.wrongstack/project.json
