@@ -546,14 +546,20 @@ func TestPrefetchBGPASPath(t *testing.T) {
 	repo := &idNodeRepo{nodes: map[int64]*domain.Node{1: lgNode(1, agent.URL)}}
 	e := New(&QueryConfig{MaxConcurrent: 4, DefaultTimeoutSec: 5}, repo, nil, testGeoDB(t), nil, nil, 65000)
 
-	done := make(chan struct{})
-	var partials int
+	// OnPartial is invoked from the query pool and from the prefetch goroutine, so
+	// the counter needs its own synchronisation.
+	var partials atomic.Int64
 	_, _ = e.Execute(context.Background(), &domain.Query{
 		ID: "q", NodeID: 1, Command: domain.CmdPing, Target: "8.8.8.8",
 		Options: domain.QueryOptions{PingCount: 1},
-	}, ExecuteOption{OnPartial: func(*domain.QueryResult) { partials++ }})
-	close(done)
-	time.Sleep(50 * time.Millisecond)
+	}, ExecuteOption{OnPartial: func(*domain.QueryResult) { partials.Add(1) }})
+
+	// Execute launches the AS-path prefetch on a bare goroutine and returns without
+	// waiting for it. That goroutine reads the package-level lookupASForPath seam,
+	// which TestEnrichASPathSetsFlagEmojiFromCountry swaps out via t.Cleanup — so if
+	// it escapes this test it races that swap. Observed under -race. Await it here
+	// instead of sleeping and hoping it finished.
+	e.waitPrefetch()
 }
 
 func TestExecuteEmitsRawWhenNotStreamed(t *testing.T) {

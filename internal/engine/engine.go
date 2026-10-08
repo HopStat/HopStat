@@ -52,6 +52,18 @@ type QueryEngine struct {
 	rateLimit     *RateLimiter
 	geoDB         *geo.GeoIPDB
 	bgpMgr        *bgp.SessionManager
+	prefetchWG    sync.WaitGroup
+}
+
+// waitPrefetch blocks until every AS-path prefetch this engine started has finished.
+//
+// Execute launches prefetchBGPASPath with a bare `go` on a context detached from
+// the caller's, so nothing else observes it. Callers that mutate process-wide state
+// the prefetch reads — the lookupASForPath seam, for one — must await it first, or a
+// leaked goroutine outlives the code that set that state up. Tests use this; in
+// production each query's prefetch is deliberately left to finish on its own.
+func (e *QueryEngine) waitPrefetch() {
+	e.prefetchWG.Wait()
 }
 
 type QueryConfig struct {
@@ -198,7 +210,11 @@ func (e *QueryEngine) Execute(ctx context.Context, query *domain.Query, opts ...
 	start := time.Now()
 
 	if query.Command == domain.CmdPing || query.Command == domain.CmdTraceroute {
-		go e.prefetchBGPASPath(context.WithoutCancel(ctx), drv, query.Target, query.NodeID, node.Type, opt)
+		e.prefetchWG.Add(1)
+		go func() {
+			defer e.prefetchWG.Done()
+			e.prefetchBGPASPath(context.WithoutCancel(ctx), drv, query.Target, query.NodeID, node.Type, opt)
+		}()
 	}
 
 	err = e.pool.Execute(ctx, func() error {
