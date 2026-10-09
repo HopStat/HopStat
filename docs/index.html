@@ -4,623 +4,430 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HopStat — Network Looking Glass Platform</title>
-<meta name="description" content="Open-source network looking glass. BGP route lookup, ping, traceroute and AS path diagnostics from every node in your network. Single Go binary, zero dependencies.">
+<meta name="description" content="Open-source network looking glass. BGP route lookup, ping, traceroute and AS path diagnostics from every node in your network, with shareable results. Single Go binary, zero dependencies.">
+<link rel="canonical" href="https://docs.hopstat.net/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://docs.hopstat.net/">
 <meta property="og:title" content="HopStat — Network Looking Glass Platform">
-<meta property="og:description" content="BGP route lookup, ping, traceroute and AS path diagnostics. Single Go binary.">
+<meta property="og:description" content="BGP route lookup, ping, traceroute and AS path diagnostics from every node in your network. Single Go binary.">
+<meta name="twitter:card" content="summary">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* The site speaks the product's own design language: the slate palette and type of the
+   query page, square corners, and values set in framed cells that share their edges, each
+   labelled in its corner like a filled-in measurement sheet. Light and dark follow the
+   reader's system setting. */
 :root {
-  --bg:       #07101f;
-  --bg2:      #0b1628;
-  --bg3:      #0f1e37;
-  --surface:  #111d35;
-  --surface2: #172540;
-  --border:   #1a3356;
-  --border2:  #254d80;
-  --cyan:     #22d3ee;
-  --cyan2:    #67e8f9;
-  --cyan-dim: #0e4f66;
-  --green:    #4ade80;
-  --green-dim:#14532d;
-  --amber:    #fbbf24;
-  --red:      #f87171;
-  --text:     #e2e8f0;
-  --text2:    #8baabf;
-  /* Solved against every surface on the page: the old #3d5a78 read at 2.1:1, well under
-     the 4.5:1 body-text minimum, and it carries most of the secondary copy here. */
-  --text3:    #7194b7;
-  --mono: 'SF Mono','JetBrains Mono','Fira Code',Menlo,Consolas,'Courier New',monospace;
+  --bg:        #f3f5f8;
+  --card:      #ffffff;
+  --muted:     #e8ecf2;
+  --fg:        #152033;
+  --fg2:       #3d4d63;
+  --fg3:       #5a677a;
+  --border:    #d4dbe6;
+  --frame:     #b9c3d3;
+  --brand:     #1e293b;
+  --brand-fg:  #f8fafc;
+  --accent:    #425e8a;
+  --accent-bg: #e3e9f2;
+  --success:   #0b6b40;
+  --warning:   #7a4f06;
+  --code-bg:   #f7f9fb;
+  --sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
 }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0c1017;
+    --card:      #121820;
+    --muted:     #161d28;
+    --fg:        #e8edf4;
+    --fg2:       #b4c0d0;
+    --fg3:       #8b97a8;
+    --border:    #252f3f;
+    --frame:     #34425a;
+    --brand:     #e8edf4;
+    --brand-fg:  #0c1017;
+    --accent:    #7591bd;
+    --accent-bg: #1a2433;
+    --success:   #6ddc9f;
+    --warning:   #f0c268;
+    --code-bg:   #0f141c;
+  }
+}
+
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;}
-
 body {
   background: var(--bg);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 13.5px;
-  line-height: 1.7;
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
   overflow-x: hidden;
 }
+a { color: var(--accent); }
+code, .mono { font-family: var(--mono); font-feature-settings: "liga" 0; }
+code { font-size: .9em; overflow-wrap: anywhere; }
+strong { color: var(--fg); font-weight: 700; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* DOT GRID */
-body::before {
-  content:'';
-  position:fixed;
-  inset:0;
-  background-image: radial-gradient(circle, rgba(34,211,238,0.12) 1px, transparent 1px);
-  background-size: 36px 36px;
-  pointer-events:none;
-  z-index:0;
+/* ─── Sheet: framed cells that share one edge ─────────── */
+.sheet {
+  display: grid;
+  border: 1px solid var(--frame);
+  background: var(--card);
+}
+.sheet > * {
+  box-shadow: 1px 0 0 var(--border), 0 1px 0 var(--border);
+}
+.sheet { overflow: hidden; }
+.cell { padding: .75rem 1rem .9rem; min-width: 0; }
+.cell-label {
+  display: block;
+  font-size: .75rem;
+  line-height: 1.1rem;
+  font-weight: 600;
+  color: var(--fg3);
+  margin-bottom: .25rem;
 }
 
-/* ─── NAV ─────────────────────────────────────────── */
+/* ─── Nav ─────────────────────────────────────────────── */
 nav {
-  position:sticky; top:0; z-index:200;
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0 2.5rem; height:58px;
-  background:rgba(7,16,31,0.88);
-  backdrop-filter:blur(14px);
-  border-bottom:1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
 }
-.nav-logo {
-  display:flex; align-items:center; gap:10px;
-  text-decoration:none; color:var(--text);
+.nav-inner {
+  max-width: 1160px; margin: 0 auto; height: 60px;
+  padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
 }
-.nav-logotype {
-  display:flex; align-items:center; gap:0;
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); }
+.logo-box {
+  width: 28px; height: 28px; background: var(--brand); color: var(--brand-fg);
+  display: grid; place-items: center; font-weight: 800; font-size: 15px;
 }
-.nav-logo-box {
-  width:30px; height:30px; border-radius:6px;
-  background:var(--cyan); display:flex; align-items:center; justify-content:center;
-  font-size:15px; font-weight:900; color:var(--bg); letter-spacing:-1px;
-}
-.nav-logo-name {
-  font-size:15px; font-weight:700; letter-spacing:-0.03em;
-  color:var(--text); margin-left:9px;
-}
-.nav-links {
-  display:flex; gap:2.2rem; list-style:none;
-}
-.nav-links a {
-  color:var(--text2); text-decoration:none; font-size:12.5px;
-  transition:color .18s; letter-spacing:0.02em;
-  white-space:nowrap;
-}
-.nav-links a:hover { color:var(--cyan); }
-.nav-actions { display:flex; gap:9px; align-items:center; }
+.logo-name { font-weight: 800; font-size: 16px; letter-spacing: -0.02em; }
+.nav-links { display: flex; gap: 1.5rem; list-style: none; }
+.nav-links a { color: var(--fg2); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.nav-links a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 4px; }
+.nav-actions { display: flex; gap: 8px; }
 
-/* ─── BUTTONS ─────────────────────────────────────── */
+/* ─── Buttons ─────────────────────────────────────────── */
 .btn {
-  display:inline-flex; align-items:center; gap:6px;
-  padding:7px 15px; border-radius:6px; border:none; cursor:pointer;
-  font-family:var(--mono); font-size:12.5px; font-weight:700;
-  text-decoration:none; transition:all .18s; white-space:nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 16px;
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  border: 1px solid transparent;
 }
-.btn-primary { background:var(--cyan); color:var(--bg); }
-.btn-primary:hover { background:var(--cyan2); transform:translateY(-1px); box-shadow:0 4px 20px rgba(34,211,238,.25); }
-.btn-outline {
-  background:transparent; color:var(--text2);
-  border:1px solid var(--border2);
-}
-.btn-outline:hover { color:var(--text); border-color:var(--text3); }
-.btn-sm { padding:5px 12px; font-size:11.5px; }
+.btn-primary { background: var(--brand); color: var(--brand-fg); }
+.btn-primary:hover { opacity: .9; }
+.btn-outline { background: var(--card); color: var(--fg); border-color: var(--frame); }
+.btn-outline:hover { border-color: var(--accent); }
+.btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
 
-/* ─── HERO ────────────────────────────────────────── */
-.hero {
-  position:relative; min-height:auto;
-  display:flex; align-items:flex-start; justify-content:center;
-  padding:5rem 2.5rem 2rem;
-  overflow:hidden;
-}
-.hero-inner {
-  position:relative; z-index:2;
-  max-width:1280px; width:100%;
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  grid-template-areas:
-    "badge ."
-    "text  canvas";
-  column-gap:2rem;
-  row-gap:0;
-  align-items:stretch;
-}
-.hero-badge {
-  grid-area:badge;
-  display:inline-flex; align-items:center; gap:8px;
-  padding:4px 13px; border-radius:100px;
-  border:1px solid var(--cyan-dim);
-  font-size:10.5px; color:var(--cyan);
-  letter-spacing:0.1em; margin-bottom:2rem;
-  align-self:start;
-}
-.hero-text {
-  grid-area:text;
-  min-width:0;
-}
-.badge-dot {
-  width:6px; height:6px; border-radius:50%;
-  background:var(--cyan); animation:pulse 2s infinite;
-}
-@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.25} }
+/* ─── Layout ──────────────────────────────────────────── */
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+section { padding: 5rem 0; border-top: 1px solid var(--border); }
+section.anchor, .anchor { scroll-margin-top: 72px; }
+h1, h2, h3 { letter-spacing: -0.025em; color: var(--fg); }
+h2 { font-size: clamp(1.75rem, 3.2vw, 2.4rem); line-height: 1.15; font-weight: 800; margin-bottom: 1rem; max-width: 22ch; }
+h3 { font-size: 1.05rem; font-weight: 700; margin: 2.25rem 0 .75rem; }
+.lead { font-size: 1.0625rem; color: var(--fg2); max-width: 64ch; margin-bottom: 2.5rem; }
+.prose p { color: var(--fg2); max-width: 68ch; margin-bottom: 1rem; }
+.note { font-size: 14px; color: var(--fg2); margin-top: 1rem; max-width: 80ch; }
+.note code, .prose code, .lead code, .cell code { color: var(--fg); }
+ul.points { list-style: none; display: grid; gap: .4rem; margin-top: 1rem; }
+ul.points li { position: relative; padding-left: 1.1rem; color: var(--fg2); font-size: 14.5px; }
+ul.points li::before { content: ''; position: absolute; left: 0; top: .62em; width: 6px; height: 6px; background: var(--accent); }
 
-h1.hero-title {
-  font-size:clamp(2.6rem,5.5vw,4.2rem);
-  font-weight:900; line-height:1.04;
-  letter-spacing:-0.05em;
-  margin-bottom:1.6rem; color:var(--text);
-}
-h1.hero-title .accent { color:var(--cyan); }
-h1.hero-title .dim { color:var(--text3); }
+/* ─── Hero ────────────────────────────────────────────── */
+.hero { padding: 4.5rem 0 4rem; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 3.5rem; align-items: start; }
+.hero h1 { font-size: clamp(2.5rem, 5vw, 3.75rem); line-height: 1.04; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 1.25rem; }
+.hero-sub { font-size: 1.125rem; color: var(--fg2); max-width: 46ch; margin-bottom: 1.75rem; }
+.hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2.25rem; }
+.facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.facts .cell-value { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+.meta-line { margin-top: 1rem; font-size: 13px; color: var(--fg3); }
 
-.hero-sub {
-  font-size:14.5px; color:var(--text2); line-height:1.85;
-  margin-bottom:1.6rem; max-width:none;
+/* Product mock: the query sheet itself */
+.app {
+  border: 1px solid var(--frame);
+  background: var(--card);
 }
-.hero-sub strong { color:var(--text); }
-
-.hero-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:1.5rem; }
-
-.hero-stats {
-  display:flex; gap:2.5rem; margin-top:2rem;
-  padding-top:1.5rem; border-top:1px solid var(--border);
+.app-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .85rem 1rem; border-bottom: 1px solid var(--border);
+  background: var(--muted);
 }
-.hstat { display:flex; flex-direction:column; gap:2px; }
-.hstat-val { font-size:1.6rem; font-weight:800; color:var(--cyan); letter-spacing:-0.04em; }
-.hstat-label { font-size:10px; color:var(--text3); letter-spacing:0.1em; text-transform:uppercase; }
-
-/* Canvas */
-.hero-canvas-wrap {
-  grid-area:canvas;
-  width:100%;
-  height:100%;
-  min-height:0;
-  pointer-events:none;
-  opacity:0.92;
-  align-self:stretch;
-  overflow:hidden;
-}
-#netCanvas {
-  width:100%;
-  height:100%;
-  display:block;
-  vertical-align:top;
-}
-
-/* ─── SECTION BASE ────────────────────────────────── */
-.section-wrap {
-  position:relative; z-index:1;
-  max-width:1080px; margin:0 auto;
-  padding:6rem 2.5rem;
-}
-.section-wrap--wide {
-  max-width:1280px;
-  padding:3rem 2.5rem 5rem;
-  border-bottom:1px solid var(--border);
-  background:linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--cyan) 4%, var(--bg2)) 0%,
-    var(--bg) 100%
-  );
-}
-.section-wrap--wide .sec-desc {
-  max-width:none;
-}
-.section-wrap--wide h2 {
-  max-width:none;
-}
-.section-tag {
-  display:inline-block; font-size:10.5px;
-  letter-spacing:0.12em; text-transform:uppercase;
-  color:var(--cyan); margin-bottom:.9rem;
-}
-h2 {
-  font-size:clamp(1.7rem,3.5vw,2.6rem);
-  font-weight:800; letter-spacing:-0.04em;
-  line-height:1.15; margin-bottom:1.2rem; color:var(--text);
-}
-.sec-desc {
-  font-size:14px; color:var(--text2); max-width:580px;
-  line-height:1.85; margin-bottom:3rem;
-}
-hr.div {
-  border:none; border-top:1px solid var(--border);
-  max-width:1280px; margin:0 auto;
-}
-hr.div--narrow {
-  max-width:1080px;
-}
-
-/* ─── WHAT IS ─────────────────────────────────────── */
-.what-grid {
-  display:grid; grid-template-columns:1fr 1fr;
-  gap:4rem; align-items:start;
-}
-.what-prose p {
-  font-size:13.5px; color:var(--text2); line-height:1.9;
-  margin-bottom:1.1rem;
-}
-.what-prose p strong { color:var(--text); }
-
-/* Terminal mock */
+.app-title { font-weight: 700; font-size: 1rem; }
+.app-sub { font-size: 12px; color: var(--fg3); }
+.app-chip { font-family: var(--mono); font-size: 12px; border: 1px solid var(--frame); padding: 2px 8px; background: var(--card); }
+.app-body { padding: 1rem; }
+.query { grid-template-columns: auto auto minmax(0, 1fr); }
+.seg { display: inline-flex; border: 1px solid var(--border); }
+.seg span { padding: 4px 10px; font-size: 13px; font-weight: 600; color: var(--fg3); }
+.seg span + span { border-left: 1px solid var(--border); }
+.seg .on { background: var(--brand); color: var(--brand-fg); }
+.query-target { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.query-target .mono { font-size: 1.125rem; font-weight: 600; }
+.run { background: var(--brand); color: var(--brand-fg); font-size: 13px; font-weight: 700; padding: 6px 14px; }
+.result-head { display: flex; align-items: baseline; gap: .6rem; margin: 1rem 0 .6rem; }
+.tag { font-size: 12px; font-weight: 700; background: var(--accent-bg); color: var(--fg); padding: 1px 8px; }
+.result-head .mono { font-weight: 700; }
+.result-head .node { font-size: 13px; color: var(--fg3); }
 .term {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:10px; overflow:hidden;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+  background: var(--code-bg); border: 1px solid var(--border);
+  padding: .75rem 1rem; overflow-x: auto; white-space: pre; color: var(--fg2);
 }
-.term-bar {
-  display:flex; align-items:center; gap:5px;
-  padding:9px 13px; background:var(--surface);
-  border-bottom:1px solid var(--border);
-}
-.tdot { width:10px; height:10px; border-radius:50%; }
-.tdot-r{background:#ff5f57;} .tdot-y{background:#febc2e;} .tdot-g{background:#28c840;}
-.term-ttl { margin-left:auto; font-size:10px; color:var(--text3); }
-.term-body { padding:1.2rem 1.4rem; }
-.tl { display:flex; gap:7px; margin-bottom:3px; font-size:12.5px; line-height:1.6; }
-.tl.gap { margin-top:10px; }
-.tp { color:var(--green); flex-shrink:0; }
-.tc { color:var(--text); }
-.to { color:var(--text2); padding-left:14px; display:block; font-size:12px; }
-.tco{ color:var(--text3); }
-.th { color:var(--cyan); }
-.ts { color:var(--green); }
-.tw { color:var(--amber); }
-.cursor {
-  display:inline-block; width:7px; height:13px;
-  background:var(--cyan); vertical-align:middle;
-  animation:blink 1s step-end infinite;
-}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.term .as { color: var(--accent); font-weight: 600; }
+.term .ok { color: var(--success); }
+.term-bar { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--fg3); border: 1px solid var(--border); border-bottom: 0; background: var(--muted); padding: .4rem 1rem; }
 
-/* ─── FEATURES ────────────────────────────────────── */
-.feat-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
-  gap:.9rem;
-}
-.feat-card {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:9px; padding:1.4rem;
-  transition:all .22s; position:relative; overflow:hidden;
-  cursor:default;
-}
-.feat-card::after {
-  content:''; position:absolute; inset:0;
-  background:linear-gradient(135deg,rgba(34,211,238,.06),transparent);
-  opacity:0; transition:opacity .22s;
-}
-.feat-card:hover { border-color:var(--border2); transform:translateY(-3px); box-shadow:0 8px 32px rgba(0,0,0,.4); }
-.feat-card:hover::after { opacity:1; }
-.feat-icon { font-size:20px; margin-bottom:.65rem; display:block; }
-.feat-name { font-size:12.5px; font-weight:700; color:var(--text); margin-bottom:.35rem; }
-.feat-desc { font-size:11.5px; color:var(--text3); line-height:1.65; }
-/* Inline code only — <pre> blocks scroll instead. An env var or a config key is one long
-   unbreakable token, and without this it runs past its card on narrow screens. */
-code { overflow-wrap:anywhere; }
+/* ─── Link preview mock ───────────────────────────────── */
+.share-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; align-items: center; }
+.chat { background: var(--muted); border: 1px solid var(--border); padding: 1.25rem; display: grid; gap: .75rem; }
+.bubble { background: var(--card); border: 1px solid var(--border); padding: .75rem .9rem; max-width: 440px; justify-self: end; }
+.bubble .link { font-family: var(--mono); font-size: 13px; color: var(--accent); word-break: break-all; }
+.unfurl { margin-top: .6rem; border-left: 3px solid var(--accent); padding: .1rem 0 .1rem .75rem; }
+.unfurl-site { font-size: 12px; color: var(--fg3); }
+.unfurl-title { font-weight: 700; font-size: 14.5px; margin: 1px 0 2px; }
+.unfurl-desc { font-size: 13.5px; color: var(--fg2); }
+.preview-table { grid-template-columns: 9rem minmax(0, 1fr); font-size: 14px; }
+.preview-table .cell:nth-child(odd) { font-weight: 700; }
+.preview-table .cell:nth-child(even) { color: var(--fg2); }
 
-/* ─── VENDORS ─────────────────────────────────────── */
-.vendor-row { display:flex; flex-wrap:wrap; gap:.8rem; }
-.vendor-pill {
-  display:flex; align-items:center; gap:9px;
-  padding:11px 18px; border-radius:8px;
-  background:var(--bg2); border:1px solid var(--border);
-  font-size:12.5px; font-weight:600; color:var(--text);
-  transition:all .18s; cursor:default;
-}
-.vendor-pill:hover { border-color:var(--cyan-dim); color:var(--cyan); transform:translateY(-2px); }
-.vi { font-size:17px; }
+/* ─── Feature sheet ───────────────────────────────────── */
+.features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.features .cell { padding: 1.1rem 1.2rem 1.25rem; }
+.features .name { font-weight: 700; font-size: 15.5px; margin-bottom: .3rem; }
+.features .desc { font-size: 14px; color: var(--fg2); }
+.features .new { font-size: 11px; font-weight: 700; color: var(--success); border: 1px solid currentColor; padding: 0 5px; margin-left: 6px; vertical-align: 2px; }
 
-/* ─── ARCHITECTURE ────────────────────────────────── */
-.arch-cards { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
-.arch-card {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:10px; overflow:hidden;
-}
-.arch-head {
-  padding:1.1rem 1.4rem; border-bottom:1px solid var(--border);
-  display:flex; align-items:center; gap:12px;
-}
-.arch-ico {
-  width:34px; height:34px; border-radius:7px;
-  display:flex; align-items:center; justify-content:center; font-size:15px;
-}
-.ico-srv { background:rgba(34,211,238,.12); }
-.ico-agt { background:rgba(74,222,128,.12); }
-.arch-ttl { font-size:14px; font-weight:700; color:var(--text); }
-.arch-sub { font-size:10.5px; color:var(--text3); }
-.arch-body { padding:1.3rem 1.4rem; }
-.arch-desc { font-size:12.5px; color:var(--text2); line-height:1.85; margin-bottom:1rem; }
-.arch-list { list-style:none; display:flex; flex-direction:column; gap:5px; }
-.arch-list li {
-  display:flex; align-items:flex-start; gap:7px;
-  font-size:12px; color:var(--text2);
-}
-.arch-list li::before { content:'▸'; color:var(--cyan); flex-shrink:0; margin-top:1px; }
+.vendors { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.vendors .cell { font-weight: 700; }
 
-/* SVG diagram */
-.arch-diagram {
-  margin-top:1.5rem;
-  background:var(--bg); border:1px solid var(--border);
-  border-radius:10px; padding:2rem 1rem;
-  overflow:hidden;
-}
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; align-items: start; }
+.modes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.modes .cell { padding: 1.25rem 1.4rem 1.4rem; }
+.modes h3 { margin: 0 0 .25rem; }
+.modes .sub { font-size: 13.5px; color: var(--fg3); margin-bottom: .75rem; }
+.modes p { font-size: 14.5px; color: var(--fg2); }
 
-/* ─── INSTALL ─────────────────────────────────────── */
-.install-block { max-width:none; width:100%; }
-.install-oneliner {
-  padding: 0.9rem 1.15rem;
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow-x: auto;
-  cursor: text;
-  user-select: all;
-  -webkit-overflow-scrolling: touch;
-}
-.install-hint {
-  margin-top: 0.65rem;
-  font-size: 11px;
-  color: var(--text3);
-  line-height: 1.6;
-}
-.install-hint a {
-  color: var(--cyan);
-  text-decoration: none;
-}
-.install-hint a:hover { text-decoration: underline; }
-.install-hint code { color: var(--cyan); }
-.code-box {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:10px; overflow:hidden; margin-bottom:1.5rem;
-}
+.diagram { border: 1px solid var(--frame); background: var(--card); padding: 1.75rem 1rem; margin-top: 1.5rem; overflow-x: auto; }
+.diagram svg { display: block; margin: 0 auto; max-width: 740px; width: 100%; min-width: 560px; font-family: var(--mono); }
+.d-box { fill: var(--card); stroke: var(--frame); stroke-width: 1.5; }
+.d-box-strong { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
+.d-line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; fill: none; }
+.d-line-soft { stroke: var(--fg3); stroke-width: 1.5; stroke-dasharray: 5 3; fill: none; }
+.d-arrow { fill: var(--accent); }
+.d-arrow-soft { fill: var(--fg3); }
+.d-title { fill: var(--fg); font-size: 12px; font-weight: 700; }
+.d-text { fill: var(--fg3); font-size: 9.5px; }
+
+/* ─── Code blocks ─────────────────────────────────────── */
+.code { border: 1px solid var(--frame); background: var(--code-bg); margin-bottom: 1rem; }
 .code-bar {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:9px 13px; background:var(--surface);
-  border-bottom:1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .35rem .5rem .35rem 1rem; border-bottom: 1px solid var(--border); background: var(--muted);
+  font-family: var(--mono); font-size: 12px; color: var(--fg3);
 }
-.code-bar-left { display:flex; align-items:center; gap:5px; }
-.code-filename { margin-left:9px; font-size:10.5px; color:var(--text3); }
 .copy-btn {
-  display:flex; align-items:center; gap:5px;
-  padding:4px 11px; border-radius:4px;
-  background:transparent; border:1px solid var(--border2);
-  color:var(--text2); font-family:var(--mono); font-size:10.5px;
-  cursor:pointer; transition:all .18s;
+  height: 26px; padding: 0 10px; border: 1px solid var(--frame); background: var(--card);
+  color: var(--fg2); font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.copy-btn:hover { border-color:var(--cyan); color:var(--cyan); }
-.copy-btn.ok { border-color:var(--green); color:var(--green); }
-
+.copy-btn:hover { border-color: var(--accent); color: var(--fg); }
+.copy-btn.ok { border-color: var(--success); color: var(--success); }
 pre.code-body {
-  padding:1.4rem 1.5rem; font-size:12.5px;
-  line-height:1.9; overflow-x:auto;
-  white-space:pre; font-family:var(--mono);
+  padding: 1rem 1.25rem; font-family: var(--mono); font-size: 13px; line-height: 1.8;
+  overflow-x: auto; white-space: pre; color: var(--fg);
 }
-.cc  { color:var(--text3); }        /* comment */
-.cm  { color:var(--text); }         /* command */
-.chl { color:var(--cyan); }         /* highlight / URL */
-.cg  { color:var(--green); }        /* green */
-.ca  { color:var(--amber); }        /* amber */
+.oneliner { white-space: nowrap; user-select: all; }
+.cc { color: var(--fg3); }
+.chl { color: var(--accent); }
+.ca { color: var(--warning); }
+.cg { color: var(--success); }
+.yk { color: var(--accent); }
+.yv { color: var(--warning); }
+.ys { color: var(--success); }
+.yc { color: var(--fg3); }
+.yh { color: var(--fg); font-weight: 700; }
+h4.vendor { font-size: 14px; font-weight: 700; margin: 1.5rem 0 .5rem; }
 
-/* YAML */
-.yk { color:var(--cyan); }
-.yv { color:var(--amber); }
-.ys { color:var(--green); }
-.yc { color:var(--text3); }
-.yh { color:var(--text); font-weight:700; }
+/* ─── Quality sheet ───────────────────────────────────── */
+.gates { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.gates .cell { padding: 1.1rem 1.2rem 1.25rem; }
+.gates .figure { font-family: var(--mono); font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: .35rem; }
+.gates .name { font-weight: 700; font-size: 15px; margin-bottom: .3rem; }
+.gates .desc { font-size: 13.5px; color: var(--fg2); }
 
-/* section anchor offset */
-.anchor { scroll-margin-top:70px; }
+/* ─── Footer ──────────────────────────────────────────── */
+footer { border-top: 1px solid var(--border); padding: 2.5rem 0 3rem; }
+.foot { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.5rem; }
+.foot-name { font-weight: 800; }
+.foot-sub { font-size: 13px; color: var(--fg3); }
+.foot-links { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+.foot-links a { color: var(--fg2); text-decoration: none; font-size: 14px; }
+.foot-links a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 4px; }
 
-/* ─── FOOTER ──────────────────────────────────────── */
-footer {
-  position:relative; z-index:1;
-  border-top:1px solid var(--border);
-  padding:2.5rem 2.5rem;
-  max-width:1080px; margin:0 auto;
-  display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; gap:1.5rem;
+/* ─── Responsive ──────────────────────────────────────── */
+@media (max-width: 1060px) { .nav-links { display: none; } }
+@media (max-width: 960px) {
+  .hero-grid, .share-grid, .two { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; }
+  .features, .gates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vendors { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-.foot-left { display:flex; flex-direction:column; gap:4px; }
-.foot-name { font-size:15px; font-weight:700; color:var(--text); }
-.foot-sub { font-size:11.5px; color:var(--text3); }
-.foot-links { display:flex; gap:1.5rem; align-items:center; flex-wrap:wrap; }
-.foot-links a {
-  color:var(--text2); text-decoration:none;
-  font-size:12.5px; transition:color .18s;
-}
-.foot-links a:hover { color:var(--cyan); }
-
-/* ─── FADE IN ─────────────────────────────────────── */
-.fi { opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease; }
-.fi.v { opacity:1; transform:translateY(0); }
-
-/* ─── RESPONSIVE ──────────────────────────────────── */
-/* Between the full-width layout and the point where the links are hidden, eight items no
-   longer fit at the wide gap and pushed the page sideways. */
-@media(max-width:1220px){
-  .nav-links{ gap:1.25rem; }
-  .nav-links a{ font-size:12px; }
-}
-
-@media(max-width:900px){
-  .what-grid,.arch-cards{ grid-template-columns:1fr; gap:1.5rem; }
-  .hero-inner{
-    grid-template-columns:1fr;
-    grid-template-areas:
-      "badge"
-      "text"
-      "canvas";
-    row-gap:1.25rem;
-  }
-  .hero-canvas-wrap{
-    height:min(72vw, 340px);
-    align-self:center;
-    max-width:420px;
-    width:100%;
-  }
-}
-
-/* Eight items stop fitting alongside the buttons well before the layout breakpoint, and a
-   half-hidden link reads worse than none. */
-@media(max-width:1075px){
-  .nav-links{ display:none; }
-}
-@media(max-width:600px){
-  .install-oneliner{ font-size:10.5px; }
-  .hero-stats{ gap:1.5rem; flex-wrap:wrap; }
-  .section-wrap--wide{ padding:2.5rem 1.5rem 4rem; }
-  .section-wrap{ padding:4rem 1.5rem; }
-  footer{ flex-direction:column; align-items:flex-start; }
-  nav{ padding:0 1.2rem; }
+@media (max-width: 640px) {
+  body { font-size: 14.5px; }
+  .wrap, .nav-inner { padding: 0 16px; }
+  section { padding: 3.5rem 0; }
+  .hero { padding: 3rem 0; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .features, .gates, .modes { grid-template-columns: 1fr; }
+  .vendors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .query { grid-template-columns: minmax(0, 1fr); }
+  .query .cell-target { grid-column: auto; }
+  .app-chip { display: none; }
+  .preview-table { grid-template-columns: 7rem minmax(0, 1fr); }
+  .nav-actions .btn-outline { display: none; }
+  pre.code-body { font-size: 12px; }
 }
 </style>
 </head>
 <body>
 
-<!-- ────────────────────────── NAV -->
 <nav>
-  <a href="#" class="nav-logo">
-    <div class="nav-logotype">
-      <div class="nav-logo-box">H</div>
-      <span class="nav-logo-name">HopStat</span>
+  <div class="nav-inner">
+    <a href="#" class="logo" aria-label="HopStat home">
+      <span class="logo-box" aria-hidden="true">H</span>
+      <span class="logo-name">HopStat</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#install">Install</a></li>
+      <li><a href="#sharing">Sharing</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">Architecture</a></li>
+      <li><a href="#bgp">BGP ADD-PATH</a></li>
+      <li><a href="#communities">Communities</a></li>
+      <li><a href="#quality">Quality</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="https://github.com/HopStat/HopStat" class="btn btn-outline btn-sm" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/HopStat/HopStat/releases/latest" class="btn btn-primary btn-sm dl-btn" target="_blank" rel="noopener noreferrer">Download</a>
     </div>
-  </a>
-  <ul class="nav-links">
-    <li><a href="#what">Overview</a></li>
-    <li><a href="#features">Features</a></li>
-    <li><a href="#vendors">Vendors</a></li>
-    <li><a href="#how">Architecture</a></li>
-    <li><a href="#bgp">BGP ADD-PATH</a></li>
-    <li><a href="#communities">Communities</a></li>
-    <li><a href="#quality">Quality</a></li>
-    <li><a href="#install">Install</a></li>
-  </ul>
-  <div class="nav-actions">
-    <a href="https://github.com/HopStat/HopStat" class="btn btn-outline btn-sm" target="_blank">⭐ GitHub</a>
-    <a href="https://github.com/HopStat/HopStat/releases/latest" class="btn btn-primary btn-sm dl-btn" target="_blank" rel="noopener noreferrer">↓ Download</a>
   </div>
 </nav>
 
 <!-- ────────────────────────── HERO -->
-<div class="hero">
-  <div class="hero-inner">
-  <div class="hero-badge">
-    <div class="badge-dot"></div>
-    OPEN SOURCE &nbsp;·&nbsp; GO &nbsp;·&nbsp; SINGLE BINARY &nbsp;·&nbsp; MIT
-  </div>
-
-  <div class="hero-text">
-    <h1 class="hero-title">
-      Your network,<br>
-      <span class="accent">fully visible</span><span class="dim">.</span>
-    </h1>
-
-    <p class="hero-sub">
-      <strong>HopStat</strong> is an open-source network looking glass platform — BGP route lookup,
-      ping, traceroute and AS path diagnostics from every node in your network.
-      One Go binary. Zero runtime dependencies.
-    </p>
-
-    <div class="hero-actions">
-      <a href="https://github.com/HopStat/HopStat/releases/latest" class="btn btn-primary dl-btn" target="_blank" rel="noopener noreferrer">↓ Download</a>
-      <a href="#install" class="btn btn-outline">Quick Start →</a>
-      <a href="https://github.com/HopStat/HopStat" class="btn btn-outline" target="_blank">⭐ Star on GitHub</a>
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <h1>Your network, seen from every node.</h1>
+      <p class="hero-sub">
+        <strong>HopStat</strong> is an open-source looking glass: BGP route lookup, ping,
+        traceroute and AS path diagnostics from every point of presence you run — in one
+        Go binary with nothing else to install.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/HopStat/HopStat/releases/latest" class="btn btn-primary dl-btn" target="_blank" rel="noopener noreferrer">Download</a>
+        <a href="#install" class="btn btn-outline">Install in a minute</a>
+      </div>
+      <div class="sheet facts">
+        <div class="cell"><span class="cell-label">Query types</span><div class="cell-value">3</div></div>
+        <div class="cell"><span class="cell-label">Vendor parsers</span><div class="cell-value">5</div></div>
+        <div class="cell"><span class="cell-label">Binary</span><div class="cell-value">1</div></div>
+        <div class="cell"><span class="cell-label">Runtime deps</span><div class="cell-value">0</div></div>
+      </div>
+      <p class="meta-line">MIT licensed · Go, GoBGP, React, SQLite · <span class="release-tag">latest release on GitHub</span></p>
     </div>
 
-    <div class="hero-stats">
-      <div class="hstat"><span class="hstat-val">3</span><span class="hstat-label">Query Types</span></div>
-      <div class="hstat"><span class="hstat-val">5+</span><span class="hstat-label">Vendor Parsers</span></div>
-      <div class="hstat"><span class="hstat-val">1</span><span class="hstat-label">Binary</span></div>
-      <div class="hstat"><span class="hstat-val">0</span><span class="hstat-label">Runtime deps</span></div>
+    <!-- The query page as it ships -->
+    <div class="app" role="img" aria-label="The HopStat query page: node IST-POP, command Tracert, target 1.1.1.1, and the traceroute result reaching Cloudflare in 8 hops.">
+      <div class="app-head">
+        <div>
+          <div class="app-title">Looking Glass</div>
+          <div class="app-sub">AS65000 network diagnostics</div>
+        </div>
+        <span class="app-chip">203.0.113.24</span>
+      </div>
+      <div class="app-body">
+        <div class="sheet query">
+          <div class="cell"><span class="cell-label">Node</span><strong>IST-POP</strong></div>
+          <div class="cell"><span class="cell-label">Command</span><span class="seg"><span>Ping</span><span class="on">Tracert</span><span>BGP</span></span></div>
+          <div class="cell cell-target"><span class="cell-label">Target</span><div class="query-target"><span class="mono">1.1.1.1</span><span class="run">Query</span></div></div>
+        </div>
+        <div class="result-head"><span class="tag">Tracert</span><span class="mono">1.1.1.1</span><span class="node">from IST-POP</span></div>
+        <div class="term-bar"><span>Completed</span><span>8 hops</span></div>
+<div class="term">traceroute to 1.1.1.1, 30 hops max
+ 1  10.0.0.1          0.6 ms
+ 2  100.64.0.1       10.8 ms
+ 3  193.140.0.9      10.6 ms  <span class="as">AS9121 TTNET</span>
+ 4  10.11.10.5       10.5 ms
+ 5  10.7.10.253      11.3 ms
+ 6  185.155.149.137  38.2 ms  <span class="as">AS201178 EURONET</span>
+ 7  172.71.185.19    12.3 ms  <span class="as">AS13335 CLOUDFLARENET</span>
+ 8  <span class="ok">1.1.1.1</span>          11.8 ms  <span class="as">AS13335 CLOUDFLARENET</span></div>
+      </div>
     </div>
   </div>
-
-  <div class="hero-canvas-wrap">
-    <canvas id="netCanvas"></canvas>
-  </div>
-  </div><!-- /.hero-inner -->
-</div>
+</header>
 
 <!-- ────────────────────────── INSTALL -->
-<div class="section-wrap section-wrap--wide anchor" id="install">
-  <span class="section-tag fi">// quick start</span>
-  <h2 class="fi">Running in under 60 seconds.</h2>
-  <p class="sec-desc fi">Download the binary and run it. Config, secrets, and the first admin account are generated automatically on first start.</p>
+<section class="anchor" id="install">
+  <div class="wrap">
+    <h2>Running in under a minute.</h2>
+    <p class="lead">Download the binary and run it. The config file, its secrets and the first admin account are generated on first start.</p>
 
-  <div class="install-block">
-
-    <!-- One-liner install -->
-    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Linux — one command install</h3>
-    <div class="code-box fi">
-      <div class="code-bar">
-        <div class="code-bar-left">
-          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-          <span class="code-filename">bash</span>
-        </div>
-        <button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall', INSTALL_CMD)">📋 copy</button>
-      </div>
-<pre class="code-body install-oneliner"><span class="cm">curl -sSL </span><span class="chl">https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh</span><span class="cm"> | sudo bash</span></pre>
+    <h3>Linux — one command</h3>
+    <div class="code">
+      <div class="code-bar"><span>bash</span><button class="copy-btn" id="cbInstall" onclick="doCopy('cbInstall', INSTALL_CMD)">Copy</button></div>
+<pre class="code-body oneliner">curl -sSL <span class="chl">https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh</span> | sudo bash</pre>
     </div>
-    <p class="install-hint fi">
-      Pin a release: <code>… | sudo bash -s -- --version v2.2.1</code>
-      · <a href="#docker">Docker, agent mode &amp; options ↓</a>
+    <p class="note">Pin a release: <code class="pin-hint">… | sudo bash -s -- --version v2.2.20</code> · <a href="#docker">Docker and agent mode</a></p>
+    <p class="note">
+      After a <strong>fresh</strong> install the admin credentials are printed once in the installer output
+      (<code>journalctl -u hopstat | grep -A 10 HOPSTAT</code>). Change the password in <strong>Admin → Settings</strong>
+      after you sign in. <a href="#password-recovery">Lost the password?</a>
     </p>
 
-    <p class="fi" style="font-size:12px;color:var(--text3);margin:1.25rem 0 2rem;">
-      After a <strong>fresh</strong> install, admin credentials are shown once in the installer output.<br>
-      <code style="color:var(--cyan)">journalctl -u hopstat | grep -A 10 HOPSTAT</code> &nbsp;·&nbsp;
-      Change the password in <strong>Admin → Settings</strong> after login. &nbsp;·&nbsp;
-      <a href="#password-recovery" style="color:var(--cyan);text-decoration:none;">Lost the password? ↓</a>
-    </p>
-
-    <!-- systemd -->
-    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">What the installer does</h3>
-    <div class="code-box fi">
-      <div class="code-bar">
-        <div class="code-bar-left">
-          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-          <span class="code-filename">output</span>
-        </div>
-      </div>
-<pre class="code-body"><span class="cc">  ╔════════════════════════════════════════════╗</span>
-<span class="cc">  ║   HopStat — Network Looking Glass         ║</span>
-<span class="cc">  ╚════════════════════════════════════════════╝</span>
-
-<span class="cm">[INFO] Detected: linux/amd64 — mode: server</span>
-<span class="cm">[INFO] Fetching latest release...</span>
-<span class="cm">[INFO] Downloading hopstat-linux-amd64...</span>
-<span class="cm">[ OK ] Checksum verified</span>
-<span class="cm">[ OK ] Binary installed: /usr/local/bin/hopstat</span>
-<span class="cm">[ OK ] hopstat v2.2.1</span>
-<span class="cm">[ OK ] Service file written: /etc/systemd/system/hopstat.service</span>
-<span class="cm">[ OK ] Service started</span>
+    <h3>What the installer does</h3>
+    <div class="code">
+      <div class="code-bar"><span>output</span></div>
+<pre class="code-body"><span class="cc">[INFO]</span> Detected: linux/amd64 — mode: server
+<span class="cc">[INFO]</span> Fetching latest release...
+<span class="cc">[INFO]</span> Downloading hopstat-linux-amd64...
+<span class="cg">[ OK ]</span> Checksum verified
+<span class="cg">[ OK ]</span> Binary installed: /usr/local/bin/hopstat
+<span class="cg">[ OK ]</span> Probe tools present: ping, traceroute
+<span class="cg">[ OK ]</span> Service file written: /etc/systemd/system/hopstat.service
+<span class="cg">[ OK ]</span> Service started
+<span class="cg">[ OK ]</span> HopStat is running
 
 <span class="cc">  Binary:   /usr/local/bin/hopstat</span>
-<span class="cc">  Config:   /etc/hopstat/config.yaml  (auto-generated on first start)</span>
+<span class="cc">  Config:   /etc/hopstat/config.yaml  (generated on first start)</span>
 <span class="cc">  Admin UI: http://localhost:8080/admin</span></pre>
     </div>
+    <p class="note">The service runs with <code>CAP_NET_RAW</code> and <code>CAP_NET_ADMIN</code>, so ping and traceroute work without root. If <code>ping</code> or <code>traceroute</code> is missing, the installer adds it.</p>
 
-    <p class="fi" style="font-size:12px;color:var(--text3);margin-bottom:2rem;">
-      The service runs with <code style="color:var(--cyan)">CAP_NET_RAW</code> + <code style="color:var(--cyan)">CAP_NET_ADMIN</code> capabilities — ping and traceroute work without root.
-    </p>
-
-    <!-- Docker -->
-    <h3 class="fi" id="docker" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Docker</h3>
-    <div class="code-box fi">
-      <div class="code-bar">
-        <div class="code-bar-left">
-          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-          <span class="code-filename">docker</span>
-        </div>
-        <button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  --cap-add NET_RAW --cap-add NET_ADMIN \\\n  -p 8080:8080 \\\n  -v hopstat-data:/data \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest\n\n# Config + secrets are auto-generated in the /data volume on first start.\n# Check first-run credentials: docker logs <container>\n\n# Stateless / no-volume deployments: pin secrets so they survive restarts:\n#   -e LG_SECURITY_JWT_SECRET=$(openssl rand -hex 32)\n#   -e LG_SECURITY_CREDENTIAL_KEY=$(openssl rand -hex 32)`)">📋 copy</button>
-      </div>
-<pre class="code-body"><span class="cm">docker run -d \</span>
-<span class="cm">  --cap-add </span><span class="ca">NET_RAW</span><span class="cm"> --cap-add </span><span class="ca">NET_ADMIN</span><span class="cm"> \</span>
-<span class="cm">  -p 8080:8080 \</span>
-<span class="cm">  -v </span><span class="ca">hopstat-data</span><span class="cm">:/data \</span>
-<span class="cm">  -e </span><span class="ca">LG_ADMIN_PASSWORD</span><span class="cm">=changeme \</span>
+    <h3 id="docker" class="anchor">Docker</h3>
+    <div class="code">
+      <div class="code-bar"><span>docker</span><button class="copy-btn" id="cbDocker" onclick="doCopy('cbDocker',`docker run -d \\\n  --cap-add NET_RAW --cap-add NET_ADMIN \\\n  -p 8080:8080 \\\n  -v hopstat-data:/data \\\n  -e LG_ADMIN_PASSWORD=changeme \\\n  ghcr.io/hopstat/hopstat:latest`)">Copy</button></div>
+<pre class="code-body">docker run -d \
+  --cap-add <span class="ca">NET_RAW</span> --cap-add <span class="ca">NET_ADMIN</span> \
+  -p 8080:8080 \
+  -v <span class="ca">hopstat-data</span>:/data \
+  -e <span class="ca">LG_ADMIN_PASSWORD</span>=changeme \
 <span class="chl">  ghcr.io/hopstat/hopstat:latest</span>
 
-<span class="cc"># Config and secrets auto-generate in the /data volume on first start.</span>
+<span class="cc"># Config and secrets are generated in the /data volume on first start.</span>
 <span class="cc"># First-run admin credentials: docker logs &lt;container&gt;</span>
 <span class="cc">#</span>
 <span class="cc"># Stateless / no-volume deployments — pin secrets so they survive restarts:</span>
@@ -628,99 +435,78 @@ footer {
 <span class="cc">#   -e LG_SECURITY_CREDENTIAL_KEY=$(openssl rand -hex 32)</span></pre>
     </div>
 
-    <h3 class="fi" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Auto-generated config.yaml</h3>
-    <p class="fi" style="font-size:12.5px;color:var(--text2);margin-bottom:1rem;line-height:1.75;">
-      On first start HopStat writes a <strong>complete</strong> config file — every section from
-      <code style="color:var(--cyan)">config.example.yaml</code> with sensible defaults and random
-      <code style="color:var(--cyan)">jwt_secret</code> / <code style="color:var(--cyan)">credential_key</code>.
-      Site name, AS number and footer links are <em>not</em> in YAML; set them in <strong>Admin → Settings</strong>.
+    <h3>The generated config.yaml</h3>
+    <p class="note" style="margin-top:0;margin-bottom:1rem;">
+      On first start HopStat writes a complete config file with random <code>jwt_secret</code> and
+      <code>credential_key</code>. It holds only what is needed before the server starts. Everything
+      you might change while it runs — site name and colour, AS number, footer links, MaxMind
+      account, Cloudflare Turnstile, query timeout, audit retention, self-update — lives in
+      <strong>Admin → Settings</strong> and applies without a restart.
     </p>
-    <div class="code-box fi">
-      <div class="code-bar">
-        <div class="code-bar-left">
-          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-          <span class="code-filename">config.yaml</span>
-        </div>
-        <button class="copy-btn" id="cbConfig" onclick="doCopy('cbConfig',`server:\n  host: \"0.0.0.0\"\n  port: 8080\n  mode: \"server\"\n  tls_cert: \"\"\n  tls_key: \"\"\n  autocert_domain: \"\"\n  behind_cloudflare: false\n  trusted_proxies: []\n\ndatabase:\n  path: \"./lg.db\"\n\nsecurity:\n  jwt_secret: \"\"\n  credential_key: \"\"\n\nflood_control:\n  enabled: true\n  http_rate_limit_per_min: 10\n  query_rate_limit_per_min: 10\n  brute_force_max: 5\n  brute_force_ban_min: 15\n\naudit:\n  retention_days: 90\n  async_write: true\n\nquery:\n  max_concurrent: 50\n  default_timeout_sec: 30\n  traceroute_timeout_sec: 60\n\ngeoip:\n  asn_db_path: \"\"\n  city_db_path: \"\"\n  license_key: \"\"\n  account_id: \"\"\n  update_interval: \"72h\"\n  db_dir: \"./data/geoip\"\n\nupdate:\n  enabled: true\n\nbgp:\n  listen_port: 11790\n  router_id: \"\"\n  local_as: 0\n  listen_addresses: []\n  add_path_receive: true`)">📋 copy</button>
-      </div>
-<pre class="code-body"><span class="yh">server</span><span class="yk">:</span>
-  <span class="yk">host</span><span class="yk">:</span>              <span class="ys">"0.0.0.0"</span>
-  <span class="yk">port</span><span class="yk">:</span>              <span class="yv">8080</span>
-  <span class="yk">mode</span><span class="yk">:</span>              <span class="ys">"server"</span>
-  <span class="yk">tls_cert</span><span class="yk">:</span>          <span class="ys">""</span>
-  <span class="yk">tls_key</span><span class="yk">:</span>           <span class="ys">""</span>
-  <span class="yk">autocert_domain</span><span class="yk">:</span>   <span class="ys">""</span>
-  <span class="yk">behind_cloudflare</span><span class="yk">:</span> <span class="yv">false</span>
-  <span class="yk">trusted_proxies</span><span class="yk">:</span>   <span class="ys">[]</span>
+    <div class="code">
+      <div class="code-bar"><span>config.yaml</span><button class="copy-btn" id="cbConfig" onclick="doCopy('cbConfig',`server:\n  host: \"0.0.0.0\"\n  port: 8080\n  mode: \"server\"\n  tls_cert: \"\"\n  tls_key: \"\"\n  autocert_domain: \"\"\n  behind_cloudflare: false\n  trusted_proxies: []\n\ndatabase:\n  path: \"./lg.db\"\n\nsecurity:\n  jwt_secret: \"\"\n  credential_key: \"\"\n\nflood_control:\n  enabled: true\n  http_rate_limit_per_min: 100\n  query_rate_limit_per_min: 100\n  brute_force_max: 5\n  brute_force_ban_min: 15\n\naudit:\n  retention_days: 90\n  async_write: true\n\nquery:\n  max_concurrent: 50\n  default_timeout_sec: 30\n  traceroute_timeout_sec: 60\n\ngeoip:\n  db_dir: \"/var/lib/hopstat/geoip\"\n\nupdate:\n  enabled: true\n\nbgp:\n  listen_port: 11790\n  router_id: \"\"\n  local_as: 0\n  listen_addresses: []\n  add_path_receive: true`)">Copy</button></div>
+<pre class="code-body"><span class="yh">server</span>:
+  <span class="yk">host</span>:              <span class="ys">"0.0.0.0"</span>
+  <span class="yk">port</span>:              <span class="yv">8080</span>
+  <span class="yk">mode</span>:              <span class="ys">"server"</span>
+  <span class="yk">tls_cert</span>:          <span class="ys">""</span>
+  <span class="yk">tls_key</span>:           <span class="ys">""</span>
+  <span class="yk">autocert_domain</span>:   <span class="ys">""</span>
+  <span class="yk">behind_cloudflare</span>: <span class="yv">false</span>
+  <span class="yk">trusted_proxies</span>:   <span class="ys">[]</span>
 
-<span class="yh">database</span><span class="yk">:</span>
-  <span class="yk">path</span><span class="yk">:</span> <span class="ys">"./lg.db"</span>
+<span class="yh">database</span>:
+  <span class="yk">path</span>: <span class="ys">"./lg.db"</span>
 
-<span class="yh">security</span><span class="yk">:</span>
-  <span class="yc"># jwt_secret and credential_key auto-generated on first run</span>
+<span class="yh">security</span>:
+  <span class="yc"># jwt_secret and credential_key are generated on first run</span>
 
-<span class="yh">flood_control</span><span class="yk">:</span>
-  <span class="yk">enabled</span><span class="yk">:</span>                 <span class="yv">true</span>
-  <span class="yk">http_rate_limit_per_min</span><span class="yk">:</span>   <span class="yv">10</span>
-  <span class="yk">query_rate_limit_per_min</span><span class="yk">:</span>  <span class="yv">10</span>
-  <span class="yk">brute_force_max</span><span class="yk">:</span>         <span class="yv">5</span>
-  <span class="yk">brute_force_ban_min</span><span class="yk">:</span>     <span class="yv">15</span>
+<span class="yh">flood_control</span>:
+  <span class="yk">enabled</span>:                  <span class="yv">true</span>
+  <span class="yk">http_rate_limit_per_min</span>:  <span class="yv">100</span>
+  <span class="yk">query_rate_limit_per_min</span>: <span class="yv">100</span>
+  <span class="yk">brute_force_max</span>:          <span class="yv">5</span>
+  <span class="yk">brute_force_ban_min</span>:      <span class="yv">15</span>
 
-<span class="yh">audit</span><span class="yk">:</span>
-  <span class="yk">retention_days</span><span class="yk">:</span> <span class="yv">90</span>
-  <span class="yk">async_write</span><span class="yk">:</span>    <span class="yv">true</span>
+<span class="yh">audit</span>:
+  <span class="yk">retention_days</span>: <span class="yv">90</span>   <span class="yc"># default; Admin → Settings overrides it</span>
+  <span class="yk">async_write</span>:    <span class="yv">true</span>
 
-<span class="yh">query</span><span class="yk">:</span>
-  <span class="yk">max_concurrent</span><span class="yk">:</span>        <span class="yv">50</span>
-  <span class="yk">default_timeout_sec</span><span class="yk">:</span>   <span class="yv">30</span>
-  <span class="yk">traceroute_timeout_sec</span><span class="yk">:</span> <span class="yv">60</span>
+<span class="yh">query</span>:
+  <span class="yk">max_concurrent</span>:         <span class="yv">50</span>
+  <span class="yk">default_timeout_sec</span>:    <span class="yv">30</span>
+  <span class="yk">traceroute_timeout_sec</span>: <span class="yv">60</span>
 
-<span class="yh">geoip</span><span class="yk">:</span>
-  <span class="yk">asn_db_path</span><span class="yk">:</span>     <span class="ys">""</span>
-  <span class="yk">city_db_path</span><span class="yk">:</span>    <span class="ys">""</span>
-  <span class="yk">license_key</span><span class="yk">:</span>     <span class="ys">""</span>
-  <span class="yk">account_id</span><span class="yk">:</span>      <span class="ys">""</span>
-  <span class="yk">update_interval</span><span class="yk">:</span> <span class="ys">"72h"</span>
-  <span class="yk">db_dir</span><span class="yk">:</span>          <span class="ys">"./data/geoip"</span>
+<span class="yh">geoip</span>:
+  <span class="yk">db_dir</span>: <span class="ys">"/var/lib/hopstat/geoip"</span>   <span class="yc"># MaxMind account is set in the admin panel</span>
 
-<span class="yh">update</span><span class="yk">:</span>
-  <span class="yk">enabled</span><span class="yk">:</span> <span class="yv">true</span>
+<span class="yh">update</span>:
+  <span class="yk">enabled</span>: <span class="yv">true</span>
 
-<span class="yh">bgp</span><span class="yk">:</span>
-  <span class="yk">listen_port</span><span class="yk">:</span>       <span class="yv">11790</span>
-  <span class="yk">router_id</span><span class="yk">:</span>         <span class="ys">""</span>
-  <span class="yk">local_as</span><span class="yk">:</span>          <span class="yv">0</span>
-  <span class="yk">listen_addresses</span><span class="yk">:</span>  <span class="ys">[]</span>
-  <span class="yk">add_path_receive</span><span class="yk">:</span>  <span class="yv">true</span></pre>
+<span class="yh">bgp</span>:
+  <span class="yk">listen_port</span>:      <span class="yv">11790</span>
+  <span class="yk">router_id</span>:        <span class="ys">""</span>
+  <span class="yk">local_as</span>:         <span class="yv">0</span>
+  <span class="yk">listen_addresses</span>: <span class="ys">[]</span>
+  <span class="yk">add_path_receive</span>: <span class="yv">true</span></pre>
     </div>
+    <p class="note">Every field can be overridden with an <code>LG_</code> environment variable, e.g. <code>LG_SERVER_BEHIND_CLOUDFLARE=true</code>. <a href="https://github.com/HopStat/HopStat/blob/main/config.example.yaml" target="_blank" rel="noopener">config.example.yaml</a> documents each option.</p>
 
-    <p class="fi" style="font-size:12px;color:var(--text3);margin-top:1rem;">
-      ▸ All config fields can be overridden with <code style="color:var(--cyan)">LG_</code> prefixed environment variables (e.g. <code style="color:var(--cyan)">LG_SERVER_BEHIND_CLOUDFLARE=true</code>).<br>
-      ▸ See <a href="https://github.com/HopStat/HopStat/blob/main/config.example.yaml" target="_blank" style="color:var(--cyan);text-decoration:none;">config.example.yaml</a> for the full reference with all options documented.
+    <h3 id="password-recovery" class="anchor">Lost the admin password?</h3>
+    <p class="note" style="margin-top:0;margin-bottom:1rem;">
+      There is no self-service reset — no e-mail flow, no reset link. While you can still sign in, change it in
+      <strong>Admin → Settings → Account</strong>. If you are locked out, re-run <code>--bootstrap</code> with
+      <code>LG_FORCE_ADMIN_PASSWORD=1</code> to overwrite the password in the database.
     </p>
+    <div class="code">
+      <div class="code-bar"><span>bash</span><button class="copy-btn" id="cbPwReset" onclick="doCopy('cbPwReset',`sudo systemctl stop hopstat\n\nsudo env LG_ADMIN_PASSWORD='new-password' \\\n         LG_FORCE_ADMIN_PASSWORD=1 \\\n         /usr/local/bin/hopstat --bootstrap --config=/etc/hopstat/config.yaml\n\nsudo systemctl start hopstat`)">Copy</button></div>
+<pre class="code-body">sudo systemctl stop hopstat
 
-    <h3 class="fi" id="password-recovery" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Lost the admin password?</h3>
-    <p class="fi" style="font-size:12.5px;color:var(--text2);margin-bottom:1rem;line-height:1.75;">
-      There is no self-service reset — no e-mail flow, no reset link. While you can still log in, change the
-      password in <strong>Admin → Settings → Account</strong>. If you are locked out, re-run
-      <code style="color:var(--cyan)">--bootstrap</code> with <code style="color:var(--cyan)">LG_FORCE_ADMIN_PASSWORD=1</code>
-      to overwrite the password directly in the database.
-    </p>
-    <div class="code-box fi">
-      <div class="code-bar">
-        <div class="code-bar-left">
-          <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-          <span class="code-filename">bash</span>
-        </div>
-        <button class="copy-btn" id="cbPwReset" onclick="doCopy('cbPwReset',`sudo systemctl stop hopstat\n\nsudo env LG_ADMIN_PASSWORD='new-password' \\\n         LG_FORCE_ADMIN_PASSWORD=1 \\\n         /usr/local/bin/hopstat --bootstrap --config=/etc/hopstat/config.yaml\n\nsudo systemctl start hopstat\n\n# Docker — pass both with -e, .env is not enough:\n#   docker compose run --rm \\\n#     -e LG_ADMIN_PASSWORD='new-password' \\\n#     -e LG_FORCE_ADMIN_PASSWORD=1 \\\n#     hopstat --bootstrap --config=/data/config.yaml`)">📋 copy</button>
-      </div>
-<pre class="code-body"><span class="cm">sudo systemctl stop hopstat</span>
-
-<span class="cm">sudo env </span><span class="ca">LG_ADMIN_PASSWORD</span><span class="cm">='new-password' \</span>
-<span class="cm">         </span><span class="ca">LG_FORCE_ADMIN_PASSWORD</span><span class="cm">=1 \</span>
+sudo env <span class="ca">LG_ADMIN_PASSWORD</span>='new-password' \
+         <span class="ca">LG_FORCE_ADMIN_PASSWORD</span>=1 \
 <span class="chl">         /usr/local/bin/hopstat --bootstrap --config=/etc/hopstat/config.yaml</span>
 
-<span class="cm">sudo systemctl start hopstat</span>
+sudo systemctl start hopstat
 
 <span class="cc"># Docker — pass both with -e, .env alone is not enough:</span>
 <span class="cc">#   docker compose run --rm \</span>
@@ -728,391 +514,264 @@ footer {
 <span class="cc">#     -e LG_FORCE_ADMIN_PASSWORD=1 \</span>
 <span class="cc">#     hopstat --bootstrap --config=/data/config.yaml</span></pre>
     </div>
-
-    <p class="fi" style="font-size:12px;color:var(--text3);margin-top:1rem;line-height:1.9;">
-      ▸ The output must contain <code style="color:var(--cyan)">admin password set from LG_ADMIN_PASSWORD</code>.
-      <code style="color:var(--cyan)">admin password already configured</code> means the force flag never reached the process.<br>
-      ▸ <code style="color:var(--cyan)">sudo</code> strips the environment — <code style="color:var(--cyan)">sudo env VAR=…</code> is required.
-      With Compose, use <code style="color:var(--cyan)">-e</code>: only variables listed in the service&#39;s
-      <code style="color:var(--cyan)">environment:</code> block are forwarded from <code style="color:var(--cyan)">.env</code>.<br>
-      ▸ Without the force flag, <code style="color:var(--cyan)">LG_ADMIN_PASSWORD</code> only seeds an account that never had a
-      password set — an existing one is left untouched.<br>
-      ▸ The password is stored in the database and survives restarts. Remove
-      <code style="color:var(--cyan)">LG_FORCE_ADMIN_PASSWORD</code> afterwards, or every restart overwrites the password you set in the panel.<br>
-      ▸ Recovery targets the <code style="color:var(--cyan)">admin@hopstat.local</code> account. If you changed the admin e-mail,
-      the reset fails with <code style="color:var(--cyan)">no admin user found</code> — set it back in the database first.
-    </p>
+    <ul class="points">
+      <li>The output must contain <code>admin password set from LG_ADMIN_PASSWORD</code>. <code>admin password already configured</code> means the force flag never reached the process.</li>
+      <li><code>sudo</code> strips the environment, so <code>sudo env VAR=…</code> is required. With Compose use <code>-e</code>: only variables listed in the service's <code>environment:</code> block are forwarded from <code>.env</code>.</li>
+      <li>Without the force flag, <code>LG_ADMIN_PASSWORD</code> only seeds an account that never had a password.</li>
+      <li>Remove <code>LG_FORCE_ADMIN_PASSWORD</code> afterwards, or every restart overwrites the password you set in the panel.</li>
+      <li>Recovery targets <code>admin@hopstat.local</code>. If you changed the admin e-mail, the reset fails with <code>no admin user found</code>.</li>
+    </ul>
   </div>
-</div>
+</section>
 
-<hr class="div">
-
-<!-- ────────────────────────── WHAT IS -->
-<div class="section-wrap anchor" id="what">
-  <span class="section-tag fi">// overview</span>
-  <div class="what-grid">
-    <div class="what-prose">
-      <h2 class="fi">What is HopStat?</h2>
-      <p class="fi">
-        HopStat is a <strong>network looking glass</strong> built for network operators, ISPs, and
-        anyone who needs real-time visibility into routing and reachability from multiple points of
-        presence. It replaces scattered SSH sessions and per-router CLI access with a single,
-        unified web interface and REST API.
+<!-- ────────────────────────── SHARING -->
+<section class="anchor" id="sharing">
+  <div class="wrap share-grid">
+    <div>
+      <h2>Share the result, not a screenshot.</h2>
+      <p class="lead" style="margin-bottom:1.5rem;">
+        Every query has its own address — <code>/traceroute/1.1.1.1</code>, <code>/sofia/bgp/8.8.8.0/24</code> —
+        that runs it again for whoever opens it. Paste one into WhatsApp, Telegram, Slack or X and the
+        preview already says what the last run found.
       </p>
-      <p class="fi">
-        Distributed as a <strong>single Go binary</strong>, HopStat embeds the entire React SPA
-        frontend, SQLite database, schema migrations and static assets — all via Go's
-        <code>embed.FS</code>. Drop the binary on a server and a complete <code>config.yaml</code>
-        is written on first start (secrets included). No Node.js, no PostgreSQL, no separate
-        web server required.
-      </p>
-      <p class="fi">
-        HopStat runs in two modes: <strong>server mode</strong> orchestrates queries across all your
-        nodes — whether they are directly reachable routers (SSH/Telnet), remote
-        <strong>agent</strong> instances at geographically distributed POPs, or
-        <strong>standalone</strong> nodes on the same host using the embedded
-        <code>/agent/v1</code> API. An embedded <strong>GoBGP</strong> peer provides live BGP table
-        access. Router credentials are encrypted at rest with <strong>AES-256-GCM</strong>.
-        Ping and traceroute output streams live via Server-Sent Events — including from remote
-        lg-node agents. Hostnames are resolved via DNS before a query is dispatched; unresolved
-        targets fail immediately with a clear error. The public UI is mobile-responsive with five
-        locales and SEO metadata. Behind Cloudflare? Set <code>behind_cloudflare: true</code> to
-        show the real visitor IP.
-      </p>
-    </div>
-
-    <div class="term fi">
-      <div class="term-bar">
-        <div class="tdot tdot-r"></div>
-        <div class="tdot tdot-y"></div>
-        <div class="tdot tdot-g"></div>
-        <span class="term-ttl">hopstat — bgp_route 8.8.8.8</span>
+      <div class="sheet preview-table">
+        <div class="cell">Traceroute</div><div class="cell">Hops, round-trip time and the AS that answered last</div>
+        <div class="cell">Ping</div><div class="cell">Replies, packet loss and min / avg / max RTT</div>
+        <div class="cell">BGP</div><div class="cell">Prefix, AS path and origin AS — or that no route exists</div>
       </div>
-      <div class="term-body">
-        <div class="tl"><span class="tp">$</span><span class="tc">./hopstat --mode=server</span></div>
-        <div class="tl"><span class="to ts">✓ database migrated &nbsp;&nbsp;v6 applied</span></div>
-        <div class="tl"><span class="to ts">✓ server started &nbsp;&nbsp;&nbsp;&nbsp;:8080</span></div>
-        <div class="tl"><span class="to ts">✓ bgp session &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;established AS9121</span></div>
-        <div class="tl gap"><span class="tco"># BGP Route Lookup → 8.8.8.8</span></div>
-        <div class="tl"><span class="to">Prefix &nbsp;&nbsp; <span class="th">8.8.8.0/24</span></span></div>
-        <div class="tl"><span class="to">Next-Hop &nbsp;193.140.101.1</span></div>
-        <div class="tl"><span class="to">AS-Path &nbsp; <span class="th">9121</span> <span class="th">15169</span></span></div>
-        <div class="tl"><span class="to">Origin &nbsp;&nbsp; IGP</span></div>
-        <div class="tl"><span class="to">Local-Pref 100</span></div>
-        <div class="tl"><span class="to">Age &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2d 14h 33m</span></div>
-        <div class="tl"><span class="to">Best &nbsp;&nbsp;&nbsp;&nbsp; <span class="ts">yes ✓</span></span></div>
-        <div class="tl gap"><span class="tco"># Traceroute → 8.8.8.8 from IST-POP</span></div>
-        <div class="tl"><span class="to"> 1  <span class="th">193.140.0.1</span> &nbsp;[AS9121] &nbsp;1.2ms</span></div>
-        <div class="tl"><span class="to"> 2  <span class="th">72.14.198.66</span> [AS15169] 4.8ms</span></div>
-        <div class="tl"><span class="to"> 3  <span class="ts">8.8.8.8</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[AS15169] 5.1ms</span></div>
-        <div class="tl gap"><span class="tp">$</span><span class="cursor"></span></div>
+      <p class="note">The preview is written by the server, so crawlers that never run JavaScript see it. It is in the site's language and keeps for 30 days; result pages are marked <code>noindex</code>, so sharing never fills a search index.</p>
+    </div>
+    <div class="chat" role="img" aria-label="A chat message containing a HopStat traceroute link, unfurled with the result: reached in 8 hops, 11.8 ms, AS13335 CLOUDFLARENET.">
+      <div class="bubble">
+        <div class="link">https://lg.example.net/traceroute/1.1.1.1</div>
+        <div class="unfurl">
+          <div class="unfurl-site">Looking Glass</div>
+          <div class="unfurl-title">Traceroute to 1.1.1.1 from IST-POP</div>
+          <div class="unfurl-desc">Reached in 8 hops · 11.8 ms · AS13335 CLOUDFLARENET. Last run 2026-10-09 18:33 UTC.</div>
+        </div>
+      </div>
+      <div class="bubble">
+        <div class="link">https://lg.example.net/bgp/8.8.8.8</div>
+        <div class="unfurl">
+          <div class="unfurl-site">Looking Glass</div>
+          <div class="unfurl-title">BGP route for 8.8.8.8 on IST-POP</div>
+          <div class="unfurl-desc">8.8.8.0/24 · AS path 9121 15169 · origin AS15169 GOOGLE. Last run 2026-10-09 18:34 UTC.</div>
+        </div>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<hr class="div">
+<!-- ────────────────────────── OVERVIEW -->
+<section class="anchor" id="what">
+  <div class="wrap two">
+    <div class="prose">
+      <h2>What is HopStat?</h2>
+      <p>
+        HopStat is a <strong>network looking glass</strong> for operators, ISPs and anyone who needs to see
+        routing and reachability from more than one place. It replaces scattered SSH sessions and
+        per-router CLI access with one web interface and REST API.
+      </p>
+      <p>
+        It ships as a <strong>single Go binary</strong> with the React interface, SQLite database, schema
+        migrations and static assets embedded. No Node.js, no PostgreSQL, no separate web server.
+      </p>
+      <p>
+        <strong>Server mode</strong> runs queries across every node you add — routers reached over SSH or
+        Telnet, <strong>agents</strong> at remote POPs, or <strong>standalone</strong> nodes on the server
+        itself. An embedded <strong>GoBGP</strong> peer gives live access to the BGP table. Router
+        credentials are encrypted at rest with <strong>AES-256-GCM</strong>, and ping and traceroute stream
+        line by line as they run.
+      </p>
+    </div>
+    <div>
+      <div class="term-bar"><span>hopstat --mode=server</span><span>:8080</span></div>
+<div class="term"><span class="ok">✓</span> database migrated
+<span class="ok">✓</span> server started            :8080
+<span class="ok">✓</span> bgp session established    AS9121  mode=passive
+
+<span class="as"># BGP route lookup → 8.8.8.8</span>
+Prefix      8.8.8.0/24
+Next-hop    193.140.101.1
+AS path     9121 15169
+Origin      IGP
+Local-pref  100
+Best        <span class="ok">yes</span>
+
+<span class="as"># Traceroute → 8.8.8.8 from IST-POP</span>
+ 1  193.140.0.1    1.2 ms  [AS9121]
+ 2  72.14.198.66   4.8 ms  [AS15169]
+ 3  <span class="ok">8.8.8.8</span>        5.1 ms  [AS15169]</div>
+    </div>
+  </div>
+</section>
 
 <!-- ────────────────────────── FEATURES -->
-<div class="section-wrap anchor" id="features">
-  <span class="section-tag fi">// capabilities</span>
-  <h2 class="fi">Everything you need.<br>Nothing you don't.</h2>
-  <p class="sec-desc fi">Full-stack network diagnostics with enterprise-grade security, built for the way network operators actually work.</p>
+<section class="anchor" id="features">
+  <div class="wrap">
+    <h2>Everything a looking glass needs.</h2>
+    <p class="lead">Diagnostics, sharing and administration, built the way network operators work.</p>
 
-  <div class="feat-grid">
-    <div class="feat-card fi">
-      <span class="feat-icon">🔍</span>
-      <div class="feat-name">BGP Route Lookup</div>
-      <div class="feat-desc">Query live BGP tables for any prefix or subnet. See next-hop, full AS path, origin, local-pref, MED and community strings — including <strong>multiple paths per prefix</strong> when ADD-PATH is negotiated with your router.</div>
+    <div class="sheet features">
+      <div class="cell"><span class="cell-label">Query</span><div class="name">BGP route lookup</div><div class="desc">Live BGP table for any prefix: next-hop, AS path, origin, local-pref, MED and communities — with every path per prefix when ADD-PATH is negotiated.</div></div>
+      <div class="cell"><span class="cell-label">Query</span><div class="name">Ping</div><div class="desc">Min, average and max RTT and packet loss update as replies arrive instead of after the run.</div></div>
+      <div class="cell"><span class="cell-label">Query</span><div class="name">Traceroute</div><div class="desc">Hop by hop with per-hop RTT and the AS of each hop, from MaxMind with Team Cymru DNS as fallback. Streams line by line, from routers and remote agents alike.</div></div>
+
+      <div class="cell"><span class="cell-label">Results</span><div class="name">Network map</div><div class="desc">A BGP lookup draws the paths every node holds for the prefix, backups included. Click a node on the map to ask the same question from there.</div></div>
+      <div class="cell"><span class="cell-label">Results</span><div class="name">Link previews<span class="new">2.2.20</span></div><div class="desc">Shared query links unfurl with what the last run found — hops and latency, replies, or the AS path — in the site's language.</div></div>
+      <div class="cell"><span class="cell-label">Results</span><div class="name">BGP communities</div><div class="desc">Document your community strings once; matches show as severity-coloured badges on results and in a public <code>/communities</code> catalogue.</div></div>
+
+      <div class="cell"><span class="cell-label">Interface</span><div class="name">Measurement sheet<span class="new">2.2.20</span></div><div class="desc">Node, command and target sit side by side as labelled cells; the three commands are one click each, quick starts a ruled table, recent queries a grid.</div></div>
+      <div class="cell"><span class="cell-label">Interface</span><div class="name">Your brand colour</div><div class="desc">One hex value in Admin → Settings and the interface follows it, used exactly as entered. Every derived colour is measured and solved to clear WCAG AA, in light and dark.</div></div>
+      <div class="cell"><span class="cell-label">Interface</span><div class="name">Five languages</div><div class="desc">English, Turkish, German, French and Russian. Server-written titles, descriptions, canonical links, <code>robots.txt</code> and a sitemap for search engines.</div></div>
+
+      <div class="cell"><span class="cell-label">Nodes</span><div class="name">Multi-node, mixed topology</div><div class="desc">Routers over SSH or Telnet, agents at remote POPs behind NAT, standalone nodes on the server — in any mix, each with its own enabled commands.</div></div>
+      <div class="cell"><span class="cell-label">Nodes</span><div class="name">BGP neighbors, IPv4 and IPv6</div><div class="desc">ADD-PATH receive, passive mode for routers that dial in, a default-route AS per neighbor, and a log that says why a session went down.</div></div>
+      <div class="cell"><span class="cell-label">Nodes</span><div class="name">Vendor parsers</div><div class="desc">Cisco IOS / IOS-XR, Juniper JunOS, MikroTik RouterOS, BIRD and generic CLI output parsed into structured results.</div></div>
+
+      <div class="cell"><span class="cell-label">Security</span><div class="name">Cloudflare Turnstile</div><div class="desc">Optional bot check on the public query form and API, switched on from Admin → Settings. Shared links wait for it before they run.</div></div>
+      <div class="cell"><span class="cell-label">Security</span><div class="name">Rate limits and audit log</div><div class="desc">Per-IP query and HTTP limits, brute-force bans, and an audit log trimmed to the retention you set. Cloudflare-aware visitor IPs.</div></div>
+      <div class="cell"><span class="cell-label">Security</span><div class="name">Encrypted credentials</div><div class="desc">SSH and Telnet credentials stored with AES-256-GCM. The key never touches the database.</div></div>
+
+      <div class="cell"><span class="cell-label">Operations</span><div class="name">Settings without restarts</div><div class="desc">Branding, MaxMind account, Turnstile, query timeout, audit retention and self-update are edited in the admin panel and take effect immediately.</div></div>
+      <div class="cell"><span class="cell-label">Operations</span><div class="name">Self-update</div><div class="desc">Checks GitHub Releases, verifies and swaps the binary in place, and restarts — with release notes shown in the admin panel.</div></div>
+      <div class="cell"><span class="cell-label">Operations</span><div class="name">GeoIP enrichment</div><div class="desc">MaxMind ASN and City databases downloaded on your schedule and verified before they replace the old ones.</div></div>
     </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">📡</span>
-      <div class="feat-name">Ping</div>
-      <div class="feat-desc">ICMP echo with configurable packet count. RTT stats update live as replies arrive — min, avg, max and packet loss stream in real time instead of waiting for the run to finish.</div>
+
+    <h3 id="vendors" class="anchor">Speaks your router's language</h3>
+    <div class="sheet vendors">
+      <div class="cell"><span class="cell-label">Cisco</span>IOS / IOS-XR</div>
+      <div class="cell"><span class="cell-label">Juniper</span>JunOS</div>
+      <div class="cell"><span class="cell-label">MikroTik</span>RouterOS</div>
+      <div class="cell"><span class="cell-label">BIRD</span>BIRD 2.x</div>
+      <div class="cell"><span class="cell-label">Any</span>Generic CLI</div>
     </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🛣️</span>
-      <div class="feat-name">Tracert</div>
-      <div class="feat-desc">Hop-by-hop path tracing with per-hop RTT. GeoIP enrichment uses MaxMind first (ASN, organisation, country); Team Cymru DNS is the fallback when databases are unavailable. Output streams line-by-line from routers and remote lg-node agents.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🏠</span>
-      <div class="feat-name">Standalone Nodes</div>
-      <div class="feat-desc">Run diagnostics from the server itself as a node. Assign an agent token and queries route through the embedded <code>/agent/v1</code> API — the same path used by the admin connection test.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🗺️</span>
-      <div class="feat-name">AS Path Map</div>
-      <div class="feat-desc">Every BGP route lookup includes a visual hop-by-hop AS path map with GeoIP-enriched organisation names and country flags. Shown alongside the routes table — not a separate query type.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🏷️</span>
-      <div class="feat-name">BGP Communities</div>
-      <div class="feat-desc">Define community string rules in <strong>Admin → Communities</strong>. Matched communities appear as colour-coded badges on BGP results. The public <strong>/communities</strong> page lists every active rule in a severity-coloured table — linked from the site footer.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🌐</span>
-      <div class="feat-name">Multi-Node</div>
-      <div class="feat-desc">Run any query from any number of nodes simultaneously. Direct SSH/Telnet to routers or via lightweight agent instances deployed at remote POPs — mixed topologies supported.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">📍</span>
-      <div class="feat-name">GeoIP Enrichment</div>
-      <div class="feat-desc">MaxMind ASN + City databases auto-downloaded via your license key. Per-hop and AS-path lookups prefer MaxMind; Team Cymru DNS is used as fallback. Downloads respect <code>update_interval</code> — last fetch timestamps are stored in SQLite so restarts do not re-download on every boot.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🔄</span>
-      <div class="feat-name">Auto-Update</div>
-      <div class="feat-desc">Built-in self-updater polls GitHub Releases, downloads the new binary, hot-swaps it in place and re-executes the process — zero downtime, no scripts needed.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">⚙️</span>
-      <div class="feat-name">Admin Panel</div>
-      <div class="feat-desc">Full web UI for managing nodes, a single admin account, BGP neighbors (IPv4 + IPv6), Communities rules and audit logs — all protected by JWT authentication.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🔐</span>
-      <div class="feat-name">Encrypted Credentials</div>
-      <div class="feat-desc">SSH and Telnet credentials stored in SQLite with AES-256-GCM encryption. The encryption key never touches the database — set it via config or environment variable.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">📦</span>
-      <div class="feat-name">Single Binary</div>
-      <div class="feat-desc">React SPA, SQLite migrations, i18n strings and static assets embedded via Go's embed.FS. No Node.js, no separate web server, no external runtime dependencies.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">⚡</span>
-      <div class="feat-name">Real-Time Streaming</div>
-      <div class="feat-desc">Query results stream to the browser via Server-Sent Events. Remote lg-node agents expose <code>/agent/v1/ping/stream</code> and <code>/traceroute/stream</code> — hops and RTT stats appear as they complete, not in one dump at the end.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">📱</span>
-      <div class="feat-name">Responsive Public UI</div>
-      <div class="feat-desc">Mobile-friendly query page with collapsible header controls, fixed-height stat cards and a footer with PeeringDB, contact links and an internal <strong>Communities</strong> catalogue. Light and dark are designed together, not one inverted from the other. Site name, AS number and footer URLs are configured in Admin → Settings.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🎨</span>
-      <div class="feat-name">Your Brand Colour</div>
-      <div class="feat-desc">Set one hex value in <strong>Admin → Settings</strong> and the whole interface follows it. The colour is used exactly as entered — never lightened or shifted to make text fit. Everything derived from it is instead <strong>measured</strong> against the surface it lands on and solved until it clears the WCAG AA minimum, so a pale green and a near-black both stay readable.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🌍</span>
-      <div class="feat-name">i18n &amp; SEO</div>
-      <div class="feat-desc">Public UI in English, Turkish, German, French and Russian. Per-locale page titles and meta descriptions. BGP community terminology stays <strong>Communities</strong> in every locale — badges show rule descriptions on hover.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">☁️</span>
-      <div class="feat-name">Cloudflare-Aware</div>
-      <div class="feat-desc">Set <code>behind_cloudflare: true</code> (or <code>LG_SERVER_BEHIND_CLOUDFLARE=true</code>) to trust Cloudflare proxy CIDRs and read the visitor IP from <code>CF-Connecting-IP</code> instead of the edge proxy address.</div>
-    </div>
+    <p class="note">A new parser implements the <code>Parser</code> interface in <code>internal/parser/</code> and registers through <code>GetParser()</code>.</p>
   </div>
-</div>
-
-<hr class="div">
-
-<!-- ────────────────────────── VENDORS -->
-<div class="section-wrap anchor" id="vendors">
-  <span class="section-tag fi">// vendor support</span>
-  <h2 class="fi">Speaks your router's language.</h2>
-  <p class="sec-desc fi">
-    Vendor-specific output parsers handle the quirks of each platform's CLI output format.
-    Add a node, select its vendor, and query results are parsed and structured automatically —
-    no manual regex, no per-device configuration.
-  </p>
-
-  <div class="vendor-row fi">
-    <div class="vendor-pill"><span class="vi">🔵</span>Cisco IOS / IOS-XR</div>
-    <div class="vendor-pill"><span class="vi">🔴</span>Juniper JunOS</div>
-    <div class="vendor-pill"><span class="vi">🟠</span>MikroTik RouterOS</div>
-    <div class="vendor-pill"><span class="vi">🐦</span>BIRD</div>
-    <div class="vendor-pill"><span class="vi">⬜</span>Generic CLI</div>
-  </div>
-
-  <p style="margin-top:1.5rem;font-size:12.5px;color:var(--text3);">
-    ▸ New parsers can be added by implementing the <code style="color:var(--cyan)">Parser</code> interface in <code style="color:var(--cyan)">internal/parser/</code> and registering via <code style="color:var(--cyan)">GetParser()</code>.
-  </p>
-</div>
-
-<hr class="div">
+</section>
 
 <!-- ────────────────────────── ARCHITECTURE -->
-<div class="section-wrap anchor" id="how">
-  <span class="section-tag fi">// how it works</span>
-  <h2 class="fi">Two modes.<br>One binary.</h2>
-  <p class="sec-desc fi">Deploy as a central server with direct router connections, scatter agents across remote POPs, or combine both. The same binary switches modes with a single flag.</p>
+<section class="anchor" id="how">
+  <div class="wrap">
+    <h2>Two modes, one binary.</h2>
+    <p class="lead">Run a central server that talks to routers directly, place agents at remote POPs, or both. The same binary switches mode with one flag.</p>
 
-  <div class="arch-cards">
-    <div class="arch-card fi">
-      <div class="arch-head">
-        <div class="arch-ico ico-srv">🖥️</div>
-        <div>
-          <div class="arch-ttl">Server Mode</div>
-          <div class="arch-sub">Central query orchestrator &amp; web UI</div>
-        </div>
+    <div class="sheet modes">
+      <div class="cell">
+        <span class="cell-label">--mode=server</span>
+        <h3>Server</h3>
+        <div class="sub">Query orchestration and the web interface</div>
+        <p>Serves the API and interface, runs the query engine and BGP sessions, and reaches routers over SSH or Telnet or hands queries to agents. Rate limiting, authentication, audit and GeoIP happen here.</p>
+        <ul class="points">
+          <li>Standalone nodes on the same host through the embedded <code>/agent/v1</code> API</li>
+          <li>Embedded GoBGP peer with ADD-PATH receive and passive sessions</li>
+          <li>TLS from a certificate file or automatic Let's Encrypt</li>
+          <li>Cloudflare-aware client IP and optional Turnstile</li>
+        </ul>
       </div>
-      <div class="arch-body">
-        <p class="arch-desc">
-          Runs the HTTP API, the embedded React SPA, query engine and BGP session manager.
-          It connects directly to routers via SSH or Telnet, or delegates to remote agent
-          instances. Handles rate-limiting, authentication, audit logging and GeoIP enrichment
-          centrally.
-        </p>
-        <ul class="arch-list">
-          <li>Standalone nodes on the same host via embedded <code>/agent/v1</code> API</li>
-          <li>HTTP API + React SPA served from <code>:8080</code></li>
-          <li>Embedded GoBGP peer — live BGP table with ADD-PATH receive (multiple paths)</li>
-          <li>Rate limiting &amp; brute-force protection per source IP</li>
-          <li>JWT-authenticated admin panel</li>
-          <li>Async audit logging with configurable retention</li>
-          <li>Community rules with severity badges, hover descriptions and public <code>/communities</code> catalogue</li>
-          <li>GeoIP enrichment (ASN + city) with interval-based downloads</li>
-          <li>TLS via certificate file or auto Let's Encrypt (autocert)</li>
-          <li>Cloudflare-aware client IP (<code>behind_cloudflare</code>)</li>
-          <li>Site branding &amp; footer links via Admin → Settings</li>
-          <li>Optional: IPv4 and IPv6 BGP neighbor sessions per node</li>
+      <div class="cell">
+        <span class="cell-label">--mode=agent</span>
+        <h3>Agent</h3>
+        <div class="sub">A lightweight node at a remote POP</div>
+        <p>A small REST server that runs queries where it stands. No database, no interface, no BGP manager. The server makes every request, so the agent needs no exposure to users.</p>
+        <ul class="points">
+          <li>Bearer-token authenticated API on <code>:9090</code></li>
+          <li>Streaming endpoints for live ping and traceroute</li>
+          <li>Works behind NAT — the server calls the agent</li>
+          <li>systemd, Docker or bare metal</li>
         </ul>
       </div>
     </div>
 
-    <div class="arch-card fi">
-      <div class="arch-head">
-        <div class="arch-ico ico-agt">📡</div>
-        <div>
-          <div class="arch-ttl">Agent Mode</div>
-          <div class="arch-sub">Lightweight remote POP node</div>
-        </div>
-      </div>
-      <div class="arch-body">
-        <p class="arch-desc">
-          A minimal REST server deployed at remote points of presence. Exposes the
-          <code>/agent/v1/*</code> API consumed by the central server. No database,
-          no frontend, no BGP manager — just query execution. The server initiates
-          all requests; the agent needs no inbound exposure to end users.
-        </p>
-        <ul class="arch-list">
-          <li>Minimal binary footprint — same binary, <code>--mode=agent</code></li>
-          <li>Bearer-token authenticated REST API on <code>:9090</code></li>
-          <li>Executes ping, traceroute and BGP lookups locally on the POP</li>
-          <li>SSE streaming endpoints for live ping/tracert output (v2+)</li>
-          <li>SSH/Telnet to locally reachable routers</li>
-          <li>No direct user exposure — server proxies all queries</li>
-          <li>Deploy via systemd unit, Docker, or bare metal</li>
-          <li>Works behind NAT — server calls agent, not the reverse</li>
-          <li>Any number of agents can be registered per server instance</li>
-        </ul>
-      </div>
+    <div class="diagram">
+      <svg viewBox="0 0 740 210" role="img" aria-label="Browsers reach the server over HTTPS; the server reaches routers over SSH or Telnet and agents over REST; an agent reaches routers at its POP.">
+        <rect class="d-box" x="10" y="85" width="95" height="42"/>
+        <text class="d-title" x="57" y="104" text-anchor="middle">Browser</text>
+        <text class="d-text" x="57" y="119" text-anchor="middle">public · admin</text>
+        <line class="d-line" x1="105" y1="106" x2="180" y2="106"/>
+        <polygon class="d-arrow" points="178,101 188,106 178,111"/>
+        <text class="d-text" x="143" y="98" text-anchor="middle">HTTPS</text>
+
+        <rect class="d-box-strong" x="188" y="62" width="148" height="90"/>
+        <text class="d-title" x="262" y="92" text-anchor="middle">Server</text>
+        <text class="d-text" x="262" y="110" text-anchor="middle">API · interface</text>
+        <text class="d-text" x="262" y="124" text-anchor="middle">BGP · GeoIP · audit</text>
+        <text class="d-text" x="262" y="141" text-anchor="middle">:8080</text>
+
+        <line class="d-line-soft" x1="336" y1="83" x2="430" y2="48"/>
+        <polygon class="d-arrow-soft" points="428,42 437,49 429,55"/>
+        <text class="d-text" x="390" y="57" text-anchor="middle">SSH</text>
+        <line class="d-line" x1="336" y1="107" x2="430" y2="107"/>
+        <polygon class="d-arrow" points="428,102 438,107 428,112"/>
+        <text class="d-text" x="383" y="100" text-anchor="middle">REST</text>
+        <line class="d-line-soft" x1="336" y1="130" x2="430" y2="166"/>
+        <polygon class="d-arrow-soft" points="428,160 437,167 429,173"/>
+        <text class="d-text" x="390" y="160" text-anchor="middle">Telnet</text>
+
+        <rect class="d-box" x="438" y="28" width="112" height="40"/>
+        <text class="d-title" x="494" y="47" text-anchor="middle">Router A</text>
+        <text class="d-text" x="494" y="61" text-anchor="middle">Cisco / Juniper</text>
+        <rect class="d-box-strong" x="438" y="87" width="112" height="40"/>
+        <text class="d-title" x="494" y="106" text-anchor="middle">Agent</text>
+        <text class="d-text" x="494" y="120" text-anchor="middle">remote POP · :9090</text>
+        <rect class="d-box" x="438" y="148" width="112" height="40"/>
+        <text class="d-title" x="494" y="167" text-anchor="middle">Router B</text>
+        <text class="d-text" x="494" y="181" text-anchor="middle">MikroTik / BIRD</text>
+
+        <line class="d-line-soft" x1="550" y1="107" x2="618" y2="107"/>
+        <polygon class="d-arrow-soft" points="616,103 625,107 616,111"/>
+        <rect class="d-box" x="626" y="87" width="104" height="40"/>
+        <text class="d-title" x="678" y="106" text-anchor="middle">Router C</text>
+        <text class="d-text" x="678" y="120" text-anchor="middle">at the POP</text>
+
+        <line class="d-line" x1="10" y1="200" x2="32" y2="200"/>
+        <text class="d-text" x="37" y="203">HTTPS / REST</text>
+        <line class="d-line-soft" x1="120" y1="200" x2="142" y2="200"/>
+        <text class="d-text" x="147" y="203">SSH / Telnet</text>
+      </svg>
     </div>
   </div>
-
-  <!-- SVG Topology Diagram -->
-  <div class="arch-diagram fi">
-    <svg width="100%" height="210" viewBox="0 0 740 210" xmlns="http://www.w3.org/2000/svg" style="max-width:740px;display:block;margin:0 auto;font-family:monospace;">
-      <!-- USER -->
-      <rect x="10" y="85" width="95" height="42" rx="6" fill="none" stroke="#1a3356" stroke-width="1.5"/>
-      <text x="57" y="107" text-anchor="middle" fill="#8baabf" font-size="11">Browser</text>
-      <text x="57" y="121" text-anchor="middle" fill="#3d5a78" font-size="9.5">/ Admin UI</text>
-      <!-- user→server -->
-      <line x1="105" y1="106" x2="180" y2="106" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="5,3"/>
-      <polygon points="178,101 188,106 178,111" fill="#22d3ee"/>
-      <text x="143" y="99" text-anchor="middle" fill="#3d5a78" font-size="9">HTTPS</text>
-
-      <!-- SERVER -->
-      <rect x="188" y="62" width="148" height="90" rx="8" fill="#0b1628" stroke="#22d3ee" stroke-width="1.8"/>
-      <text x="262" y="93" text-anchor="middle" fill="#22d3ee" font-size="13" font-weight="bold">Server</text>
-      <text x="262" y="110" text-anchor="middle" fill="#3d5a78" font-size="9.5">API · React SPA</text>
-      <text x="262" y="124" text-anchor="middle" fill="#3d5a78" font-size="9.5">BGP · GeoIP · Audit</text>
-      <text x="262" y="142" text-anchor="middle" fill="#1a3356" font-size="9">:8080</text>
-
-      <!-- server → router1 (direct) -->
-      <line x1="336" y1="83" x2="430" y2="48" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3"/>
-      <polygon points="428,42 437,49 429,55" fill="#4ade80"/>
-      <text x="390" y="57" text-anchor="middle" fill="#3d5a78" font-size="9">SSH</text>
-
-      <!-- server → agent -->
-      <line x1="336" y1="107" x2="430" y2="107" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5,3"/>
-      <polygon points="428,102 438,107 428,112" fill="#fbbf24"/>
-      <text x="383" y="100" text-anchor="middle" fill="#3d5a78" font-size="9">REST</text>
-
-      <!-- server → router2 (direct) -->
-      <line x1="336" y1="130" x2="430" y2="166" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="5,3"/>
-      <polygon points="428,160 437,167 429,173" fill="#4ade80"/>
-      <text x="390" y="160" text-anchor="middle" fill="#3d5a78" font-size="9">Telnet</text>
-
-      <!-- ROUTER 1 -->
-      <rect x="438" y="28" width="112" height="40" rx="6" fill="#0b1628" stroke="#14532d" stroke-width="1.5"/>
-      <text x="494" y="50" text-anchor="middle" fill="#4ade80" font-size="11.5">Router A</text>
-      <text x="494" y="63" text-anchor="middle" fill="#3d5a78" font-size="9">Cisco / Juniper</text>
-
-      <!-- AGENT -->
-      <rect x="438" y="87" width="112" height="40" rx="6" fill="#0b1628" stroke="#713f12" stroke-width="1.5"/>
-      <text x="494" y="109" text-anchor="middle" fill="#fbbf24" font-size="11.5">lg-node</text>
-      <text x="494" y="122" text-anchor="middle" fill="#3d5a78" font-size="9">Remote POP · :9090</text>
-
-      <!-- ROUTER 2 (direct) -->
-      <rect x="438" y="148" width="112" height="40" rx="6" fill="#0b1628" stroke="#14532d" stroke-width="1.5"/>
-      <text x="494" y="169" text-anchor="middle" fill="#4ade80" font-size="11.5">Router B</text>
-      <text x="494" y="183" text-anchor="middle" fill="#3d5a78" font-size="9">MikroTik / BIRD</text>
-
-      <!-- agent → remote router -->
-      <line x1="550" y1="107" x2="618" y2="107" stroke="#4ade80" stroke-width="1.2" stroke-dasharray="4,3" opacity=".6"/>
-      <polygon points="616,103 625,107 616,111" fill="#4ade80" opacity=".6"/>
-      <rect x="626" y="87" width="104" height="40" rx="6" fill="#0b1628" stroke="#14532d" stroke-width="1" opacity=".7"/>
-      <text x="678" y="109" text-anchor="middle" fill="#4ade80" font-size="11" opacity=".8">Router C</text>
-      <text x="678" y="122" text-anchor="middle" fill="#3d5a78" font-size="9" opacity=".7">at remote POP</text>
-
-      <!-- legend -->
-      <line x1="10" y1="200" x2="32" y2="200" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="4,3"/>
-      <text x="37" y="204" fill="#3d5a78" font-size="9.5">HTTPS</text>
-      <line x1="90" y1="200" x2="112" y2="200" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4,3"/>
-      <text x="117" y="204" fill="#3d5a78" font-size="9.5">SSH / Telnet</text>
-      <line x1="185" y1="200" x2="207" y2="200" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3"/>
-      <text x="212" y="204" fill="#3d5a78" font-size="9.5">REST (agent)</text>
-    </svg>
-  </div>
-</div>
-
-<hr class="div">
+</section>
 
 <!-- ────────────────────────── BGP ADD-PATH -->
-<div class="section-wrap anchor" id="bgp">
-  <span class="section-tag fi">// bgp add-path</span>
-  <h2 class="fi">Multiple routes per prefix<br>(BGP ADD-PATH)</h2>
-  <p class="sec-desc fi">
-    By default BGP keeps only the <strong>best path</strong> for each prefix. To show every
-    path your upstream sends (different next-hops, AS paths, communities), both HopStat and the
-    peer router must negotiate <strong>BGP ADD-PATH</strong> (RFC 7911).
-  </p>
+<section class="anchor" id="bgp">
+  <div class="wrap">
+    <h2>Every path per prefix, with BGP ADD-PATH.</h2>
+    <p class="lead">
+      BGP normally keeps only the <strong>best path</strong> for each prefix. To show every path your
+      routers send — other next-hops, AS paths and communities — both HopStat and the peer must
+      negotiate <strong>ADD-PATH</strong> (RFC 7911).
+    </p>
 
-  <div class="arch-card fi" style="margin-bottom:1.5rem;">
-    <div class="arch-head">
-      <div class="arch-ico ico-srv">🔀</div>
-      <div>
-        <div class="arch-ttl">HopStat side</div>
-        <div class="arch-sub">Enabled by default — no extra router config on HopStat itself</div>
+    <div class="sheet modes">
+      <div class="cell">
+        <span class="cell-label">HopStat</span>
+        <h3>On by default</h3>
+        <ul class="points">
+          <li><code>bgp.add_path_receive: true</code> in <code>config.yaml</code></li>
+          <li>Negotiated on every IPv4 and IPv6 unicast neighbor</li>
+          <li>Neighbors live in <strong>Admin → BGP Neighbors</strong>, each with a default-route AS for prefixes missing from the table</li>
+          <li>Restart the neighbor after changing it, so the capability is advertised in OPEN</li>
+        </ul>
+      </div>
+      <div class="cell">
+        <span class="cell-label">Sessions</span>
+        <h3>Passive or outbound</h3>
+        <ul class="points">
+          <li><strong>Passive</strong> — HopStat listens and the router connects. The default for iBGP, where both sides dialling caused flapping sessions</li>
+          <li><strong>Outbound</strong> — HopStat dials the router, the usual choice for eBGP</li>
+          <li>The session log says <code>mode=passive</code> or <code>mode=outbound</code>, and why a session went down</li>
+        </ul>
       </div>
     </div>
-    <div class="arch-body">
-      <ul class="arch-list">
-        <li><code>bgp.add_path_receive: true</code> in <code>config.yaml</code> (default)</li>
-        <li>ADD-PATH receive is negotiated on each IPv4/IPv6 unicast BGP neighbor session</li>
-        <li>Configure neighbors in <strong>Admin → BGP Neighbors</strong>; set <strong>Default Route AS</strong> per neighbor for prefixes not in the table</li>
-        <li>After changing config or upgrading, <strong>restart BGP neighbors</strong> (Admin → Restart) so the new capability is advertised in OPEN</li>
-        <li>Disable with <code>add_path_receive: false</code> if the peer does not support ADD-PATH</li>
-      </ul>
-    </div>
-  </div>
 
-  <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Peer router configuration</h3>
-  <p class="fi" style="font-size:12.5px;color:var(--text2);margin-bottom:1.2rem;line-height:1.75;">
-    HopStat only <em>receives</em> additional paths. Your router must <strong>send</strong> them
-    toward the HopStat BGP session. Syntax varies by vendor and OS version — adjust AS numbers,
-    neighbor IPs and policy names to match your network.
-  </p>
+    <h3>Peer router configuration</h3>
+    <p class="note" style="margin-top:0;margin-bottom:.5rem;">HopStat only <em>receives</em> additional paths; your router has to <strong>send</strong> them. Adjust AS numbers, neighbor addresses and policy names to your network.</p>
 
-  <h4 class="fi" style="font-size:12px;color:var(--cyan);margin:1.2rem 0 .6rem;font-weight:600;">Cisco IOS / IOS-XE</h4>
-  <div class="code-box fi">
-    <div class="code-bar"><div class="code-bar-left"><div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div><span class="code-filename">ios-xe.conf</span></div></div>
-<pre class="code-body"><span class="cc">! Under the BGP process — replace AS and neighbor IP</span>
+    <h4 class="vendor">Cisco IOS / IOS-XE</h4>
+    <div class="code">
+      <div class="code-bar"><span>ios-xe.conf</span></div>
+<pre class="code-body"><span class="yc">! Under the BGP process — replace AS and neighbor IP</span>
 <span class="yh">router bgp</span> <span class="yv">65001</span>
  <span class="yk">neighbor</span> <span class="ys">10.0.0.2</span> <span class="yk">remote-as</span> <span class="yv">65000</span>
  <span class="yk">neighbor</span> <span class="ys">10.0.0.2</span> <span class="yk">update-source</span> <span class="ys">Loopback0</span>
@@ -1124,11 +783,11 @@ footer {
   <span class="yc">! Export more than best-path — example policy:</span>
   <span class="yk">neighbor</span> <span class="ys">10.0.0.2</span> <span class="yk">additional-paths selection route-map</span> <span class="ys">EXPORT-ALL</span>
  <span class="yk">exit-address-family</span></pre>
-  </div>
+    </div>
 
-  <h4 class="fi" style="font-size:12px;color:var(--cyan);margin:1.2rem 0 .6rem;font-weight:600;">Cisco IOS-XR</h4>
-  <div class="code-box fi">
-    <div class="code-bar"><div class="code-bar-left"><div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div><span class="code-filename">ios-xr.conf</span></div></div>
+    <h4 class="vendor">Cisco IOS-XR</h4>
+    <div class="code">
+      <div class="code-bar"><span>ios-xr.conf</span></div>
 <pre class="code-body"><span class="yh">router bgp</span> <span class="yv">65001</span>
  <span class="yk">neighbor</span> <span class="ys">10.0.0.2</span>
   <span class="yk">remote-as</span> <span class="yv">65000</span>
@@ -1137,11 +796,11 @@ footer {
    <span class="yk">additional-paths send</span>
    <span class="yc">! Optional: advertise best + backup paths</span>
    <span class="yk">additional-paths selection route-policy</span> <span class="ys">EXPORT-ALL</span></pre>
-  </div>
+    </div>
 
-  <h4 class="fi" style="font-size:12px;color:var(--cyan);margin:1.2rem 0 .6rem;font-weight:600;">Juniper JunOS</h4>
-  <div class="code-box fi">
-    <div class="code-bar"><div class="code-bar-left"><div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div><span class="code-filename">junos.conf</span></div></div>
+    <h4 class="vendor">Juniper JunOS</h4>
+    <div class="code">
+      <div class="code-bar"><span>junos.conf</span></div>
 <pre class="code-body"><span class="yk">set protocols bgp group</span> <span class="ys">HOPSTAT</span> <span class="yk">type external</span>
 <span class="yk">set protocols bgp group</span> <span class="ys">HOPSTAT</span> <span class="yk">neighbor</span> <span class="ys">10.0.0.2</span> <span class="yk">peer-as</span> <span class="yv">65000</span>
 <span class="yk">set protocols bgp group</span> <span class="ys">HOPSTAT</span> <span class="yk">family inet unicast add-path receive</span>
@@ -1149,20 +808,20 @@ footer {
 <span class="yc"># For IPv6:</span>
 <span class="yk">set protocols bgp group</span> <span class="ys">HOPSTAT</span> <span class="yk">family inet6 unicast add-path receive</span>
 <span class="yk">set protocols bgp group</span> <span class="ys">HOPSTAT</span> <span class="yk">family inet6 unicast add-path send</span> <span class="yk">multipath</span></pre>
-  </div>
+    </div>
 
-  <h4 class="fi" style="font-size:12px;color:var(--cyan);margin:1.2rem 0 .6rem;font-weight:600;">MikroTik RouterOS v7</h4>
-  <div class="code-box fi">
-    <div class="code-bar"><div class="code-bar-left"><div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div><span class="code-filename">routeros.rsc</span></div></div>
-<pre class="code-body"><span class="cc">/routing/bgp/connection</span>
+    <h4 class="vendor">MikroTik RouterOS v7</h4>
+    <div class="code">
+      <div class="code-bar"><span>routeros.rsc</span></div>
+<pre class="code-body"><span class="yc">/routing/bgp/connection</span>
 <span class="yk">add</span> name=hopstat remote.address=<span class="ys">10.0.0.2</span> .as=<span class="yv">65000</span> \
     local.role=ebgp add-path=<span class="ys">both</span> \
     address-families=ip,ipv6</pre>
-  </div>
+    </div>
 
-  <h4 class="fi" style="font-size:12px;color:var(--cyan);margin:1.2rem 0 .6rem;font-weight:600;">BIRD 2.x</h4>
-  <div class="code-box fi">
-    <div class="code-bar"><div class="code-bar-left"><div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div><span class="code-filename">bird.conf</span></div></div>
+    <h4 class="vendor">BIRD 2.x</h4>
+    <div class="code">
+      <div class="code-bar"><span>bird.conf</span></div>
 <pre class="code-body"><span class="yh">protocol bgp</span> hopstat {
   <span class="yk">local</span> <span class="ys">10.0.0.1</span> <span class="yk">as</span> <span class="yv">65001</span>;
   <span class="yk">neighbor</span> <span class="ys">10.0.0.2</span> <span class="yk">as</span> <span class="yv">65000</span>;
@@ -1172,100 +831,58 @@ footer {
     <span class="yk">add paths on</span>;
   };
 }</pre>
+    </div>
+
+    <h3>Verify</h3>
+    <ul class="points">
+      <li>On the peer, confirm the ADD-PATH capability in <code>show bgp neighbors</code> (Cisco) or <code>show bgp neighbor</code> (JunOS)</li>
+      <li>In HopStat the neighbor should be <strong>established</strong>; restart the session after enabling ADD-PATH on either side</li>
+      <li>Run a BGP query for a prefix with several upstream paths — the best path is starred and the others are listed with it</li>
+      <li>If only one path appears, the peer is still sending best-path only: check its export policy</li>
+    </ul>
   </div>
-
-  <h3 class="fi" style="font-size:13px;color:var(--text2);margin-top:2rem;margin-bottom:.8rem;font-weight:600;">Verify</h3>
-  <ul class="fi" style="font-size:12.5px;color:var(--text2);line-height:1.85;margin-bottom:1rem;padding-left:1.2rem;">
-    <li>On the peer: confirm ADD-PATH capability in <code style="color:var(--cyan)">show bgp neighbors</code> (Cisco) or <code style="color:var(--cyan)">show bgp neighbor</code> (JunOS)</li>
-    <li>In HopStat admin: BGP neighbor status should be <strong>established</strong>; restart the session after enabling ADD-PATH on either side</li>
-    <li>Run a <strong>BGP Route</strong> query for a prefix with multiple upstream paths — the active path shows a ★ and all paths appear in the results table</li>
-    <li>If only one path appears, the peer is likely still sending best-path only — check export policy / additional-paths send on the router</li>
-  </ul>
-</div>
-
-<hr class="div">
+</section>
 
 <!-- ────────────────────────── COMMUNITIES -->
-<div class="section-wrap anchor" id="communities">
-  <span class="section-tag fi">// bgp communities</span>
-  <h2 class="fi">Communities catalogue<br>&amp; result badges</h2>
-  <p class="sec-desc fi">
-    HopStat lets operators document the BGP community strings used on their network.
-    Rules are managed in the admin panel, matched automatically on BGP route lookups,
-    and published on a public page linked from the site footer.
-    The UI label is always <strong>Communities</strong> — it is not translated in any locale.
-  </p>
+<section class="anchor" id="communities">
+  <div class="wrap">
+    <h2>A communities catalogue your peers can read.</h2>
+    <p class="lead">
+      Document the BGP community strings you use. HopStat matches them on every route lookup and
+      publishes them on a public page linked from the site footer. The label stays
+      <strong>Communities</strong> in every language.
+    </p>
 
-  <div class="arch-cards fi" style="margin-bottom:1.5rem;">
-    <div class="arch-card">
-      <div class="arch-head">
-        <div class="arch-ico ico-srv">⚙️</div>
-        <div>
-          <div class="arch-ttl">Admin → Communities</div>
-          <div class="arch-sub">Define and maintain community rules</div>
-        </div>
+    <div class="sheet modes">
+      <div class="cell">
+        <span class="cell-label">Admin → Communities</span>
+        <h3>Define the rules</h3>
+        <ul class="points">
+          <li><strong>Community</strong> — the exact string to match, e.g. <code>9121:65000</code></li>
+          <li><strong>Description</strong> — shown on hover and on the public page</li>
+          <li><strong>Severity</strong> — <code>info</code>, <code>success</code>, <code>warning</code> or <code>reject</code></li>
+          <li><strong>Scope</strong> — all nodes by default; per-node scope through the API</li>
+          <li><strong>Active</strong> — switch a rule off without deleting it</li>
+        </ul>
       </div>
-      <div class="arch-body">
-        <p class="arch-desc">
-          Each rule maps a BGP community string (e.g. <code style="color:var(--cyan)">65000:100</code>)
-          to a human-readable description and a severity level. Only <strong>active</strong> rules
-          are matched on queries and shown on the public page.
-        </p>
-        <ul class="arch-list">
-          <li><strong>Community</strong> — exact string to match (e.g. <code>9121:65000</code>)</li>
-          <li><strong>Description</strong> — free-text explanation shown on hover and on the public page</li>
-          <li><strong>Severity</strong> — <code>info</code>, <code>success</code>, <code>warning</code> or <code>reject</code> (controls badge and row colour)</li>
-          <li><strong>Scope</strong> — <code>global</code> by default (all nodes). Per-node scope is supported by the API for advanced setups.</li>
-          <li><strong>Active</strong> — toggle without deleting the rule</li>
+      <div class="cell">
+        <span class="cell-label">Results</span>
+        <h3>See them on every lookup</h3>
+        <ul class="points">
+          <li>Matches appear as severity-coloured badges in the Communities column</li>
+          <li>Unmatched strings still show, only without a label</li>
+          <li>With ADD-PATH, each path's communities are matched on their own</li>
+          <li><code>/communities</code> lists every active rule without signing in</li>
         </ul>
       </div>
     </div>
 
-    <div class="arch-card">
-      <div class="arch-head">
-        <div class="arch-ico ico-agt">🔍</div>
-        <div>
-          <div class="arch-ttl">BGP query results</div>
-          <div class="arch-sub">Automatic matching on every route lookup</div>
-        </div>
-      </div>
-      <div class="arch-body">
-        <p class="arch-desc">
-          When a BGP route lookup returns community attributes, HopStat compares them against
-          active rules. Matches appear as colour-coded badges in the results table — hover for
-          the description. Severity colours: sky (info), emerald (success), amber (warning),
-          red (reject).
-        </p>
-        <ul class="arch-list">
-          <li>Badges appear in the <strong>Communities</strong> column of BGP results</li>
-          <li>Unmatched community strings still display; only configured rules get labels</li>
-          <li>Works with ADD-PATH — each path's communities are evaluated independently</li>
-        </ul>
-      </div>
-    </div>
-  </div>
+    <h3>Public API</h3>
+    <div class="code">
+      <div class="code-bar"><span>GET /api/v1/communities</span><button class="copy-btn" id="cbCommunities" onclick="doCopy('cbCommunities',`curl -s https://your-lg.example/api/v1/communities | jq`)">Copy</button></div>
+<pre class="code-body"><span class="cc"># No authentication — active rules only</span>
+curl -s <span class="chl">https://your-lg.example/api/v1/communities</span>
 
-  <h3 class="fi" style="font-size:13px;color:var(--text2);margin-bottom:.8rem;font-weight:600;">Public page — <code style="color:var(--cyan)">/communities</code></h3>
-  <p class="fi" style="font-size:12.5px;color:var(--text2);margin-bottom:1.2rem;line-height:1.75;">
-    The site footer includes a <strong>Communities</strong> link (internal route, not an external URL).
-    It opens a read-only table of every active rule: community value, description and severity.
-    Rows are colour-coded by severity so operators and peers can browse your published
-    community catalogue without logging in.
-  </p>
-
-  <h3 class="fi" style="font-size:13px;color:var(--text2);margin-top:1.5rem;margin-bottom:.8rem;font-weight:600;">Public API</h3>
-  <div class="code-box fi">
-    <div class="code-bar">
-      <div class="code-bar-left">
-        <div class="tdot tdot-r"></div><div class="tdot tdot-y"></div><div class="tdot tdot-g"></div>
-        <span class="code-filename">GET /api/v1/communities</span>
-      </div>
-      <button class="copy-btn" id="cbCommunities" onclick="doCopy('cbCommunities',`curl -s https://your-lg.example/api/v1/communities | jq`)">📋 copy</button>
-    </div>
-<pre class="code-body"><span class="cc"># No authentication required — active rules only</span>
-<span class="cm">curl -s </span><span class="chl">https://your-lg.example/api/v1/communities</span>
-
-<span class="cc"># Response:</span>
 {
   <span class="yk">"data"</span>: [
     {
@@ -1277,77 +894,70 @@ footer {
     }
   ]
 }</pre>
+    </div>
   </div>
-
-  <ul class="fi" style="font-size:12.5px;color:var(--text2);line-height:1.85;margin-top:1rem;padding-left:1.2rem;">
-    <li>Configure footer links (website, contact, PeeringDB, etc.) in <strong>Admin → Settings</strong> — the Communities link is built-in and does not need a URL</li>
-    <li>Inactive rules are hidden from the public page and API but remain editable in the admin panel</li>
-    <li>Descriptions are stored as plain text; write them in the language your peers expect</li>
-  </ul>
-</div>
-
-<hr class="div">
+</section>
 
 <!-- ────────────────────────── QUALITY -->
-<div class="section-wrap anchor" id="quality">
-  <span class="section-tag fi">// verification</span>
-  <h2 class="fi">Checked before it ships.</h2>
-  <p class="sec-desc fi">A looking glass sits on the outside of your network, reachable by people you have never met. Four gates have to pass before a release is tagged, and every one of them runs in CI on the same commit.</p>
+<section class="anchor" id="quality">
+  <div class="wrap">
+    <h2>Checked before it ships.</h2>
+    <p class="lead">A looking glass sits on the outside of your network, open to people you have never met. Four gates pass before a release is tagged, and CI runs every one of them again on the same commit.</p>
 
-  <div class="feat-grid">
-    <div class="feat-card fi">
-      <span class="feat-icon">🧪</span>
-      <div class="feat-name">Every statement covered</div>
-      <div class="feat-desc">1,474 Go tests hold <strong>6,905 of 6,905 statements</strong> — not a rounded 100%, but a gate that names any statement no test reaches and fails the build. Tests run in <strong>randomised order</strong>, so a test that only passes because of what ran before it fails here instead of later.</div>
+    <div class="sheet gates">
+      <div class="cell">
+        <span class="cell-label">Coverage</span>
+        <div class="figure">7,771 / 7,771</div>
+        <div class="name">Every statement covered</div>
+        <div class="desc">1,603 Go tests reach every statement — counted, not a rounded 100%. The gate names any statement no test runs and fails the build. Tests run in random order.</div>
+      </div>
+      <div class="cell">
+        <span class="cell-label">Smoke</span>
+        <div class="figure">16</div>
+        <div class="name">The real binary, started</div>
+        <div class="desc">Build, bootstrap, start, then drive it: sign-in, node management and a full query through Server-Sent Events to its stored result.</div>
+      </div>
+      <div class="cell">
+        <span class="cell-label">Browser</span>
+        <div class="figure">26</div>
+        <div class="name">Contrast measured on screen</div>
+        <div class="desc">The production bundle renders in a browser, and the painted colour of every run of text is read back — every page, both themes, across brand colours.</div>
+      </div>
+      <div class="cell">
+        <span class="cell-label">Lint</span>
+        <div class="figure">0 warnings</div>
+        <div class="name">Nothing switched off</div>
+        <div class="desc">errcheck, staticcheck, gosec, ineffassign, unused and gofmt, plus the frontend linter. A false positive carries its reason at the line.</div>
+      </div>
     </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🚦</span>
-      <div class="feat-name">Smoke tests on the real binary</div>
-      <div class="feat-desc">16 tests build the binary, bootstrap it, start the server and drive it: login and session, node management, and a full query through Server-Sent Events to its stored result. The compiled artefact, not a mock of it.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">👁️</span>
-      <div class="feat-name">Contrast measured in a browser</div>
-      <div class="feat-desc">24 browser tests render the production bundle and read back the <strong>actual painted colour</strong> of every run of text — every page, both themes, across brand colours. The scanner is itself tested against text planted to fail, so a scan that stopped measuring cannot report a clean page.</div>
-    </div>
-    <div class="feat-card fi">
-      <span class="feat-icon">🔎</span>
-      <div class="feat-name">Lint with nothing switched off</div>
-      <div class="feat-desc">The strict Go configuration — errcheck, staticcheck, gosec, ineffassign, unused, gofmt — plus the frontend linter at zero warnings. Where a finding is a false positive it carries a written reason at the line, rather than being excluded wholesale.</div>
-    </div>
+    <ul class="points">
+      <li>200 frontend unit tests cover the logic layer, held to a coverage floor that cannot slide</li>
+      <li>Release builds run the same gates as CI — a tag cannot ship past a red test</li>
+      <li><code>make gate</code> runs all of it locally, exactly as CI does</li>
+    </ul>
   </div>
+</section>
 
-  <ul class="fi" style="font-size:12.5px;color:var(--text2);line-height:1.85;margin-top:1rem;padding-left:1.2rem;">
-    <li>178 frontend unit tests cover the logic layer, held to a coverage floor that cannot slide</li>
-    <li>Release builds run the same gates as CI — a tag cannot ship past a red test</li>
-    <li>All of it is in the repository: <code style="color:var(--cyan)">make gate</code> runs the four gates locally, exactly as CI does</li>
-  </ul>
-</div>
-
-<hr class="div">
-
-<!-- ────────────────────────── FOOTER -->
 <footer>
-  <div class="foot-left">
-    <div class="foot-name">HopStat</div>
-    <div class="foot-sub">Network Looking Glass Platform</div>
-    <div class="foot-sub" style="margin-top:3px;">MIT License &nbsp;·&nbsp; Built with Go, GoBGP, React, SQLite</div>
-  </div>
-  <div class="foot-links">
-    <a href="https://github.com/HopStat/HopStat" target="_blank">GitHub</a>
-    <a href="https://github.com/HopStat/HopStat/releases" target="_blank">Releases</a>
-    <a href="https://docs.hopstat.net" target="_blank">Docs</a>
-    <a href="https://github.com/HopStat/HopStat/issues" target="_blank">Issues</a>
-    <a href="https://github.com/HopStat/HopStat/blob/main/LICENSE" target="_blank">MIT License</a>
+  <div class="wrap foot">
+    <div>
+      <div class="foot-name">HopStat</div>
+      <div class="foot-sub">Network looking glass · MIT License</div>
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/HopStat/HopStat" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/HopStat/HopStat/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/HopStat/HopStat/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="https://github.com/HopStat/HopStat/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+    </div>
   </div>
 </footer>
 
 <script>
 const INSTALL_CMD = 'curl -sSL https://raw.githubusercontent.com/HopStat/HopStat/main/install.sh | sudo bash';
 
-/* ── Latest release version (GitHub API) ── */
+/* The latest release, so the download buttons and the pin example never go stale. */
 (async function loadLatestRelease() {
-  const btns = document.querySelectorAll('.dl-btn');
   try {
     const res = await fetch('https://api.github.com/repos/HopStat/HopStat/releases/latest', {
       headers: { Accept: 'application/vnd.github+json' },
@@ -1357,228 +967,32 @@ const INSTALL_CMD = 'curl -sSL https://raw.githubusercontent.com/HopStat/HopStat
     const tag = data.tag_name;
     if (!tag) return;
     const url = data.html_url || 'https://github.com/HopStat/HopStat/releases/latest';
-    btns.forEach((btn) => {
+    document.querySelectorAll('.dl-btn').forEach((btn) => {
       btn.href = url;
-      btn.textContent = '↓ Download ' + tag;
+      btn.textContent = 'Download ' + tag;
     });
-    const hint = document.querySelector('.install-hint code');
-    if (hint) {
-      hint.textContent = '… | sudo bash -s -- --version ' + tag;
-    }
+    const pin = document.querySelector('.pin-hint');
+    if (pin) pin.textContent = '… | sudo bash -s -- --version ' + tag;
+    const meta = document.querySelector('.release-tag');
+    if (meta) meta.textContent = tag;
   } catch {
-    /* keep versionless fallback label */
+    /* keep the versionless labels */
   }
 })();
 
-/* ── Copy-to-clipboard ── */
 function doCopy(btnId, text) {
+  const btn = document.getElementById(btnId);
   navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById(btnId);
-    const orig = btn.textContent;
-    btn.textContent = '✓ copied!';
+    btn.textContent = 'Copied';
     btn.classList.add('ok');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 2200);
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 2000);
   }).catch(() => {
-    /* fallback: select the pre element */
-    const pre = document.getElementById(btnId).closest('.code-box').querySelector('pre');
+    const pre = btn.closest('.code').querySelector('pre');
     const r = document.createRange(); r.selectNode(pre);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(r);
   });
 }
-
-/* ── Intersection observer fade-in ── */
-const io = new IntersectionObserver((entries) => {
-  entries.forEach((e, i) => {
-    if (e.isIntersecting) {
-      setTimeout(() => e.target.classList.add('v'), i * 75);
-      io.unobserve(e.target);
-    }
-  });
-}, { threshold: 0.08 });
-document.querySelectorAll('.fi').forEach(el => io.observe(el));
-
-/* ── Canvas BGP topology animation ── */
-(function() {
-  const canvas = document.getElementById('netCanvas');
-  const wrap = canvas && canvas.closest('.hero-canvas-wrap');
-  if (!canvas || !wrap) return;
-  const ctx = canvas.getContext('2d');
-
-  const designNodes = [
-    { x:310, y:310, as:'AS65000', r:12, col:'#22d3ee' },
-    { x:160, y:160, as:'AS174',   r:8,  col:'#4ade80' },
-    { x:460, y:160, as:'AS3356',  r:8,  col:'#4ade80' },
-    { x:110, y:370, as:'AS9121',  r:8,  col:'#4ade80' },
-    { x:510, y:370, as:'AS1299',  r:8,  col:'#4ade80' },
-    { x:310, y:490, as:'POP-IST', r:9,  col:'#fbbf24' },
-    { x:80,  y:230, as:'AS15169', r:6,  col:'#8baabf' },
-    { x:540, y:230, as:'AS32934', r:6,  col:'#8baabf' },
-    { x:200, y:500, as:'AS20485', r:6,  col:'#8baabf' },
-  ];
-
-  const edges = [
-    [0,1],[0,2],[0,3],[0,4],[0,5],
-    [1,6],[2,7],[1,3],[2,4],[3,8],[5,8]
-  ];
-
-  const LABEL_DY = 13;
-
-  function designBBox() {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    designNodes.forEach((n) => {
-      const pad = n.r * 3;
-      minX = Math.min(minX, n.x - pad);
-      maxX = Math.max(maxX, n.x + pad);
-      minY = Math.min(minY, n.y - pad);
-      maxY = Math.max(maxY, n.y + n.r + LABEL_DY);
-    });
-    return { minX, minY, maxX, maxY };
-  }
-
-  const bbox = designBBox();
-  const bboxW = bbox.maxX - bbox.minX;
-  const bboxH = bbox.maxY - bbox.minY;
-
-  let nodes = [];
-  let pkts = [];
-  let W = 0;
-  let H = 0;
-  let raf = 0;
-  let scale = 1;
-
-  function layoutNodes(pixelW, pixelH) {
-    const pad = 6;
-    scale = Math.min((pixelW - pad * 2) / bboxW, (pixelH - pad * 2) / bboxH);
-    const ox = (pixelW - bboxW * scale) / 2 - bbox.minX * scale;
-    const oy = (pixelH - bboxH * scale) / 2 - bbox.minY * scale;
-    nodes = designNodes.map((n) => ({
-      x: n.x * scale + ox,
-      y: n.y * scale + oy,
-      as: n.as,
-      r: n.r * scale,
-      col: n.col,
-    }));
-  }
-
-  function rebuildPackets() {
-    pkts = [];
-    edges.forEach(([a, b], i) => {
-      pkts.push({ a, b, t: i * 0.13 % 1, spd: 0.0025 + Math.random() * 0.003 });
-      if (Math.random() > 0.4) {
-        pkts.push({ a: b, b: a, t: Math.random(), spd: 0.002 + Math.random() * 0.003 });
-      }
-    });
-  }
-
-  function resize() {
-    const rect = wrap.getBoundingClientRect();
-    if (rect.width < 1 || rect.height < 1) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = Math.max(1, Math.round(rect.width * dpr));
-    H = Math.max(1, Math.round(rect.height * dpr));
-    canvas.width = W;
-    canvas.height = H;
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
-    layoutNodes(W, H);
-  }
-
-  function draw() {
-    if (!W || !H) return;
-    ctx.clearRect(0, 0, W, H);
-
-    edges.forEach(([a, b]) => {
-      const na = nodes[a];
-      const nb = nodes[b];
-      const g = ctx.createLinearGradient(na.x, na.y, nb.x, nb.y);
-      g.addColorStop(0, na.col + '22');
-      g.addColorStop(1, nb.col + '22');
-      ctx.beginPath();
-      ctx.moveTo(na.x, na.y);
-      ctx.lineTo(nb.x, nb.y);
-      ctx.strokeStyle = g;
-      ctx.lineWidth = Math.max(1, 1.2 * scale);
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    });
-
-    pkts.forEach((p) => {
-      const na = nodes[p.a];
-      const nb = nodes[p.b];
-      const x = na.x + (nb.x - na.x) * p.t;
-      const y = na.y + (nb.y - na.y) * p.t;
-      ctx.beginPath();
-      ctx.arc(x, y, Math.max(2, 3 * scale), 0, Math.PI * 2);
-      ctx.fillStyle = '#22d3ee';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x, y, Math.max(4, 7 * scale), 0, Math.PI * 2);
-      ctx.fillStyle = '#22d3ee18';
-      ctx.fill();
-      p.t += p.spd;
-      if (p.t >= 1) {
-        p.t = 0;
-        if (Math.random() > 0.6) {
-          const tmp = p.a;
-          p.a = p.b;
-          p.b = tmp;
-        }
-      }
-    });
-
-    const fontSize = Math.max(8, 9.5 * scale);
-    nodes.forEach((n) => {
-      const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 3);
-      g.addColorStop(0, n.col + '25');
-      g.addColorStop(1, 'transparent');
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r * 3, 0, Math.PI * 2);
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.strokeStyle = n.col;
-      ctx.lineWidth = Math.max(1, 1.8 * scale);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.fillStyle = n.col + '18';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r * 0.38, 0, Math.PI * 2);
-      ctx.fillStyle = n.col;
-      ctx.fill();
-      ctx.fillStyle = '#3d5a78';
-      ctx.font = fontSize.toFixed(1) + 'px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(n.as, n.x, n.y + n.r + LABEL_DY * scale);
-    });
-
-    raf = requestAnimationFrame(draw);
-  }
-
-  rebuildPackets();
-  resize();
-
-  if (typeof ResizeObserver !== 'undefined') {
-    const ro = new ResizeObserver(() => resize());
-    ro.observe(wrap);
-  } else {
-    window.addEventListener('resize', resize);
-  }
-
-  const obsC = new IntersectionObserver(([e]) => {
-    if (e.isIntersecting) {
-      resize();
-      draw();
-    } else {
-      cancelAnimationFrame(raf);
-    }
-  });
-  obsC.observe(canvas);
-})();
 </script>
 </body>
 </html>
