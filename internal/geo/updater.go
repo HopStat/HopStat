@@ -297,7 +297,7 @@ func (u *Updater) fetchMaxMind(ctx context.Context, dlURL, edition string) (*htt
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	dlClient := &http.Client{Timeout: 10 * time.Minute, CheckRedirect: target.CheckSameHostRedirect}
+	dlClient := &http.Client{Timeout: 10 * time.Minute, CheckRedirect: target.CheckRedirectToHosts(target.MaxMindDownloadHosts...)}
 	resp, err := dlClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download: %w", err)

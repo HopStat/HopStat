@@ -279,3 +279,65 @@ func TestCheckSameHostRedirectStopsLongChains(t *testing.T) {
 		t.Fatalf("err = %v, want the redirect chain to be cut short", err)
 	}
 }
+
+func redirectReq(t *testing.T, from, to string) (*http.Request, []*http.Request) {
+	t.Helper()
+	prev, err := http.NewRequest(http.MethodGet, from, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := http.NewRequest(http.MethodGet, to, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return next, []*http.Request{prev}
+}
+
+// GitHub and MaxMind hand their downloads to a CDN host. Refusing that hop is what broke
+// self-update and GeoIP downloads in v2.2.15.
+func TestCheckRedirectToHostsAllowsVendorCDN(t *testing.T) {
+	check := CheckRedirectToHosts(GitHubReleaseAssetHosts...)
+	req, via := redirectReq(t, "https://github.com/HopStat/HopStat/releases/download/v1/x", "https://release-assets.githubusercontent.com/a?sig=1")
+	if err := check(req, via); err != nil {
+		t.Fatalf("GitHub asset redirect refused: %v", err)
+	}
+
+	geo := CheckRedirectToHosts(MaxMindDownloadHosts...)
+	req, via = redirectReq(t, "https://download.maxmind.com/app/geoip_download", "https://"+MaxMindDownloadHosts[0]+"/x")
+	if err := geo(req, via); err != nil {
+		t.Fatalf("MaxMind R2 redirect refused: %v", err)
+	}
+
+	req, via = redirectReq(t, "https://github.com/a", "https://github.com/b")
+	if err := check(req, via); err != nil {
+		t.Fatalf("same-host redirect refused: %v", err)
+	}
+	if err := check(req, nil); err != nil {
+		t.Fatalf("first request refused: %v", err)
+	}
+}
+
+func TestCheckRedirectToHostsRefusesEverythingElse(t *testing.T) {
+	check := CheckRedirectToHosts(GitHubReleaseAssetHosts...)
+	for _, to := range []string{
+		"https://169.254.169.254/latest/meta-data",
+		"http://release-assets.githubusercontent.com/a",
+		"https://release-assets.githubusercontent.com:8443/a",
+		"https://evil.release-assets.githubusercontent.com.example/a",
+		"https://" + MaxMindDownloadHosts[0] + "/x",
+	} {
+		req, via := redirectReq(t, "https://github.com/a", to)
+		if err := check(req, via); err == nil || !strings.Contains(err.Error(), "refusing cross-host redirect") {
+			t.Fatalf("redirect to %s: err = %v, want refusal", to, err)
+		}
+	}
+
+	req, _ := redirectReq(t, "https://github.com/a", "https://release-assets.githubusercontent.com/a")
+	via := make([]*http.Request, maxRedirects+1)
+	for i := range via {
+		via[i], _ = http.NewRequest(http.MethodGet, "https://github.com/a", nil)
+	}
+	if err := check(req, via); err == nil || !strings.Contains(err.Error(), "stopped after") {
+		t.Fatalf("err = %v, want redirect cap", err)
+	}
+}

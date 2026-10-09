@@ -91,11 +91,13 @@ const statusErrorCacheTTL = 15 * time.Second
 
 func New(repo, currentVersion string, enabled bool) *Updater {
 	return &Updater{
-		repo:      repo,
-		current:   currentVersion,
-		enabled:   enabled,
-		apiClient: &http.Client{Timeout: 15 * time.Second, CheckRedirect: target.CheckSameHostRedirect},
-		dlClient:  &http.Client{Timeout: 10 * time.Minute, CheckRedirect: target.CheckSameHostRedirect},
+		repo:    repo,
+		current: currentVersion,
+		enabled: enabled,
+		// Both clients fetch release assets (the binary, checksums.txt), which GitHub serves
+		// through a redirect to its asset CDN.
+		apiClient: &http.Client{Timeout: 15 * time.Second, CheckRedirect: target.CheckRedirectToHosts(target.GitHubReleaseAssetHosts...)},
+		dlClient:  &http.Client{Timeout: 10 * time.Minute, CheckRedirect: target.CheckRedirectToHosts(target.GitHubReleaseAssetHosts...)},
 	}
 }
 
