@@ -157,17 +157,14 @@ export function ResultContainer({ queryId, command, historyContext, shareUrl, on
   })
 
   const shareContext = command && historyContext && shareUrl ? { command, shareUrl, ...historyContext } : null
-  const shareSummary = shareContext
-    ? [commandLabel(t, shareContext.command), shareContext.target, shareContext.nodeName]
-        .filter(Boolean)
-        .join(' · ')
-    : ''
 
   return (
     <div className="space-y-3 pb-1">
       {shareContext && (
         <ResultShareBar
-          summary={shareSummary}
+          command={commandLabel(t, shareContext.command)}
+          target={shareContext.target}
+          nodeName={shareContext.nodeName}
           shareUrl={shareContext.shareUrl}
         />
       )}

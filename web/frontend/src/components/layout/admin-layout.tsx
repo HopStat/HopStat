@@ -1,7 +1,7 @@
 import { Outlet, Link, NavLink } from 'react-router-dom'
 import {
   Sun, Moon, Menu, X,
-  LayoutDashboard, Server, ScrollText, Shield, Network, Settings, Globe, Zap,
+  LayoutDashboard, Server, ScrollText, Shield, Network, Settings, Globe, Zap, SquareArrowOutUpRight, LogOut,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { useI18n } from '@/contexts/i18n-context'
 import { useAuth } from '@/contexts/auth-context'
 import { useSettings } from '@/contexts/settings-context'
 import { LocaleSwitcher } from '@/components/query/locale-switcher'
-import { HopStatDocsLink } from '@/components/layout/hopstat-docs-link'
+import { HopStatDocsLink, hopstatIconLinkClass } from '@/components/layout/hopstat-docs-link'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -97,23 +97,15 @@ export function AdminLayout() {
           </nav>
 
           <div className="admin-sidebar__footer">
-            <div className="admin-sidebar__footer-links">
-              <Link
-                to="/"
-                className="admin-nav-link"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <span>{t('nav.home')}</span>
-              </Link>
-              <button
-                type="button"
-                className="admin-nav-link"
-                onClick={logout}
-              >
-                <span>{t('nav.logout')}</span>
-              </button>
-            </div>
-            <HopStatDocsLink plainText />
+            <HopStatDocsLink showLabel />
+            <button
+              type="button"
+              className={cn(hopstatIconLinkClass, 'h-8 px-2 text-[11px] sm:text-xs border border-border')}
+              onClick={logout}
+            >
+              <LogOut className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" aria-hidden />
+              <span>{t('nav.logout')}</span>
+            </button>
           </div>
         </aside>
 
@@ -129,6 +121,10 @@ export function AdminLayout() {
             </Button>
             <div className="flex-1" />
             <div className="flex items-center gap-2">
+              <a href="/" target="_blank" rel="noopener" className="admin-topbar__site-link" aria-label={t('nav.open_site')}>
+                <SquareArrowOutUpRight className="w-3.5 h-3.5" aria-hidden />
+                <span>{t('nav.open_site')}</span>
+              </a>
               <LocaleSwitcher variant="admin" />
               <Button variant="ghost" size="icon" className="rounded-md h-8 w-8" onClick={toggleTheme}>
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

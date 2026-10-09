@@ -277,7 +277,7 @@ export function SettingsPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.settings')} eyebrow={t('admin.title')} />
+      <PageHeader title={t('admin.settings')} />
 
       <Card>
         <CardHeader><CardTitle>{t('admin.site_identity')}</CardTitle></CardHeader>

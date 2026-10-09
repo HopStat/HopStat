@@ -2,6 +2,7 @@
   "app.title": "Looking Glass",
   "app.subtitle": "Plateforme de diagnostic réseau",
   "nav.home": "Accueil",
+  "nav.open_site": "Ouvrir le looking glass",
   "nav.admin": "Admin",
   "nav.login": "Connexion",
   "nav.logout": "Déconnexion",

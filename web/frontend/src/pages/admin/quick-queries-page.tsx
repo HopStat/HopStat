@@ -98,7 +98,7 @@ export function QuickQueriesPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.quick_queries')} eyebrow={t('admin.title')}>
+      <PageHeader title={t('admin.quick_queries')}>
         <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> {t('admin.add_quick_query')}</Button>
       </PageHeader>
       <AdminPanel padded={false}>

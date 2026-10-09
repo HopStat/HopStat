@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Activity, GitBranch, Route } from 'lucide-react'
+import { Activity, CornerDownLeft, GitBranch, Route } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useI18n } from '@/contexts/i18n-context'
 import { listQueryHistory, type QueryHistoryRecord } from '@/lib/query-history-db'
@@ -58,7 +58,6 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
   return (
     <section className="query-home-empty" aria-label={t('query.home_title')}>
       <div className="query-home-empty__intro">
-        <p className="query-home-empty__eyebrow">{t('query.network_diagnostic')}</p>
         <h2 className="query-home-empty__title">{t('query.home_title')}</h2>
         <p className="query-home-empty__lead">{t('query.home_lead')}</p>
       </div>
@@ -84,11 +83,12 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
                   {descKey && <span className="query-home-card__desc">{t(descKey)}</span>}
                 </span>
                 <span className="query-home-card__target-wrap">
+                  <span className="query-home-card__target">{item.target}</span>
                   {item.name && (
                     <span className="query-home-card__target-label">{item.name}</span>
                   )}
-                  <span className="query-home-card__target font-data">{item.target}</span>
                 </span>
+                <CornerDownLeft className="query-home-card__run" aria-hidden />
               </button>
             </li>
           )
@@ -114,7 +114,7 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
                       <Icon className="w-4 h-4" />
                     </span>
                     <span className="query-home-card__body">
-                      <span className="query-home-card__target font-data">{entry.target}</span>
+                      <span className="query-home-card__target">{entry.target}</span>
                       <span className="query-home-card__desc">
                         {[titleKey ? t(titleKey) : entry.command, entry.nodeName].filter(Boolean).join(' · ')}
                       </span>

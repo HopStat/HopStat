@@ -498,7 +498,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
     <Select value={command} onValueChange={handleCommandChange}>
       <SelectTrigger
         ref={commandSelectRef}
-        className={`query-form-field__command w-[4.75rem] sm:w-[5.25rem] shrink-0 rounded-l-md rounded-r-none border-0 sm:border-0 bg-transparent ${selectFieldClass} text-base sm:text-xs font-semibold justify-center ${querySelectFocusClass}`}
+        className={`query-form-field__command w-[4.75rem] sm:w-[5.75rem] shrink-0 rounded-l-md rounded-r-none border-0 sm:border-0 bg-transparent ${selectFieldClass} text-base sm:text-xs font-semibold justify-center ${querySelectFocusClass}`}
       >
         <SelectValue placeholder={t('query.select_command')} />
       </SelectTrigger>
@@ -557,7 +557,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       type="submit"
       disabled={submitDisabled}
       aria-label={t('query.submit')}
-      className="query-form-submit h-10 w-10 shrink-0 rounded-md p-0 sm:w-[4.75rem] sm:px-2 flex items-center justify-center text-xs font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-100"
+      className="query-form-submit h-10 w-10 shrink-0 rounded-md p-0 sm:h-auto sm:w-auto sm:px-6 flex items-center justify-center text-xs font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-100"
     >
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin" />
@@ -617,12 +617,12 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
           </div>
         </div>
 
-        <div className="hidden sm:flex sm:flex-row sm:items-center sm:gap-2 min-w-0">
+        <div className="query-form-bar hidden sm:flex sm:flex-row sm:items-stretch min-w-0">
           {showNode && (
             <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
               <SelectTrigger
                 ref={nodeSelectRef}
-                className={`query-form-select query-form-select__node w-36 shrink-0 ${selectRoundedClass} text-sm`}
+                className={`query-form-select query-form-select__node w-40 shrink-0 ${selectRoundedClass} border-0 bg-transparent text-sm ${querySelectFocusClass}`}
               >
                 <SelectValue placeholder={t('query.select_node')} />
               </SelectTrigger>

@@ -72,7 +72,7 @@ export function GeoIPLookupPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.geoip_lookup')} description={t('admin.geoip_lookup_desc')} eyebrow={t('admin.title')} />
+      <PageHeader title={t('admin.geoip_lookup')} description={t('admin.geoip_lookup_desc')} />
 
       <Card>
         <CardHeader>

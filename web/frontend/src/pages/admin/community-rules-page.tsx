@@ -64,7 +64,7 @@ export function CommunityRulesPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.community_rules')} eyebrow={t('admin.title')}>
+      <PageHeader title={t('admin.community_rules')}>
         <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> {t('admin.add_rule')}</Button>
       </PageHeader>
       <AdminPanel padded={false}>

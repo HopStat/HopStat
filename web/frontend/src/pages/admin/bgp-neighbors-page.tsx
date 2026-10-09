@@ -272,7 +272,7 @@ export function BGPNeighborsPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.bgp_neighbors')} eyebrow={t('admin.title')}>
+      <PageHeader title={t('admin.bgp_neighbors')}>
         <div className="flex gap-2">
           <Button variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-1" /> {t('admin.bgp_refresh')}</Button>
           <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> {t('admin.bgp_add')}</Button>

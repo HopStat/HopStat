@@ -2,6 +2,7 @@
   "app.title": "Looking Glass",
   "app.subtitle": "Ağ Tanılama Platformu",
   "nav.home": "Ana Sayfa",
+  "nav.open_site": "Sorgu sayfasını aç",
   "nav.admin": "Admin",
   "nav.login": "Giriş",
   "nav.logout": "Çıkış",

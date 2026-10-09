@@ -12,7 +12,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   description,
-  eyebrow = 'Admin',
+  eyebrow,
   children,
   className,
 }: PageHeaderProps) {

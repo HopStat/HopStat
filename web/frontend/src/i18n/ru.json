@@ -2,6 +2,7 @@
   "app.title": "Looking Glass",
   "app.subtitle": "Платформа сетевой диагностики",
   "nav.home": "Главная",
+  "nav.open_site": "Открыть Looking Glass",
   "nav.admin": "Admin",
   "nav.login": "Вход",
   "nav.logout": "Выход",

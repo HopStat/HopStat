@@ -46,7 +46,7 @@ export function AuditPage() {
         open={geoipIp !== null}
         onOpenChange={open => { if (!open) setGeoipIp(null) }}
       />
-      <PageHeader title={t('admin.audit')} eyebrow={t('admin.title')}>
+      <PageHeader title={t('admin.audit')}>
         <Button variant="outline" onClick={exportAuditCSV}><Download className="w-4 h-4 mr-1" /> {t('admin.export_csv')}</Button>
       </PageHeader>
       <AdminPanel padded={false}>

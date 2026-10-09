@@ -268,7 +268,9 @@
     overflow-anchor: none;
   }
 
+  /* The console is the subject; nothing glows or grids behind it. */
   .query-page-atmosphere {
+    display: none;
     position: absolute;
     inset: 0 0 auto 0;
     height: min(32rem, 72vh);
@@ -334,7 +336,7 @@
 
   /* Dark theme, DGN Plus style: slate surfaces carry no brand colour. The brand shows up
      only as a translucent fill on what is selected or iconic, with its accent on top. */
-  .dark .query-home-card {
+  .dark .query-home-empty__grid {
     border-color: var(--color-border);
   }
 
@@ -565,12 +567,7 @@
     min-width: 0.5rem;
     height: 1px;
     align-self: center;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--brand-accent-line) 55%, var(--color-border)) 0%,
-      color-mix(in srgb, var(--brand-accent-line) 14%, transparent) 94%,
-      transparent 100%
-    );
+    background: color-mix(in srgb, var(--brand-accent-line) 30%, var(--color-border));
   }
 
   .query-header__rule-ip {
@@ -690,97 +687,119 @@
 
   .query-home-empty__eyebrow {
     margin: 0 0 0.35rem;
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
     color: color-mix(in srgb, var(--brand-accent-line) 70%, var(--color-muted-foreground));
   }
 
   .query-home-empty__title {
     margin: 0;
-    font-size: 1.25rem;
-    line-height: 1.2;
+    font-size: 1.5rem;
+    line-height: 1.15;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
     color: var(--color-foreground);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   @media (min-width: 640px) {
     .query-home-empty__title {
-      font-size: 1.5rem;
+      font-size: 2rem;
     }
   }
 
   .query-home-empty__lead {
+    max-width: 38rem;
     margin: 0.5rem 0 0;
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.55;
+    text-wrap: pretty;
     color: var(--color-muted-foreground);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     min-width: 0;
   }
 
+  /* Quick starts are runnable commands, so they sit as rows of one list — like lines
+     in a shell history — rather than a row of interchangeable cards. */
   .query-home-empty__grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.65rem;
     list-style: none;
     margin: 0;
     padding: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--brand-accent-line) 14%, var(--color-border));
+    border-radius: var(--radius-lg);
+    background: var(--color-card);
+    box-shadow: var(--shadow-soft);
   }
 
-  @media (min-width: 640px) {
-    .query-home-empty__grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.75rem;
-      align-items: stretch;
-    }
+  .query-home-empty__grid > li + li {
+    border-top: 1px solid var(--color-border);
   }
 
   /* Recent queries carry no description, so they pack tighter than quick-start cards. */
   .query-home-empty__subtitle {
-    margin: 1.5rem 0 0.65rem;
-    font-size: 0.75rem;
+    margin: 1.75rem 0 0.625rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-muted-foreground);
+    color: var(--color-foreground);
   }
 
+  /* Recent targets are one-tap chips: they carry no description, and a list of eight
+     full rows would push everything else off the screen. */
   .query-home-empty__grid--dense {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
-  @media (min-width: 640px) {
-    .query-home-empty__grid--dense {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
+  .query-home-empty__grid--dense > li + li {
+    border-top: 0;
   }
 
-  .query-home-card--compact {
-    grid-template-columns: auto 1fr;
-    min-height: 3.5rem;
-    padding: 0.65rem 0.8rem;
-    gap: 0.6rem;
+  .query-home-card.query-home-card--compact {
+    grid-template-columns: auto auto;
+    min-height: 0;
+    padding: 0.4rem 0.75rem 0.4rem 0.45rem;
+    gap: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-card);
+  }
+
+  .query-home-card--compact:hover {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 45%, var(--color-border));
   }
 
   .query-home-card--compact .query-home-card__icon {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: var(--radius-sm);
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-full);
+  }
+
+  .query-home-card--compact .query-home-card__body {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.5rem;
   }
 
   .query-home-card--compact .query-home-card__target {
     font-size: 0.8125rem;
     font-weight: 600;
+    color: var(--color-foreground);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 14rem;
+  }
+
+  .query-home-card--compact .query-home-card__desc {
+    min-height: 0;
     white-space: nowrap;
   }
 
@@ -822,29 +841,32 @@
 
   .query-home-card {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.875rem;
     flex: 1;
     width: 100%;
-    min-height: 4.75rem;
-    padding: 0.9rem 1rem;
-    border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 3%, var(--color-card)) 0%,
-      var(--color-card) 100%
-    );
-    box-shadow: var(--shadow-soft);
+    padding: 0.875rem 1rem;
+    border: 0;
+    background: transparent;
     text-align: left;
-    transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    transition: background-color 140ms ease;
+  }
+
+  @media (min-width: 640px) {
+    .query-home-card {
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+    }
   }
 
   .query-home-card:hover {
-    border-color: color-mix(in srgb, var(--brand-accent-line) 42%, var(--color-border));
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-elevated);
+    background: color-mix(in srgb, var(--brand-accent-line) 6%, var(--color-card));
+  }
+
+  .query-home-card:focus-visible {
+    outline: 2px solid var(--brand-accent-line);
+    outline-offset: -2px;
   }
 
   .query-home-card__icon {
@@ -854,14 +876,14 @@
     width: 2.25rem;
     height: 2.25rem;
     border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--brand-accent-line) 14%, var(--color-muted));
-    color: color-mix(in srgb, var(--brand-accent-line) 78%, var(--color-foreground));
+    background: color-mix(in srgb, var(--brand-accent-line) 12%, var(--color-card));
+    color: color-mix(in srgb, var(--brand-accent-line) 80%, var(--color-foreground));
   }
 
   .query-home-card__body {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.125rem;
     min-width: 0;
   }
 
@@ -872,39 +894,58 @@
   }
 
   .query-home-card__desc {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     line-height: 1.35;
     color: var(--color-muted-foreground);
-    min-height: calc(0.75rem * 1.35 * 2);
   }
 
   .query-home-card__target-wrap {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 0.1rem;
-  }
-
-  .query-home-card__target-label {
-    font-size: 0.625rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    line-height: 1;
-    color: var(--color-foreground);
+    gap: 0.125rem;
+    min-width: 0;
   }
 
   .query-home-card__target {
-    font-size: 0.6875rem;
-    color: color-mix(in srgb, var(--brand-accent-line) 62%, var(--color-muted-foreground));
+    font-family: var(--font-mono);
+    font-feature-settings: "liga" 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-foreground);
     white-space: nowrap;
   }
 
-  .dark .query-home-card {
-    background: linear-gradient(
-      180deg,
-      var(--color-surface-elevated) 0%,
-      var(--color-card) 100%
-    );
+  .query-home-card__target-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: var(--color-muted-foreground);
+  }
+
+  /* Says what the row does — runs it — and lights up only on the row in hand. */
+  .query-home-card__run {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-muted-foreground);
+    opacity: 0.35;
+    transition: opacity 140ms ease, color 140ms ease;
+  }
+
+  .query-home-card:hover .query-home-card__run,
+  .query-home-card:focus-visible .query-home-card__run {
+    opacity: 1;
+    color: var(--brand-accent-line);
+  }
+
+  @media (max-width: 639px) {
+    .query-home-card {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .query-home-card__run {
+      display: none;
+    }
   }
 
   .query-results-stage {
@@ -991,44 +1032,26 @@
     box-shadow: none;
   }
 
-  .query-form-select {
-    border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--color-border));
+  /* Fields are flat: one tint for the resting field, the accent ring for focus. The
+     gradients and inset highlights each field used to carry made five controls look like
+     five different materials. */
+  .query-form-select,
+  .query-form-field {
+    border: 1px solid color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
     border-radius: var(--radius-md);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 12%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 5%, var(--color-background)) 100%
-    );
-    box-shadow:
-      var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, var(--brand-accent-line) 10%, transparent);
+    background: color-mix(in srgb, var(--brand) 4%, var(--color-card));
+    box-shadow: none;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
   }
 
   .query-form-field {
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--color-border));
-    border-radius: var(--radius-md);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 12%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 5%, var(--color-background)) 100%
-    );
-    box-shadow:
-      var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, var(--brand-accent-line) 10%, transparent);
   }
 
-  .query-form-field:focus-within {
-    border-color: color-mix(in srgb, var(--brand-accent-line) 52%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 16%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 9%, var(--color-background)) 100%
-    );
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 16%, transparent),
-      var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, var(--brand-accent-line) 16%, transparent);
+  .query-form-field:focus-within,
+  .query-form-select:focus-visible {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 60%, var(--color-border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-accent-line) 16%, transparent);
   }
 
   .query-form-field__command {
@@ -1038,7 +1061,7 @@
     border-radius: calc(var(--radius-md) - 1px) 0 0 calc(var(--radius-md) - 1px);
     background: transparent !important;
     box-shadow: none !important;
-    color: color-mix(in srgb, var(--brand) 55%, var(--color-foreground));
+    color: color-mix(in srgb, var(--brand-accent-line) 70%, var(--color-foreground));
   }
 
   .query-form-field__command > span {
@@ -1068,33 +1091,16 @@
   }
 
   .query-form-field__target::placeholder {
-    color: color-mix(in srgb, var(--brand) 30%, var(--color-muted-foreground));
-  }
-
-  .query-form-field:focus-within .query-form-field__command {
-    background: transparent;
+    color: color-mix(in srgb, var(--brand) 22%, var(--color-muted-foreground));
   }
 
   .query-form-select__node {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 13%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 6%, var(--color-background)) 100%
-    );
-    color: color-mix(in srgb, var(--brand) 38%, var(--color-foreground));
-  }
-
-  .query-form-select__node:focus-visible {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 16%, var(--color-background)) 0%,
-      color-mix(in srgb, var(--brand) 9%, var(--color-background)) 100%
-    );
+    color: var(--color-foreground);
   }
 
   .query-form-select__node[data-placeholder] > span,
   .query-form-select__node [data-placeholder] {
-    color: color-mix(in srgb, var(--brand) 30%, var(--color-muted-foreground));
+    color: var(--color-muted-foreground);
   }
 
   @media (max-width: 639px) {
@@ -1114,92 +1120,91 @@
     }
   }
 
-  .dark .query-form-select {
-    border-color: var(--color-border);
-    background: var(--color-background);
-  }
-
+  .dark .query-form-select,
   .dark .query-form-field {
     border-color: var(--color-border);
     background: var(--color-background);
   }
 
-  .dark .query-form-field:focus-within {
-    border-color: color-mix(in srgb, var(--brand-accent-line) 52%, var(--color-border));
-    background: var(--color-background);
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 16%, transparent),
-      var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, var(--brand-accent-line) 18%, transparent);
+  .dark .query-form-field:focus-within,
+  .dark .query-form-select:focus-visible {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 60%, var(--color-border));
   }
 
-  .dark .query-form-field__command {
-    background: transparent;
-    color: color-mix(in srgb, var(--brand-accent-line) 70%, var(--color-foreground));
+  /* Desktop: node, command, target and Run are one instrument — a single bar with
+     hairline dividers, so the query reads left to right as one sentence. */
+  .query-form-bar {
+    height: 3.375rem;
+    padding: 0.3125rem;
+    gap: 0;
+    border: 1px solid color-mix(in srgb, var(--brand-accent-line) 22%, var(--color-border));
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--brand) 4%, var(--color-card));
+    transition: border-color 140ms ease, box-shadow 140ms ease;
   }
 
-  .dark .query-form-field:focus-within .query-form-field__command {
-    background: transparent;
+  .query-form-bar:focus-within {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 60%, var(--color-border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-accent-line) 16%, transparent);
   }
 
-  .dark .query-form-field__target {
-    background: transparent;
-  }
-
-  .dark .query-form-select__node {
-    background: var(--color-background);
-    color: color-mix(in srgb, var(--brand-accent-line) 55%, var(--color-foreground));
-  }
-
-  .dark .query-form-select__node:focus-visible {
+  .dark .query-form-bar {
+    border-color: var(--color-border);
     background: var(--color-background);
   }
 
-  html[data-brand-dark="true"]:not(.dark) .query-form-select {
-    border-color: color-mix(in srgb, var(--brand) 12%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 8%, #ffffff) 0%,
-      color-mix(in srgb, var(--brand) 3%, #f8fafc) 100%
-    );
+  .dark .query-form-bar:focus-within {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 60%, var(--color-border));
   }
 
-  html[data-brand-dark="true"]:not(.dark) .query-form-field {
-    border-color: color-mix(in srgb, var(--brand) 12%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 8%, #ffffff) 0%,
-      color-mix(in srgb, var(--brand) 3%, #f8fafc) 100%
-    );
-    box-shadow:
-      var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, #fff 70%, transparent);
-  }
-
-  html[data-brand-dark="true"]:not(.dark) .query-form-field:focus-within {
-    border-color: color-mix(in srgb, var(--brand-accent-line) 52%, var(--color-border));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 11%, #ffffff) 0%,
-      color-mix(in srgb, var(--brand) 5%, #f8fafc) 100%
-    );
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 10%, transparent),
-      var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, #fff 80%, transparent);
-  }
-
-  html[data-brand-dark="true"]:not(.dark) .query-form-field__command {
+  .query-form-bar .query-form-select,
+  .query-form-bar .query-form-field,
+  .query-form-bar .query-form-field:focus-within,
+  .dark .query-form-bar .query-form-select,
+  .dark .query-form-bar .query-form-field {
+    min-height: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
     background: transparent;
-    color: color-mix(in srgb, var(--brand) 65%, var(--color-foreground));
+    box-shadow: none;
   }
 
-  html[data-brand-dark="true"]:not(.dark) .query-form-field:focus-within .query-form-field__command {
-    background: transparent;
+  .query-form-bar .query-form-select__node {
+    position: relative;
+    padding-inline: 0.75rem;
+    font-weight: 600;
   }
 
-  html[data-brand-dark="true"]:not(.dark) .query-form-field__target {
-    background: transparent;
+  .query-form-bar .query-form-select__node::after,
+  .query-form-bar .query-form-field__command::after {
+    content: '';
+    position: absolute;
+    top: 22%;
+    bottom: 22%;
+    right: 0;
+    width: 1px;
+    background: var(--color-border);
+  }
+
+  .query-form-bar .query-form-field__command > svg {
+    right: 0.6rem;
+  }
+
+  /* The bar owns the focus ring; a segment shows focus with a tint so a keyboard user
+     still sees which of the four parts is active. */
+  .query-form-bar .query-form-select__node:focus-visible,
+  .query-form-bar .query-form-field__command:focus-visible {
+    background: color-mix(in srgb, var(--brand-accent-line) 12%, transparent) !important;
+  }
+
+  .query-form-bar .query-form-field__target {
+    padding-inline: 0.875rem;
+    font-size: 0.9375rem;
+  }
+
+  .query-form-bar .query-form-submit {
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
   }
 
   .query-form-hint {
@@ -1239,13 +1244,6 @@
   .query-form-turnstile--shown {
     margin-top: 0.75rem;
     min-height: 65px;
-  }
-
-  .query-form-select:focus-visible {
-    border-color: color-mix(in srgb, var(--brand-accent-line) 52%, var(--color-border));
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--brand-accent-line) 16%, transparent),
-      var(--shadow-soft);
   }
 
   /* Whole-button opacity on disabled made label text semi-transparent too, so it
@@ -1292,13 +1290,9 @@
     position: relative;
     overflow: hidden;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--brand) 22%, var(--color-card)) 0%,
-      color-mix(in srgb, var(--brand) 9%, var(--color-card)) 100%
-    );
+    background: color-mix(in srgb, var(--brand) 9%, var(--color-card));
     color: var(--color-foreground);
-    border-bottom: 1px solid color-mix(in srgb, var(--brand-accent-line) 24%, var(--color-border));
+    border-bottom: 1px solid color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
   }
 
   .dark .query-header-band {
@@ -1306,6 +1300,7 @@
   }
 
   .query-header-band::after {
+    display: none;
     content: '';
     position: absolute;
     inset: auto 0 0;
@@ -1428,13 +1423,13 @@
     position: relative;
     overflow: hidden;
     border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-    background: color-mix(in srgb, var(--color-card) 96%, var(--color-muted));
+    background: var(--color-card);
     border-top: none;
   }
 
   .dark .query-form-band {
     color: var(--color-foreground);
-    background: color-mix(in srgb, var(--color-card) 94%, var(--color-muted));
+    background: var(--color-card);
   }
 
   .dark .query-form-band .section-label {
@@ -1475,19 +1470,19 @@
   }
 
   .ping-stat-card:first-child {
-    border-top-left-radius: calc(1.5rem - 1px);
+    border-top-left-radius: calc(var(--radius-xl) - 1px);
   }
 
   .ping-stat-card:nth-child(2) {
-    border-top-right-radius: calc(1.5rem - 1px);
+    border-top-right-radius: calc(var(--radius-xl) - 1px);
   }
 
   .ping-stat-card:nth-last-child(2) {
-    border-bottom-left-radius: calc(1.5rem - 1px);
+    border-bottom-left-radius: calc(var(--radius-xl) - 1px);
   }
 
   .ping-stat-card:last-child {
-    border-bottom-right-radius: calc(1.5rem - 1px);
+    border-bottom-right-radius: calc(var(--radius-xl) - 1px);
   }
 
   @media (min-width: 640px) {
@@ -1496,7 +1491,7 @@
     }
 
     .ping-stat-card:nth-child(3) {
-      border-top-right-radius: calc(1.5rem - 1px);
+      border-top-right-radius: calc(var(--radius-xl) - 1px);
     }
 
     .ping-stat-card:nth-last-child(2) {
@@ -1504,7 +1499,7 @@
     }
 
     .ping-stat-card:nth-last-child(3) {
-      border-bottom-left-radius: calc(1.5rem - 1px);
+      border-bottom-left-radius: calc(var(--radius-xl) - 1px);
     }
   }
 
@@ -1517,25 +1512,25 @@
     }
 
     .ping-stat-card:first-child {
-      border-top-left-radius: calc(1.5rem - 1px);
-      border-bottom-left-radius: calc(1.5rem - 1px);
+      border-top-left-radius: calc(var(--radius-xl) - 1px);
+      border-bottom-left-radius: calc(var(--radius-xl) - 1px);
     }
 
     .ping-stat-card:last-child {
-      border-top-right-radius: calc(1.5rem - 1px);
-      border-bottom-right-radius: calc(1.5rem - 1px);
+      border-top-right-radius: calc(var(--radius-xl) - 1px);
+      border-bottom-right-radius: calc(var(--radius-xl) - 1px);
     }
   }
 
   .ping-stat-card__body {
-    min-height: 4.25rem;
-    padding: 0.75rem 1rem;
+    min-height: 4.75rem;
+    padding: 0.875rem 1rem;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    gap: 0.25rem;
-    text-align: center;
+    gap: 0.375rem;
+    text-align: left;
   }
 
   @media (min-width: 640px) {
@@ -1546,12 +1541,10 @@
 
   .ping-stat-card__label {
     width: 100%;
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     line-height: 1;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: color-mix(in srgb, var(--brand) 28%, var(--color-muted-foreground));
+    font-weight: 500;
+    color: var(--color-muted-foreground);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1559,26 +1552,71 @@
 
   @media (min-width: 640px) {
     .ping-stat-card__label {
-      font-size: 0.6875rem;
+      font-size: 0.75rem;
     }
   }
 
   .ping-stat-card__value {
-    font-size: 1rem;
+    font-size: 1.25rem;
     line-height: 1;
     font-weight: 700;
+    letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
     color: var(--color-foreground);
   }
 
   @media (min-width: 640px) {
     .ping-stat-card__value {
-      font-size: 1.125rem;
+      font-size: 1.5rem;
     }
   }
 
   .dark .ping-stat-card__label {
-    color: color-mix(in srgb, var(--brand-accent-line) 28%, var(--color-muted-foreground));
+    color: var(--color-muted-foreground);
+  }
+
+  /* The result's headline: what ran, against what, from where. The target is the subject,
+     so it is the one large thing; the command and node are its qualifiers. */
+  .result-share-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.625rem;
+    min-width: 0;
+    padding: 0.25rem 0.125rem 0.125rem;
+  }
+
+  .result-share-bar__command {
+    display: inline-flex;
+    align-items: center;
+    height: 1.5rem;
+    padding-inline: 0.5rem;
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--brand-accent-line) 13%, var(--color-card));
+    color: color-mix(in srgb, var(--brand-accent-line) 55%, var(--color-foreground));
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .result-share-bar__target {
+    font-family: var(--font-mono);
+    font-feature-settings: "liga" 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-foreground);
+  }
+
+  .result-share-bar__node {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8125rem;
+    color: var(--color-muted-foreground);
   }
 
   .query-results-shell {
@@ -1831,12 +1869,13 @@
 
   .result-surface .result-table-wrap thead,
   .result-table-frame .result-table-wrap thead {
-    background-color: var(--color-muted);
+    background-color: color-mix(in srgb, var(--color-muted) 55%, var(--color-card));
   }
 
   .result-surface .result-table-wrap thead th,
   .result-table-frame .result-table-wrap thead th {
-    background-color: var(--color-muted);
+    height: 2.5rem;
+    background-color: color-mix(in srgb, var(--color-muted) 55%, var(--color-card));
     border-bottom: 1px solid var(--color-border);
   }
 
@@ -1857,12 +1896,12 @@
 
   .result-surface .result-table-wrap thead th:first-child,
   .result-table-frame .result-table-wrap thead th:first-child {
-    border-top-left-radius: calc(1.5rem - 1px);
+    border-top-left-radius: calc(var(--radius-xl) - 1px);
   }
 
   .result-surface .result-table-wrap thead th:last-child,
   .result-table-frame .result-table-wrap thead th:last-child {
-    border-top-right-radius: calc(1.5rem - 1px);
+    border-top-right-radius: calc(var(--radius-xl) - 1px);
   }
 
   .result-surface__header + .result-table-wrap thead th:first-child,
@@ -1872,11 +1911,11 @@
   }
 
   .result-table-frame .result-table-wrap tbody tr:last-child td:first-child {
-    border-bottom-left-radius: calc(1.5rem - 1px);
+    border-bottom-left-radius: calc(var(--radius-xl) - 1px);
   }
 
   .result-table-frame .result-table-wrap tbody tr:last-child td:last-child {
-    border-bottom-right-radius: calc(1.5rem - 1px);
+    border-bottom-right-radius: calc(var(--radius-xl) - 1px);
   }
 
   .result-table-frame .result-table-wrap tbody tr:last-child td {
@@ -2027,19 +2066,19 @@
   }
 
   .communities-table-frame .communities-table-wrap thead th:first-child {
-    border-top-left-radius: calc(1.5rem - 1px);
+    border-top-left-radius: calc(var(--radius-xl) - 1px);
   }
 
   .communities-table-frame .communities-table-wrap thead th:last-child {
-    border-top-right-radius: calc(1.5rem - 1px);
+    border-top-right-radius: calc(var(--radius-xl) - 1px);
   }
 
   .communities-table-frame .communities-table-wrap tbody tr:last-child td:first-child {
-    border-bottom-left-radius: calc(1.5rem - 1px);
+    border-bottom-left-radius: calc(var(--radius-xl) - 1px);
   }
 
   .communities-table-frame .communities-table-wrap tbody tr:last-child td:last-child {
-    border-bottom-right-radius: calc(1.5rem - 1px);
+    border-bottom-right-radius: calc(var(--radius-xl) - 1px);
   }
 
   .as-path-tooltip {
@@ -2081,10 +2120,8 @@
   .geoip-dialog-table thead th {
     background: var(--color-muted);
     border-bottom: 1px solid var(--color-border);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
     color: var(--color-muted-foreground);
   }
 
@@ -2261,10 +2298,8 @@
   }
 
   .section-label {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: var(--color-muted-foreground);
   }
 
@@ -2418,7 +2453,9 @@
     opacity: 0.85;
   }
 
+  /* Same call as the public page: no decorative grid behind working screens. */
   .admin-atmosphere__grid {
+    display: none;
     position: absolute;
     inset: 0;
     background-image:
@@ -2482,6 +2519,41 @@
     background: var(--color-sidebar);
     border-color: var(--color-border);
     box-shadow: 12px 0 40px -24px rgb(0 0 0 / 0.6);
+  }
+
+  /* The way back to the public page — admins check their change there right after saving. */
+  .admin-topbar__site-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 2rem;
+    padding-inline: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+    transition: border-color 140ms ease, background-color 140ms ease;
+  }
+
+  .admin-topbar__site-link:hover {
+    border-color: color-mix(in srgb, var(--brand-accent-line) 45%, var(--color-border));
+    background: color-mix(in srgb, var(--brand-accent-line) 8%, transparent);
+  }
+
+  .admin-topbar__site-link:focus-visible {
+    outline: 2px solid var(--brand-accent-line);
+    outline-offset: 2px;
+  }
+
+  .admin-topbar__site-link svg {
+    color: var(--brand-accent-line);
+  }
+
+  @media (max-width: 479px) {
+    .admin-topbar__site-link span {
+      display: none;
+    }
   }
 
   /* The sidebar's logo block and the content topbar share one height, so their bottom
@@ -2638,66 +2710,15 @@
     text-align: left;
   }
 
-  .admin-sidebar__footer-links {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0.375rem;
-  }
-
-  .admin-sidebar__footer-links .admin-nav-link {
-    flex: 1 1 0;
-    min-width: 0;
-    justify-content: center;
-    overflow: hidden;
-    padding: 0.5rem 0.4rem;
-    font-size: 0.75rem;
-    white-space: nowrap;
-  }
-
-  .admin-sidebar__footer-links button.admin-nav-link {
-    width: auto;
-  }
-
+  /* Same pair of bordered chips as the public footer: version on the left, sign-out beside it. */
   .admin-sidebar__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
     flex-shrink: 0;
     border-top: 1px solid color-mix(in srgb, var(--brand-accent-line) 12%, var(--color-border));
-    padding: 0.65rem 0.75rem 0.75rem;
-  }
-
-  .admin-sidebar__hopstat-text {
-    display: block;
-    margin-top: 0.5rem;
-    text-align: center;
-    font-size: 0.625rem;
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-    color: color-mix(in srgb, var(--brand) 34%, var(--color-muted-foreground));
-    text-decoration: none;
-    transition: color 160ms ease;
-  }
-
-  .admin-sidebar__hopstat-text:hover {
-    color: var(--color-foreground);
-  }
-
-  .admin-sidebar__hopstat-version {
-    border-radius: var(--radius-xs);
-    padding: 0 0.3rem;
-    font-family: var(--font-mono);
-    font-size: 0.5625rem;
-    font-weight: 600;
-    line-height: 1.25;
-    letter-spacing: 0;
-    text-transform: none;
-    color: color-mix(in srgb, var(--brand) 42%, var(--color-muted-foreground));
-    background: color-mix(in srgb, var(--brand) 6%, var(--color-muted));
-    border-color: color-mix(in srgb, var(--brand-accent-line) 18%, var(--color-border));
-  }
-
-  .admin-sidebar__hopstat-text:hover .admin-sidebar__hopstat-version {
-    color: var(--color-foreground);
-    border-color: color-mix(in srgb, var(--brand-accent-line) 28%, var(--color-border));
+    padding: 0.75rem;
   }
 
   .admin-content {
@@ -2774,10 +2795,8 @@
 
   .admin-page-header__eyebrow {
     margin: 0 0 0.25rem;
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
     color: color-mix(in srgb, var(--brand-accent-line) 70%, var(--color-muted-foreground));
   }
 
@@ -2942,10 +2961,8 @@
   }
 
   .admin-stat-card__label {
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: color-mix(in srgb, var(--brand) 38%, var(--color-muted-foreground));
   }
 
@@ -3023,10 +3040,8 @@
   }
 
   .admin-version-card__label {
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: color-mix(in srgb, var(--brand) 38%, var(--color-muted-foreground));
   }
 
@@ -3136,10 +3151,8 @@
   .admin-dashboard-recent__head {
     background: var(--color-muted);
     border-bottom: 1px solid var(--color-border);
-    font-size: 0.625rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
     color: var(--color-muted-foreground);
   }
 
@@ -3438,9 +3451,7 @@
   }
 
   .admin-table--bgp th {
-    font-size: 0.6875rem;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
   }
 
   .admin-table--bgp__center {

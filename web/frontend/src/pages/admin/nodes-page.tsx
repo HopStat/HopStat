@@ -125,7 +125,7 @@ export function NodesPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.nodes')} eyebrow={t('admin.title')}>
+      <PageHeader title={t('admin.nodes')}>
         <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1" /> {t('admin.add_node')}</Button>
       </PageHeader>
       <AdminPanel padded={false}>

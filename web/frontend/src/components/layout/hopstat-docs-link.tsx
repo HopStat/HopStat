@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Activity } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { useI18n } from '@/contexts/i18n-context'
 import { cn } from '@/lib/utils'
 
@@ -16,10 +15,9 @@ function formatVersion(v: string): string {
 interface Props {
   className?: string
   showLabel?: boolean
-  plainText?: boolean
 }
 
-export function HopStatDocsLink({ className, showLabel = false, plainText = false }: Props) {
+export function HopStatDocsLink({ className, showLabel = false }: Props) {
   const { t } = useI18n()
   const [version, setVersion] = useState('')
   const [versionLoading, setVersionLoading] = useState(true)
@@ -35,32 +33,6 @@ export function HopStatDocsLink({ className, showLabel = false, plainText = fals
       .catch(() => {})
       .finally(() => setVersionLoading(false))
   }, [])
-
-  if (plainText) {
-    return (
-      <a
-        href={HOPSTAT_DOCS_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={version ? `HopStat ${formatVersion(version)}` : t('footer.hopstat')}
-        aria-busy={versionLoading}
-        className={cn(
-          'admin-sidebar__hopstat-text',
-          versionLoading && 'animate-pulse opacity-60',
-          className,
-        )}
-      >
-        <span className="inline-flex items-center justify-center gap-1.5">
-          <span>HopStat</span>
-          {version && (
-            <Badge variant="outline" className="admin-sidebar__hopstat-version">
-              {formatVersion(version)}
-            </Badge>
-          )}
-        </span>
-      </a>
-    )
-  }
 
   return (
     <a

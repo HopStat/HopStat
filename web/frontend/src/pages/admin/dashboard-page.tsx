@@ -244,7 +244,7 @@ export function DashboardPage() {
 
   return (
     <div className="admin-page space-y-6">
-      <PageHeader title={t('admin.dashboard')} eyebrow={t('admin.title')} />
+      <PageHeader title={t('admin.dashboard')} />
 
       <div className="admin-stat-grid">
         {Boolean(geoipStatus?.configured) && <GeoIPStatCard status={geoipStatus} />}

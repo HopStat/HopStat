@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Check, Link2 } from 'lucide-react'
+import { Check, Link2, Server } from 'lucide-react'
 import { useI18n } from '@/contexts/i18n-context'
 
 interface Props {
-  summary: string
+  command: string
+  target: string
+  nodeName?: string
   shareUrl: string
 }
 
 const buttonClass =
-  'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors'
+  'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors'
 
-export function ResultShareBar({ summary, shareUrl }: Props) {
+export function ResultShareBar({ command, target, nodeName, shareUrl }: Props) {
   const { t } = useI18n()
   const [copied, setCopied] = useState<'link' | null>(null)
 
@@ -25,8 +27,15 @@ export function ResultShareBar({ summary, shareUrl }: Props) {
   }
 
   return (
-    <div className="result-share-bar flex min-w-0 items-center gap-2 px-1">
-      <span className="truncate font-data text-[11px] text-muted-foreground">{summary}</span>
+    <div className="result-share-bar">
+      <span className="result-share-bar__command">{command}</span>
+      <span className="result-share-bar__target">{target}</span>
+      {nodeName && (
+        <span className="result-share-bar__node">
+          <Server className="w-3 h-3" aria-hidden />
+          {nodeName}
+        </span>
+      )}
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <button
           type="button"
