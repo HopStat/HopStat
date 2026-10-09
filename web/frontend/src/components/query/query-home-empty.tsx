@@ -64,6 +64,10 @@ export function QueryHomeEmpty({ onQuickStart }: Props) {
 
       {items.length > 0 && (
       <ul className="query-home-empty__grid">
+        <li className="query-home-empty__head" aria-hidden="true">
+          <span>{t('query.field_target')}</span>
+          <span>{t('query.field_command')}</span>
+        </li>
         {items.map(item => {
           const Icon = iconByCommand[item.command] ?? Activity
           const descKey = descKeyByCommand[item.command]

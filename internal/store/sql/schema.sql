@@ -67,3 +67,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_log_command ON audit_log(command);
 CREATE INDEX IF NOT EXISTS idx_nodes_active ON nodes(active);
 CREATE INDEX IF NOT EXISTS idx_community_rules_active ON community_rules(active);
+CREATE TABLE IF NOT EXISTS share_snapshots (
+    node_id INTEGER NOT NULL,
+    command TEXT NOT NULL,
+    target TEXT NOT NULL,
+    snapshot TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (node_id, command, target)
+);
+CREATE INDEX IF NOT EXISTS idx_share_snapshots_updated_at ON share_snapshots(updated_at);

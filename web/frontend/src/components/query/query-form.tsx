@@ -43,6 +43,21 @@ function isTypingBlocked(el: Element | null): boolean {
   return false
 }
 
+function nodeSupportsCommand(node: Node | undefined, cmd: string): boolean {
+  if (!node || !node.enabled_cmds?.length) return true
+  return node.enabled_cmds.includes(cmd)
+}
+
+/**
+ * The command a programmatic run should send to a node: the asked one when the node allows it,
+ * otherwise the closest the node does allow — the backend refuses a disabled command outright.
+ */
+function resolveCommandForNode(node: Node | undefined, cmd: string): string {
+  if (nodeSupportsCommand(node, cmd)) return cmd
+  const fallbacks = ['traceroute', 'ping', 'bgp_route']
+  return fallbacks.find(c => nodeSupportsCommand(node, c)) ?? cmd
+}
+
 function pickDefaultNodeId(nodes: Node[]): string {
   if (!nodes.length) return ''
   const marked = nodes.find(n => n.is_default === true)
@@ -92,9 +107,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   }, [nodeId, nodes])
   const availableCmds = useMemo(() => commands.filter(c => {
     if (!selectedNodeId) return true
-    const node = nodes.find(n => n.id === parseInt(selectedNodeId))
-    if (!node || !node.enabled_cmds?.length) return true
-    return node.enabled_cmds.includes(c.value)
+    return nodeSupportsCommand(nodes.find(n => n.id === parseInt(selectedNodeId)), c.value)
   }), [selectedNodeId, nodes])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -441,7 +454,9 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   }, [initialQuery, nodesLoaded, settingsLoading, nodes, submitQuery])
 
   useImperativeHandle(ref, () => ({
-    runQuery: async (cmd: string, tgt: string, nodeIdOverride?: string) => {
+    runQuery: async (requested: string, tgt: string, nodeIdOverride?: string) => {
+      const runNodeId = nodeIdOverride ?? selectedNodeId
+      const cmd = resolveCommandForNode(nodes.find(n => String(n.id) === runNodeId), requested)
       setCommand(cmd)
       setTarget(tgt)
       if (nodeIdOverride) {
@@ -451,7 +466,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       await submitQuery(cmd, tgt, nodeIdOverride)
     },
     refreshHistory: () => refreshHistory().then(() => undefined),
-  }), [submitQuery, refreshHistory])
+  }), [submitQuery, refreshHistory, selectedNodeId, nodes])
 
   // Radix Select echoes onValueChange('') while its item list is still empty; letting that
   // through would wipe a node picked from a shared link right after we set it.
@@ -463,11 +478,19 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   function handleCommandChange(value: string) {
     if (!value) return
     setCommand(value)
-    // Radix keeps focus on the trigger after pick — defer blur so it wins over their refocus.
-    window.setTimeout(() => {
-      commandSelectRef.current?.blur()
-      targetInputRef.current?.focus({ preventScroll: true })
-    }, 0)
+    targetInputRef.current?.focus({ preventScroll: true })
+  }
+
+  // The commands are a radio group: arrows move between them, the way a native one behaves.
+  function handleCommandKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step || availableCmds.length === 0) return
+    e.preventDefault()
+    const idx = availableCmds.findIndex(c => c.value === command)
+    const next = availableCmds[(idx + step + availableCmds.length) % availableCmds.length]
+    setCommand(next.value)
+    const group = e.currentTarget.parentElement
+    window.setTimeout(() => group?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus(), 0)
   }
 
   function blurFocusedField() {
@@ -487,27 +510,31 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
   const showNode = showNodeSelect && nodes.length > 0
   showNodeRef.current = showNode
 
-  const selectFieldClass = 'h-full min-h-10 py-0 flex items-center self-stretch'
-  const selectRoundedClass = `${selectFieldClass} rounded-md`
   const querySelectFocusClass =
     'shadow-none focus:shadow-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus-visible:outline-none'
-  const inputFieldClass = 'h-full min-h-10 py-0 px-3 leading-[2.5rem] rounded-md self-stretch'
   const submitDisabled = !selectedNodeId || !command || !target.trim() || loading
 
-  const commandSelect = (
-    <Select value={command} onValueChange={handleCommandChange}>
-      <SelectTrigger
-        ref={commandSelectRef}
-        className={`query-form-field__command w-[4.75rem] sm:w-[5.75rem] shrink-0 rounded-l-md rounded-r-none border-0 sm:border-0 bg-transparent ${selectFieldClass} text-base sm:text-xs font-semibold justify-center ${querySelectFocusClass}`}
-      >
-        <SelectValue placeholder={t('query.select_command')} />
-      </SelectTrigger>
-      <SelectContent>
-        {availableCmds.map(c => (
-          <SelectItem key={c.value} value={c.value}>{t(c.labelKey)}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+  const commandSegments = (
+    <div className="query-line__commands" role="radiogroup" aria-labelledby="query-field-command">
+      {availableCmds.map(c => {
+        const checked = c.value === command
+        return (
+          <button
+            key={c.value}
+            ref={checked ? commandSelectRef : undefined}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={checked ? 0 : -1}
+            className="query-line__command"
+            onClick={() => handleCommandChange(c.value)}
+            onKeyDown={handleCommandKeyDown}
+          >
+            {t(c.labelKey)}
+          </button>
+        )
+      })}
+    </div>
   )
 
   const targetField = (
@@ -534,7 +561,8 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
         autoCorrect="off"
         spellCheck={false}
         enterKeyHint="go"
-        className={`query-form-field__target w-full rounded-none sm:rounded-none border-0 sm:border-0 bg-transparent shadow-none ${inputFieldClass} text-[16px] sm:text-sm sm:font-data focus-visible:ring-0 focus-visible:ring-offset-0`}
+        id="query-field-target"
+        className="query-line__input h-auto w-full rounded-none border-0 bg-transparent px-0 py-1 font-mono text-[1.125rem] sm:text-[1.25rem] font-semibold leading-tight shadow-none! focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </div>
   )
@@ -557,7 +585,7 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
       type="submit"
       disabled={submitDisabled}
       aria-label={t('query.submit')}
-      className="query-form-submit h-10 w-10 shrink-0 rounded-md p-0 sm:h-auto sm:w-auto sm:px-6 flex items-center justify-center text-xs font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-100"
+      className="query-form-submit query-line__submit h-9 w-9 p-0 sm:w-auto sm:px-6 shrink-0 flex items-center justify-center font-semibold bg-brand text-brand-foreground hover:bg-brand/90 disabled:opacity-100"
     >
       {loading ? (
         <Loader2 className="w-4 h-4 animate-spin" />
@@ -572,74 +600,39 @@ export const QueryForm = forwardRef<QueryFormHandle, Props>(function QueryForm(
 
   return (
     <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="query-form-controls">
-      <div className="query-form-panel">
-        <div className="query-form-mobile-stack flex flex-col sm:hidden min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            {showNode && (
-              <div className="min-w-0 flex-1">
-                <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
-                  <SelectTrigger
-                    ref={nodeSelectRef}
-                    className={`query-form-select query-form-select__node w-full ${selectRoundedClass} text-sm [&>span]:truncate`}
-                  >
-                    <SelectValue placeholder={t('query.select_node')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {nodes.map(n => (
-                      <SelectItem key={n.id} value={String(n.id)}>{n.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="shrink-0">
-              <Select value={command} onValueChange={handleCommandChange}>
+      <div className="query-line">
+        <div className="query-line__params">
+          {showNode && (
+            <div className="query-line__field query-line__field--node">
+              <span className="query-line__label" id="query-field-node">{t('query.field_node')}</span>
+              <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
                 <SelectTrigger
-                  ref={commandSelectRef}
-                  className={`query-form-select query-form-command-mobile w-auto max-w-none ${selectRoundedClass} text-sm font-semibold [&>span]:line-clamp-none [&>span]:whitespace-nowrap ${querySelectFocusClass}`}
+                  ref={nodeSelectRef}
+                  aria-labelledby="query-field-node"
+                  className={`query-line__node h-8 w-full sm:w-auto min-w-[6rem] sm:min-w-[8rem] max-w-[14rem] gap-3 rounded-none border-0 bg-transparent px-0 py-0 text-sm font-semibold shadow-none! ${querySelectFocusClass} [&>span]:truncate`}
                 >
-                  <SelectValue placeholder={t('query.select_command')} />
+                  <SelectValue placeholder={t('query.select_node')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCmds.map(c => (
-                    <SelectItem key={c.value} value={c.value}>{t(c.labelKey)}</SelectItem>
+                  {nodes.map(n => (
+                    <SelectItem key={n.id} value={String(n.id)}>{n.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="query-form-mobile-target-row flex items-center gap-2 min-w-0">
-            <div className="query-form-field flex flex-1 min-w-0 relative">
-              {targetField}
-            </div>
-            {submitButton}
+          )}
+          <div className="query-line__field">
+            <span className="query-line__label" id="query-field-command">{t('query.field_command')}</span>
+            {commandSegments}
           </div>
         </div>
 
-        <div className="query-form-bar hidden sm:flex sm:flex-row sm:items-stretch min-w-0">
-          {showNode && (
-            <Select value={selectedNodeId} onValueChange={handleNodeChange} disabled={!nodesLoaded}>
-              <SelectTrigger
-                ref={nodeSelectRef}
-                className={`query-form-select query-form-select__node w-40 shrink-0 ${selectRoundedClass} border-0 bg-transparent text-sm ${querySelectFocusClass}`}
-              >
-                <SelectValue placeholder={t('query.select_node')} />
-              </SelectTrigger>
-              <SelectContent>
-                {nodes.map(n => (
-                  <SelectItem key={n.id} value={String(n.id)}>{n.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <div className="query-form-field flex flex-1 min-w-0 flex-row items-stretch relative">
-            {commandSelect}
+        <div className="query-line__field query-line__field--target">
+          <label className="query-line__label" htmlFor="query-field-target">{t('query.field_target')}</label>
+          <div className="query-line__target">
             {targetField}
+            {submitButton}
           </div>
-
-          {submitButton}
         </div>
       </div>
 

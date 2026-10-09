@@ -98,6 +98,7 @@ func migrationsList() []string {
 		migrationV18,
 		migrationV19,
 		migrationV20,
+		migrationV21,
 	}
 }
 
@@ -400,6 +401,20 @@ UPDATE bgp_neighbors SET peer_type = 'internal' WHERE remote_as = local_as AND l
 const migrationV19 = `SELECT 1`
 
 const migrationV20 = `SELECT 1`
+
+// migrationV21 keeps the outcome of the last finished query per node, command and target,
+// so a shared query link can be previewed with what it found (see internal/sharepreview).
+const migrationV21 = `
+CREATE TABLE IF NOT EXISTS share_snapshots (
+	node_id INTEGER NOT NULL,
+	command TEXT NOT NULL,
+	target TEXT NOT NULL,
+	snapshot TEXT NOT NULL,
+	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (node_id, command, target)
+);
+CREATE INDEX IF NOT EXISTS idx_share_snapshots_updated_at ON share_snapshots(updated_at);
+`
 
 func migrateBGPNeighborPassiveMode(tx *sql.Tx) error {
 	exists, err := tableExistsTx(tx, "bgp_neighbors")

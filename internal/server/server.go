@@ -17,6 +17,7 @@ import (
 	"github.com/HopStat/HopStat/internal/geo"
 	"github.com/HopStat/HopStat/internal/server/handler"
 	"github.com/HopStat/HopStat/internal/server/middleware"
+	"github.com/HopStat/HopStat/internal/sharepreview"
 	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/updater"
 	"github.com/gin-gonic/gin"
@@ -32,6 +33,7 @@ type Server struct {
 	distFS       fs.FS
 	updater      *updater.Updater
 	version      string
+	shares       *sharepreview.Store
 }
 
 func New(cfg *config.Config, db *sql.DB, geoDB *geo.GeoIPDB, distFS fs.FS, bgpMgr *bgp.SessionManager, version string) *Server {
@@ -63,6 +65,7 @@ func New(cfg *config.Config, db *sql.DB, geoDB *geo.GeoIPDB, distFS fs.FS, bgpMg
 		router:       router,
 		distFS:       distFS,
 		version:      version,
+		shares:       sharepreview.NewStore(db),
 	}
 	srv.updater = updater.New("HopStat/HopStat", version, cfg.Update.Enabled)
 	// Read per call, so switching self-update off in the admin panel takes effect at once.
@@ -193,6 +196,13 @@ func (s *Server) setupRoutes() {
 	r.GET("/logo.svg", serveLogo(".svg"))
 	r.GET("/logo.webp", serveLogo(".webp"))
 
+	r.GET("/robots.txt", func(c *gin.Context) {
+		c.String(http.StatusOK, robotsTxt(requestOrigin(c.Request)))
+	})
+	r.GET("/sitemap.xml", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/xml; charset=utf-8", []byte(sitemapXML(requestOrigin(c.Request))))
+	})
+
 	r.GET("/appearance-boot.js", func(c *gin.Context) {
 		data, err := fs.ReadFile(s.distFS, "appearance-boot.js")
 		if err != nil {
@@ -270,7 +280,12 @@ func (s *Server) setupRoutes() {
 			c.String(http.StatusInternalServerError, "failed to load app")
 			return
 		}
-		c.Data(http.StatusOK, "text/html; charset=utf-8", injectIndexHTML(data))
+		status := http.StatusOK
+		if !isAppPath(c.Request.URL.Path) {
+			status = http.StatusNotFound
+		}
+		page := buildPage(c.Request.Context(), c.Request, s.shares)
+		c.Data(status, "text/html; charset=utf-8", applyPage(injectIndexHTML(data), page))
 	})
 }
 

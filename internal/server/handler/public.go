@@ -29,6 +29,7 @@ import (
 	"github.com/HopStat/HopStat/internal/engine"
 	"github.com/HopStat/HopStat/internal/geo"
 	"github.com/HopStat/HopStat/internal/server/middleware"
+	"github.com/HopStat/HopStat/internal/sharepreview"
 	"github.com/HopStat/HopStat/internal/sitecache"
 	"github.com/HopStat/HopStat/internal/store/queries"
 	"github.com/HopStat/HopStat/internal/store/querystore"
@@ -51,6 +52,7 @@ type Handler struct {
 	geoDB     *geo.GeoIPDB
 	nodeRepo  domain.NodeRepository
 	turnstile *turnstile.Verifier
+	shares    *sharepreview.Store
 }
 
 func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB, bgpMgr *bgp.SessionManager) *Handler {
@@ -61,6 +63,7 @@ func New(db *sql.DB, cfg *config.Config, geoDB *geo.GeoIPDB, bgpMgr *bgp.Session
 		geoDB:     geoDB,
 		nodeRepo:  sitecache.NewCachedNodeRepo(db, credKey),
 		turnstile: turnstile.New(turnstile.Config{}),
+		shares:    sharepreview.NewStore(db),
 	}
 	h.engine = engine.New(&engine.QueryConfig{
 		MaxConcurrent:        cfg.Query.MaxConcurrent,
@@ -232,6 +235,8 @@ func (h *Handler) SubmitQuery() gin.HandlerFunc {
 			})
 			return
 		}
+		// A share link spells the target as it was typed, not as it resolved.
+		typedTarget := req.Target
 		req.Target = resolvedTarget
 
 		queryID := uuid.New().String()
@@ -317,6 +322,12 @@ func (h *Handler) SubmitQuery() gin.HandlerFunc {
 				mergeASPathFields(result, stored)
 			}
 			queryStore.Set(queryID, result)
+
+			if snap, ok := sharepreview.FromResult(req.Command, req.Target, result, time.Now()); ok {
+				if err := h.shares.Save(context.Background(), req.NodeID, typedTarget, snap); err != nil {
+					slog.Warn("failed to save share snapshot", "error", err)
+				}
+			}
 
 			if result != nil {
 				auditEntry := &domain.AuditEntry{

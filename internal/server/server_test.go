@@ -444,7 +444,12 @@ func TestServerStaticAndSPARoutes(t *testing.T) {
 		{http.MethodGet, "/assets/missing.js", http.StatusNotFound},
 		{http.MethodGet, "/assets/subdir", http.StatusNotFound},
 		{http.MethodGet, "/assets/bad.dat", http.StatusInternalServerError},
-		{http.MethodGet, "/dashboard", http.StatusOK},
+		// The SPA is still served, but a path it has no page for says so in its status.
+		{http.MethodGet, "/dashboard", http.StatusNotFound},
+		{http.MethodGet, "/", http.StatusOK},
+		{http.MethodGet, "/ping/1.1.1.1", http.StatusOK},
+		{http.MethodGet, "/robots.txt", http.StatusOK},
+		{http.MethodGet, "/sitemap.xml", http.StatusOK},
 		{http.MethodGet, "/api/v1/missing", http.StatusNotFound},
 	}
 	for _, tc := range tests {

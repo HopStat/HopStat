@@ -224,8 +224,18 @@ func parseTracerouteLine(line string) *domain.Hop {
 		}
 	}
 
-	for _, field := range fields {
+	for i, field := range fields {
 		field = strings.Trim(field, "()")
+		// Linux and BSD traceroute print "0.648 ms": the unit is its own field, so the
+		// number is the one before it.
+		if field == "ms" {
+			if i > 0 {
+				if rtt, err := strconv.ParseFloat(fields[i-1], 64); err == nil {
+					hop.RTT = append(hop.RTT, rtt)
+				}
+			}
+			continue
+		}
 		if strings.HasSuffix(field, "ms") || strings.HasSuffix(field, "ms*") {
 			rttStr := strings.TrimSuffix(field, "*")
 			rttStr = strings.TrimSuffix(rttStr, "ms")

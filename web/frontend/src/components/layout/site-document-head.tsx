@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useSettings } from '@/contexts/settings-context'
+import { parseQueryLocation } from '@/lib/query-share'
 import { absoluteAssetUrl, upsertJsonLd, upsertLink, upsertMeta } from '@/lib/site-seo'
 
 interface Props {
@@ -16,6 +17,10 @@ export function SiteDocumentHead({ structuredData = false, pageTitle }: Props) {
     const siteName = settings.site_name?.trim() || 'Looking Glass'
     const description = settings.site_description?.trim() || ''
     const logoUrl = settings.logo_path?.trim() ? absoluteAssetUrl(settings.logo_path) : ''
+
+    // A query link arrives with its title and share tags written by the server from the
+    // query's last result (internal/sharepreview). Site-wide values would only overwrite them.
+    if (!pageTitle && parseQueryLocation(window.location.pathname, window.location.search)) return
 
     const documentTitle = pageTitle
       ? `${pageTitle} | ${siteName}`

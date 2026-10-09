@@ -223,6 +223,14 @@ func TestParseTracerouteLineMSStar(t *testing.T) {
 	}
 }
 
+// The unit as its own field is how Linux and BSD traceroute print every reply.
+func TestParseTracerouteLineSpacedMS(t *testing.T) {
+	hop := parseTracerouteLine(` 7  172.71.185.13 (172.71.185.13)  12.895 ms  12.711 ms  11.896 ms`)
+	if hop == nil || hop.IP != "172.71.185.13" || len(hop.RTT) != 3 || hop.RTT[0] != 12.895 || hop.RTT[2] != 11.896 {
+		t.Fatalf("hop = %+v", hop)
+	}
+}
+
 func TestBirdParseEmptyAndSkipLines(t *testing.T) {
 	p := &BirdParser{}
 	raw := `

@@ -21,7 +21,7 @@ export function QueryHeader({ siteName, siteDescription, logoPath, onTraceroute,
     <Button
       variant="outline"
       size="icon"
-      className="query-header__theme h-6 w-6 rounded-md shrink-0"
+      className="query-header__theme h-7 w-7 rounded-md shrink-0"
       onClick={toggleTheme}
     >
       {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}

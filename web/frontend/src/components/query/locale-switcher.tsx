@@ -7,7 +7,7 @@ interface Props {
 }
 
 const headerTriggerClass =
-  'locale-switcher__select h-6 w-[3.25rem] shrink-0 gap-0.5 rounded-md border px-2 py-0 text-[11px] font-semibold tracking-wide shadow-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 [&>span]:line-clamp-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-70'
+  'locale-switcher__select h-7 w-[3.25rem] shrink-0 gap-0.5 rounded-md border px-2 py-0 text-xs font-semibold tracking-wide shadow-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 [&>span]:line-clamp-none [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-70'
 
 export function LocaleSwitcher({ variant = 'header' }: Props = {}) {
   const { locale, activeLocales, setLocale } = useI18n()
