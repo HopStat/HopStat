@@ -489,3 +489,101 @@ describe('layout spacing', () => {
     expect(graph.layout.nodeGap).toBeGreaterThan(0)
   })
 })
+
+describe('edges crossing a column', () => {
+  /** Samples a drawn connector — any run of `M`, `L` and `C` segments — as points. */
+  function samplePath(d: string): [number, number][] {
+    const tokens = d.match(/[MLC]|-?\d+(\.\d+)?/g)!
+    const points: [number, number][] = []
+    let at: [number, number] = [0, 0]
+    let i = 0
+    while (i < tokens.length) {
+      const cmd = tokens[i++]
+      const take = (n: number) => tokens.slice(i, (i += n)).map(Number)
+      if (cmd === 'M') {
+        const [x, y] = take(2)
+        at = [x, y]
+        points.push(at)
+      } else if (cmd === 'L') {
+        const [x, y] = take(2)
+        for (let s = 1; s <= 64; s++) points.push([at[0] + (x - at[0]) * s / 64, at[1] + (y - at[1]) * s / 64])
+        at = [x, y]
+      } else {
+        const [x1, y1, x2, y2, x3, y3] = take(6)
+        const [x0, y0] = at
+        for (let s = 1; s <= 64; s++) {
+          const t = s / 64
+          const u = 1 - t
+          points.push([
+            u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3,
+            u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3,
+          ])
+        }
+        at = [x3, y3]
+      }
+    }
+    return points
+  }
+
+  /** Edges that pass through a box other than their own two ends. */
+  function crossings(graph: NonNullable<ReturnType<typeof buildNetworkGraph>>) {
+    const { boxW, boxH } = graph.layout
+    const hits: string[] = []
+    for (const edge of graph.edges) {
+      for (const box of graph.vertices) {
+        if (box.key === edge.from || box.key === edge.to) continue
+        const left = graph.vertical ? box.x : box.x
+        const top = graph.vertical ? box.y - boxH / 2 : box.y - boxH / 2
+        if (samplePath(edge.d).some(([x, y]) => x > left && x < left + boxW && y > top && y < top + boxH)) {
+          hits.push(`${edge.key} through ${box.label}`)
+        }
+      }
+    }
+    return hits
+  }
+
+  // The shape from the field: one node's fallback skips a column whose only hop sits
+  // between the rows that edge runs across.
+  const field = [
+    { node_id: 1, node_name: 'Radore-01', as_path: [201178, 9121, 15169], best: true },
+    { node_id: 1, node_name: 'Radore-01', as_path: [201178, 34984, 15169] },
+    { node_id: 1, node_name: 'Radore-01', as_path: [201178, 47697, 15169] },
+    { node_id: 2, node_name: 'Equinix-01', as_path: [201178, 204457, 15169], best: true },
+    { node_id: 3, node_name: 'Radore-02', as_path: [201178, 204457, 15169], best: true },
+    { node_id: 4, node_name: 'Sofia-01', as_path: [201178, 4849, 4849, 47697, 15169], best: true },
+    { node_id: 5, node_name: 'Sofia-02', as_path: [201178, 4849, 4849, 47697, 15169] },
+  ]
+
+  it('keeps every hop clear of the edges that skip its column', () => {
+    for (const opts of [{}, { compact: true }, { vertical: true }, { compact: true, vertical: true }]) {
+      expect(crossings(buildNetworkGraph(field, [], { queriedNodeId: 1, ...opts })!)).toEqual([])
+    }
+  })
+
+  it('moves a hop off a skipping edge rather than drawing through it', () => {
+    // N2's live edge runs from its box to 700 two columns away, and 400 — the first hop
+    // of its own fallback — would sit right on that line.
+    const entries = [
+      { node_id: 1, node_name: 'N1', as_path: [600, 900], best: true },
+      { node_id: 2, node_name: 'N2', as_path: [700, 900], best: true },
+      { node_id: 2, node_name: 'N2', as_path: [400, 600, 900] },
+    ]
+    for (const opts of [{}, { compact: true }, { vertical: true }]) {
+      expect(crossings(buildNetworkGraph(entries, [], opts)!)).toEqual([])
+    }
+  })
+
+  it('routes a same-row edge through the gap between rows, clear of the boxes it passes', () => {
+    // N1's fallback starts at 100, three columns away on N1's own row, past 200 and 500.
+    const entries = [
+      { node_id: 1, node_name: 'N1', as_path: [200, 500, 100, 900], best: true },
+      { node_id: 1, node_name: 'N1', as_path: [100, 700, 900] },
+      { node_id: 2, node_name: 'N2', as_path: [400, 900], best: true },
+    ]
+    for (const opts of [{}, { compact: true }, { vertical: true }]) {
+      const graph = buildNetworkGraph(entries, [], opts)!
+      expect(crossings(graph)).toEqual([])
+      expect(graph.edges.find(e => e.from === 'n:1' && e.to === 'as:100')!.d).toContain(' L ')
+    }
+  })
+})

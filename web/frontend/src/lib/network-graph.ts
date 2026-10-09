@@ -116,8 +116,11 @@ function horizontalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout, 
 
   if (from.y === to.y) {
     if (!blocked) return `M ${x1} ${from.y} L ${x2} ${to.y}`
-    const bow = from.y - (layout.boxH / 2 + layout.rowH * 0.22)
-    return `M ${x1} ${from.y} C ${x1 + (x2 - x1) * 0.25} ${bow}, ${x2 - (x2 - x1) * 0.25} ${bow}, ${x2} ${to.y}`
+    // Up into the gap between this row and the one above, along it, and back down: a bow
+    // only clears the boxes at its peak and clips the ones near either end.
+    const lane = from.y - layout.rowH / 2
+    const k = LANE_TURN
+    return `M ${x1} ${from.y} C ${x1 + k} ${from.y}, ${x1 + k} ${lane}, ${x1 + 2 * k} ${lane} L ${x2 - 2 * k} ${lane} C ${x2 - k} ${lane}, ${x2 - k} ${to.y}, ${x2} ${to.y}`
   }
 
   const dx = Math.max((x2 - x1) * 0.4, 12)
@@ -134,12 +137,63 @@ function verticalEdgePath(from: GraphVertex, to: GraphVertex, layout: Layout, bl
 
   if (cx1 === cx2) {
     if (!blocked) return `M ${cx1} ${y1} L ${cx2} ${y2}`
-    const bow = cx1 - (layout.boxW / 2 + layout.colW * 0.16)
-    return `M ${cx1} ${y1} C ${bow} ${y1 + (y2 - y1) * 0.25}, ${bow} ${y2 - (y2 - y1) * 0.25}, ${cx2} ${y2}`
+    const lane = cx1 - layout.colW / 2
+    const k = LANE_TURN
+    return `M ${cx1} ${y1} C ${cx1} ${y1 + k}, ${lane} ${y1 + k}, ${lane} ${y1 + 2 * k} L ${lane} ${y2 - 2 * k} C ${lane} ${y2 - k}, ${cx2} ${y2 - k}, ${cx2} ${y2}`
   }
 
   const dy = Math.max((y2 - y1) * 0.4, 12)
   return `M ${cx1} ${y1} C ${cx1} ${y1 + dy}, ${cx2} ${y2 - dy}, ${cx2} ${y2}`
+}
+
+/** How far a lane-routed edge travels along the path axis while it turns into its lane. */
+const LANE_TURN = 10
+
+/** Clearance kept between a skipping edge and a box it passes, in pixels. */
+const EDGE_CLEARANCE = 6
+
+/**
+ * Whether the connector between two vertices would pass through a box at (col, row). Both
+ * connectors are the same cubic along the path axis, so this works in path-axis ("main")
+ * and sibling-axis ("cross") coordinates and serves either orientation. Same-row edges are
+ * left out: those already bow around whatever stands in their way.
+ */
+function edgeCrossesBox(
+  from: GraphVertex,
+  to: GraphVertex,
+  col: number,
+  row: number,
+  layout: Layout,
+  vertical: boolean,
+): boolean {
+  if (from.row === to.row) return false
+  const mainSpacing = vertical ? layout.rowH : layout.colW
+  const crossSpacing = vertical ? layout.colW : layout.rowH
+  const mainExtent = vertical ? layout.boxH : layout.boxW
+  const crossExtent = vertical ? layout.boxW : layout.boxH
+  const mainStart = (c: number) => layout.pad + c * mainSpacing + (c > 0 ? layout.nodeGap : 0)
+  const crossCentre = (r: number) => layout.pad + r * crossSpacing + crossExtent / 2
+
+  const m1 = mainStart(from.col) + mainExtent
+  const m2 = mainStart(to.col)
+  const c1 = crossCentre(from.row)
+  const c2 = crossCentre(to.row)
+  const d = Math.max((m2 - m1) * 0.4, 12)
+
+  const boxStart = mainStart(col)
+  const boxEnd = boxStart + mainExtent
+  const half = crossExtent / 2 + EDGE_CLEARANCE
+  const centre = crossCentre(row)
+
+  for (let i = 0; i <= 64; i++) {
+    const t = i / 64
+    const u = 1 - t
+    const m = u * u * u * m1 + 3 * u * u * t * (m1 + d) + 3 * u * t * t * (m2 - d) + t * t * t * m2
+    if (m < boxStart || m > boxEnd) continue
+    const c = u * u * u * c1 + 3 * u * u * t * c1 + 3 * u * t * t * c2 + t * t * t * c2
+    if (Math.abs(c - centre) < half) return true
+  }
+  return false
 }
 
 const nodeKey = (nodeId: number) => `n:${nodeId}`
@@ -422,6 +476,37 @@ export function buildNetworkGraph(
     list.forEach(vertex => { maxRow = Math.max(maxRow, vertex.row) })
   }
 
+  // An edge that skips a column is drawn straight through it, and the rows above never saw
+  // it: a hop could land right on the line and read as though that path ran through it.
+  // Move such a hop down until every skipping edge clears its box.
+  const columns = [...byColumn.keys()].filter(col => col > 0).sort((a, b) => a - b)
+  const skipping = [...edges.values()]
+  for (let pass = 0; pass < 3; pass++) {
+    let moved = false
+    for (const col of columns) {
+      const crossing = skipping.flatMap(edge => {
+        const from = vertices.get(edge.from)
+        const to = vertices.get(edge.to)
+        return from && to && from.col < col && col < to.col ? [{ from, to }] : []
+      })
+      if (crossing.length === 0) continue
+      let nextFree = 0
+      for (const vertex of [...(byColumn.get(col) ?? [])].sort((a, b) => a.row - b.row)) {
+        let row = Math.max(vertex.row, nextFree)
+        for (let tries = 0; tries < 4 * MAX_NODES && crossing.some(e => edgeCrossesBox(e.from, e.to, col, row, layout, vertical)); tries++) {
+          row += 0.5
+        }
+        if (row !== vertex.row) {
+          vertex.row = row
+          moved = true
+        }
+        nextFree = row + 1
+        maxRow = Math.max(maxRow, row)
+      }
+    }
+    if (!moved) break
+  }
+
   const maxCol = Math.max(...[...vertices.values()].map(vertex => vertex.col))
 
   // Vertical mode swaps the axes: paths run top to bottom and siblings spread sideways,
@@ -437,17 +522,13 @@ export function buildNetworkGraph(
     }
   }
 
-  // Which grid cells hold a box, so an edge can tell whether anything is in its way.
-  const occupied = new Set<string>()
-  for (const vertex of vertices.values()) {
-    occupied.add(`${vertex.col}:${vertex.row}`)
-  }
-  const blockedBetween = (from: GraphVertex, to: GraphVertex) => {
-    for (let col = from.col + 1; col < to.col; col++) {
-      if (occupied.has(`${col}:${from.row}`)) return true
-    }
-    return false
-  }
+  // Whether a box stands in the way of a straight same-row edge. Rows are fractional, so a
+  // box half a row off still overlaps the line; compare bands, not exact rows.
+  const crossExtent = vertical ? layout.boxW : layout.boxH
+  const crossSpacing = vertical ? layout.colW : layout.rowH
+  const band = (crossExtent / 2 + EDGE_CLEARANCE) / crossSpacing
+  const blockedBetween = (from: GraphVertex, to: GraphVertex) =>
+    [...vertices.values()].some(v => v.col > from.col && v.col < to.col && Math.abs(v.row - from.row) < band)
 
   for (const edge of edges.values()) {
     const from = vertices.get(edge.from)
