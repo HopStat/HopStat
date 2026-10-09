@@ -298,8 +298,9 @@
     opacity: 0.22;
   }
 
+  /* Kept faint: in the DGN Plus dark theme the brand glows only where it is the subject. */
   .dark .query-page-glow {
-    opacity: 0.38;
+    opacity: 0.14;
     background:
       radial-gradient(ellipse 70% 55% at 50% -10%, color-mix(in srgb, var(--brand-accent-line) 28%, transparent), transparent 72%),
       radial-gradient(ellipse 40% 30% at 85% 10%, color-mix(in srgb, var(--brand-accent-line) 12%, transparent), transparent 70%);
@@ -329,6 +330,37 @@
   /* Footer sits below the page, darker than it — the corporate site's sunken band. */
   .dark .site-footer {
     background: color-mix(in srgb, var(--color-background) 68%, #000);
+  }
+
+  /* Dark theme, DGN Plus style: slate surfaces carry no brand colour. The brand shows up
+     only as a translucent fill on what is selected or iconic, with its accent on top. */
+  .dark .query-home-card {
+    border-color: var(--color-border);
+  }
+
+  .dark .query-home-card__icon {
+    background: color-mix(in srgb, var(--brand-accent-line) 16%, var(--color-card));
+    color: var(--brand-accent-line);
+  }
+
+  .dark .admin-nav-link {
+    color: var(--color-muted-foreground);
+  }
+
+  .dark .admin-nav-link:hover {
+    border-color: transparent;
+    background: var(--color-accent);
+  }
+
+  .dark .admin-nav-link--active {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--brand-accent-line) 16%, var(--color-card));
+    color: var(--color-foreground);
+    box-shadow: inset 3px 0 0 var(--brand-accent-line);
+  }
+
+  .dark .admin-nav-link--active .admin-nav-link__icon {
+    color: var(--brand-accent-line);
   }
 
   .query-header {
@@ -2397,8 +2429,15 @@
     opacity: 0.35;
   }
 
+  /* Dark admin keeps the brand off the backdrop, as the DGN Plus panel does. */
   .dark .admin-atmosphere__glow {
-    opacity: 0.55;
+    opacity: 0.12;
+  }
+
+  .dark .admin-atmosphere__grid {
+    background-image:
+      linear-gradient(color-mix(in srgb, #fff 3%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, #fff 3%, transparent) 1px, transparent 1px);
   }
 
   .admin-layout {
@@ -2440,17 +2479,26 @@
   }
 
   .dark .admin-sidebar {
-    background: color-mix(in srgb, var(--color-card) 90%, transparent);
-    border-color: color-mix(in srgb, var(--brand-accent-line) 20%, var(--color-border));
+    background: var(--color-sidebar);
+    border-color: var(--color-border);
+    box-shadow: 12px 0 40px -24px rgb(0 0 0 / 0.6);
+  }
+
+  /* The sidebar's logo block and the content topbar share one height, so their bottom
+     borders meet in a single line across the page. */
+  .admin-sidebar__brand,
+  .admin-topbar {
+    --admin-bar-h: 4rem;
   }
 
   .admin-sidebar__brand {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    min-height: 3.5rem;
-    padding: 0.85rem 1rem;
+    height: var(--admin-bar-h);
+    flex-shrink: 0;
+    padding: 0 1rem;
     border-bottom: 1px solid color-mix(in srgb, var(--brand-accent-line) 24%, var(--color-border));
     background: linear-gradient(
       180deg,
@@ -2461,7 +2509,12 @@
   }
 
   .dark .admin-sidebar__brand {
-    background: var(--color-card);
+    background: var(--color-sidebar);
+    border-bottom-color: var(--color-border);
+  }
+
+  .dark .admin-topbar {
+    border-bottom-color: var(--color-border);
   }
 
   .admin-sidebar__brand-close {
@@ -2659,7 +2712,8 @@
     top: 0;
     z-index: 20;
     display: flex;
-    min-height: 3.5rem;
+    height: var(--admin-bar-h);
+    flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
@@ -2787,10 +2841,10 @@
       var(--color-surface-elevated) 0%,
       var(--color-card) 100%
     );
-    border-color: color-mix(in srgb, var(--brand-accent-line) 22%, var(--color-border));
+    border-color: var(--color-border);
     box-shadow:
       var(--shadow-soft),
-      inset 0 1px 0 color-mix(in srgb, var(--brand-accent-line) 8%, transparent);
+      inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent);
   }
 
   .admin-panel:has(.admin-table-wrap) {
@@ -2823,6 +2877,12 @@
     box-shadow:
       var(--shadow-soft),
       inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent);
+  }
+
+  .dark .admin-main .rounded-lg.border.border-border.bg-card {
+    border-color: var(--color-border);
+    background: var(--color-card);
+    box-shadow: var(--shadow-soft);
   }
 
   .admin-stat-grid {

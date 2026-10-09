@@ -4,7 +4,6 @@ import {
   buildBrandDarkSurfaces,
   buildBrandPalette,
   contrastRatio,
-  darkSurfaceHue,
   hexToHSL,
   hexToRgb,
   hslToRgb,
@@ -181,20 +180,13 @@ describe('the light surface constants match the stylesheet', () => {
   })
 })
 
-describe('dark surfaces for a yellow-green brand', () => {
-  it('lean cooler, the way the DGN panel pairs #77bc1f with ~136° surfaces', () => {
-    expect(darkSurfaceHue(86)).toBe(136)
-    expect(darkSurfaceHue(120)).toBe(140)
-  })
-
-  it('keep the hue of every other brand', () => {
-    for (const h of [0, 30, 49, 140, 217, 300]) expect(darkSurfaceHue(h)).toBe(h)
-  })
-
-  it('stay near-black and only lightly tinted', () => {
-    const surfaces = buildBrandDarkSurfaces(86, 72, '#77bc1f')
-    expect(surfaces.background).toBe('hsl(136 25.2% 5%)')
-    expect(surfaces.card).toBe('hsl(136 25.2% 6.5%)')
-    expect(surfaces.surfaceElevated).toBe('hsl(136 25.2% 10%)')
+describe('dark surfaces', () => {
+  it('are the same cool slate whatever the brand is', () => {
+    for (const [h, s, brand] of [[86, 72, '#77bc1f'], [217, 33, '#1e293b'], [0, 80, '#e11d48']] as const) {
+      const surfaces = buildBrandDarkSurfaces(h, s, brand)
+      expect(surfaces.background).toBe('hsl(212 26% 5%)')
+      expect(surfaces.card).toBe('hsl(212 26% 7.5%)')
+      expect(surfaces.surfaceElevated).toBe('hsl(212 26% 10.5%)')
+    }
   })
 })
