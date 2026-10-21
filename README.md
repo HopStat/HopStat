@@ -86,7 +86,7 @@ See [`docker-compose.yml`](docker-compose.yml) for the full example.
 
 ### Build from source
 
-Requires Go 1.25+ and Node.js 24+ (frontend build).
+Requires Go 1.25+ and Node.js 26.12.1+ (frontend build).
 
 ```bash
 git clone https://github.com/HopStat/HopStat.git

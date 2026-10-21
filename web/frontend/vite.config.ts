@@ -15,6 +15,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Node 26's experimental Web Storage installs a global localStorage that is
+    // undefined unless --localstorage-file is set, and that shadows jsdom's Storage.
+    execArgv: ['--no-experimental-webstorage'],
     globals: true,
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
